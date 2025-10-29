@@ -2,11 +2,15 @@
 class User < ApplicationRecord
   has_secure_password
   has_many :sessions, dependent: :destroy
+  has_many :repositories, dependent: :destroy
+
+  encrypts :github_token
 
   normalizes :email_address, with: ->(email) { email.strip.downcase }
 
   validates :email_address, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :password, length: { minimum: 8 }, if: -> { new_record? || !password.nil? }
+  validates :github_domain, presence: true
 
   def avatar_url(size: 40)
     require "digest"

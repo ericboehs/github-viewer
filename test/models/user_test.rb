@@ -128,4 +128,37 @@ class UserTest < ActiveSupport::TestCase
       User.find_by_password_reset_token!("invalid_token")
     end
   end
+
+  test "should have many repositories" do
+    user = users(:one)
+    assert_respond_to user, :repositories
+  end
+
+  test "should validate presence of github_domain" do
+    user = User.new(
+      email_address: "test@example.com",
+      password: "password123",
+      github_domain: nil
+    )
+    assert_not user.valid?
+    assert_includes user.errors[:github_domain], "can't be blank"
+  end
+
+  test "should have default github_domain" do
+    user = User.create!(
+      email_address: "test@example.com",
+      password: "password123"
+    )
+    assert_equal "github.com", user.github_domain
+  end
+
+  test "should destroy dependent repositories" do
+    user = users(:one)
+    repo = user.repositories.first
+    repo_id = repo.id
+
+    user.destroy
+
+    assert_not Repository.exists?(repo_id)
+  end
 end

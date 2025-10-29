@@ -1,23 +1,28 @@
-# Rails Starter Template
+# GitHub Issues Viewer
 
-A Rails 8.1.0 application template with modern tooling and best practices.
+A modern Rails 8.1.0 application for viewing and managing GitHub issues with smart caching and real-time API integration. Browse issues from multiple repositories across GitHub.com and GitHub Enterprise with a GitHub.com-quality UI.
 
 ## Features
 
-- **User Authentication** - Secure session-based authentication system
-- **Modern Rails Stack** - Built with Rails 8.1.0, SQLite3, and modern asset pipeline
-- **Component-Based UI** - ViewComponent architecture for maintainable UI components
-- **Responsive Design** - Tailwind CSS with dark mode support
+- **Multi-Repository Support** - Track and view issues from multiple GitHub repositories
+- **Smart Hybrid Caching** - Fast local cache with automatic real-time fallback when data is stale
+- **GitHub.com Clone UI** - Full-featured issue viewing with labels, assignees, comments, and metadata
+- **Dual Search Modes** - Toggle between fast local SQLite search and comprehensive GitHub API search
+- **GitHub Enterprise Support** - Works with both GitHub.com and self-hosted GitHub Enterprise servers
+- **Per-User GitHub Tokens** - Each user connects their own GitHub account with secure token storage
+- **Real-Time Sync** - Manual refresh with staleness indicators and graceful error handling
+- **Component-Based UI** - ViewComponent architecture for maintainable GitHub-style components
 - **Comprehensive Testing** - 99%+ test coverage with SimpleCov
 
 ## Tech Stack
 
 - **Rails 8.1.0** with modern asset pipeline (Propshaft)
 - **SQLite3** for all environments including production
+- **Octokit** for GitHub REST and GraphQL API integration
 - **ImportMap** for JavaScript (no Node.js bundling required)
-- **Hotwire** (Turbo + Stimulus) for interactive features
-- **Tailwind CSS** via CDN for styling
-- **ViewComponent** for reusable UI components
+- **Hotwire** (Turbo + Stimulus) for interactive features with minimal JS
+- **Tailwind CSS** via CDN for GitHub-style UI
+- **ViewComponent** for reusable GitHub UI components
 - **Solid Libraries** for database-backed cache, queue, and cable
 
 ## Getting Started
@@ -28,35 +33,38 @@ A Rails 8.1.0 application template with modern tooling and best practices.
 - Rails 8.1.0+
 - SQLite3
 
-### Using This Template
+### Installation
 
-1. Click "Use this template" button on GitHub to create a new repository
-2. Clone your new repository
-3. Install dependencies:
+1. Clone the repository
+2. Install dependencies:
   ```bash
   bin/setup
   ```
 
-4. Rename the application (this also regenerates credentials for security):
-  ```bash
-  bin/rename-app YourAppName
-  ```
-
-5. Set up your credentials:
-  ```bash
-  bin/rails credentials:edit
-  ```
-
-6. Customize for your project:
-  - Update `CLAUDE.md` with your project details
-  - Modify this README.md
-
-7. Start the development server:
+3. Start the development server:
   ```bash
   bin/rails server
   ```
 
-8. Visit `http://localhost:3000`
+4. Visit `http://localhost:3000` and create an account
+
+### GitHub Token Setup
+
+To use the application, you'll need a GitHub Personal Access Token:
+
+1. Go to GitHub Settings > Developer Settings > Personal Access Tokens > Fine-grained tokens
+2. Create a new token with these permissions:
+  - **Repository access**: Select repositories you want to view
+  - **Repository permissions**:
+    - Issues: Read-only
+    - Metadata: Read-only
+    - Pull requests: Read-only (if viewing PRs)
+3. Copy the token
+4. In the application, go to your user profile settings
+5. Enter your GitHub token and domain:
+  - Domain: `github.com` (or your GitHub Enterprise domain like `foo.ghe.com`)
+  - Token: Paste your personal access token
+6. Save and start adding repositories!
 
 ## Development
 
@@ -106,18 +114,39 @@ bin/coverage
 ### Database Setup
 
 Multi-database configuration with separate SQLite databases:
-- Primary database for application data
-- Cache database for Solid Cache
-- Queue database for Solid Queue
-- Cable database for Solid Cable
+- **Primary database**: Users, repositories, issues, and comments (with caching layer)
+- **Cache database**: Solid Cache for application-level caching
+- **Queue database**: Solid Queue for background jobs
+- **Cable database**: Solid Cable for WebSocket connections
+
+### Caching Strategy
+
+**Hybrid on-demand caching** for optimal performance:
+- Issues and repository data are cached per-user in SQLite
+- On page load, serve cached data if available
+- If cache is cold (no data), fetch from GitHub API in the request
+- Manual refresh button shows staleness (time since last sync)
+- When API errors occur (rate limit, invalid token), show stale cached data with warnings
+
+**Cache keying**: Each user maintains separate caches for their repositories, even if multiple users track the same repo. This simplifies permissions (handled by per-user GitHub tokens).
+
+### GitHub Service Layer
+
+Located in `app/services/github/`:
+- **ApiClient**: GitHub REST API client with rate limiting, retries, and exponential backoff
+- **GraphqlClient**: GitHub GraphQL client for efficient batch queries
+- **ApiConfiguration**: Centralized configuration for rate limits, retries, and pagination
+- **RepositorySyncService**: Syncs repository metadata from GitHub
+- **IssueSyncService**: Syncs issues with full metadata (labels, assignees, comments)
+- **IssueSearchService**: Handles both local SQLite search and GitHub API search
 
 ### Component System
 
 The application uses ViewComponent for UI components:
-- `Auth::*` components for authentication flows
-- `AvatarComponent` for user avatars
-- `AlertComponent` for flash messages and errors
-- `UserPageComponent` for profile page layouts
+- **Auth Components**: `Auth::*` for authentication flows
+- **GitHub Components**: Issue cards, labels, assignees, state badges, comments
+- **Common Components**: `AvatarComponent`, `AlertComponent`, `UserPageComponent`
+- **Layout Components**: Repository cards, issue lists, search forms
 
 ## Contributing
 

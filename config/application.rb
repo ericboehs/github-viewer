@@ -7,7 +7,7 @@ require "rails/all"
 Bundler.require(*Rails.groups)
 
 # Main application namespace
-module RailsStarter
+module GithubViewer
   # Rails application configuration and initialization
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.

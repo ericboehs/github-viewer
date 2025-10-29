@@ -4,14 +4,14 @@ en:
     dismiss: Dismiss
     validation_errors_header: 'Please correct the following errors:'
   app:
-    logo_alt: RailsStarter
-    title: RailsStarter
+    logo_alt: GithubViewer
+    title: GithubViewer
   buttons:
     cancel: Cancel
   dashboard:
     section_title: Dashboard
-    welcome_message: Welcome to RailsStarter! Features will be available here soon.
-    welcome_title: Welcome to RailsStarter
+    welcome_message: Welcome to GithubViewer! Features will be available here soon.
+    welcome_title: Welcome to GithubViewer
   errors:
     form_submission_errors: There were errors with your submission
   mailer:

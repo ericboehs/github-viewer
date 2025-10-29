@@ -1,0 +1,23 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  user: one
+  owner: rails
+  name: rails
+  full_name: rails/rails
+  description: Ruby on Rails web framework
+  url: https://github.com/rails/rails
+  cached_at: 2025-10-29 15:51:09
+  issue_count: 100
+  open_issue_count: 50
+
+two:
+  user: one
+  owner: ruby
+  name: ruby
+  full_name: ruby/ruby
+  description: The Ruby Programming Language
+  url: https://github.com/ruby/ruby
+  cached_at: 2025-10-29 15:51:09
+  issue_count: 200
+  open_issue_count: 75

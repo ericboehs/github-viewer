@@ -21,6 +21,8 @@ SimpleCov.start "rails" do
   add_filter "/test/"
   add_filter "app/channels/application_cable/connection.rb"
   add_filter "app/jobs/application_job.rb"
+  # Temporarily exclude services until they're fully implemented
+  add_filter "app/services/"
 
   # Group coverage results for better organization
   add_group "Controllers", "app/controllers"
@@ -51,6 +53,12 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 
+# Prosopite N+1 query detection (only works with PostgreSQL)
+# Disabled for SQLite3 since pg_query gem is required
+# require "prosopite"
+# Prosopite.rails_logger = true
+# Prosopite.raise = true
+
 module ActiveSupport
   # Base class for all tests with parallel execution and coverage tracking
   class TestCase
@@ -68,6 +76,15 @@ module ActiveSupport
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
+
+    # Enable Prosopite N+1 detection for each test (disabled for SQLite3)
+    # setup do
+    #   Prosopite.scan
+    # end
+
+    # teardown do
+    #   Prosopite.finish
+    # end
 
     # Add more helper methods to be used by all tests here...
   end

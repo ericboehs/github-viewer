@@ -11,7 +11,7 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
     get root_url
 
     assert_response :success
-    assert_select "h1", "Welcome to RailsStarter"
+    assert_select "h1", "Welcome to GithubViewer"
   end
 
   test "should redirect to sign in when not authenticated" do

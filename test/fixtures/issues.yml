@@ -1,0 +1,31 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  repository: one
+  number: 1
+  title: Add support for new feature
+  state: open
+  body: This is a detailed description of the issue
+  author_login: dhh
+  author_avatar_url: https://avatars.githubusercontent.com/u/2741?v=4
+  labels: [{"name": "enhancement", "color": "84b6eb"}]
+  assignees: [{"login": "dhh", "avatar_url": "https://avatars.githubusercontent.com/u/2741?v=4"}]
+  comments_count: 5
+  github_created_at: 2025-10-25 10:00:00
+  github_updated_at: 2025-10-28 15:30:00
+  cached_at: 2025-10-29 15:51:46
+
+two:
+  repository: one
+  number: 2
+  title: Fix bug in authentication
+  state: closed
+  body: Bug fix description
+  author_login: tenderlove
+  author_avatar_url: https://avatars.githubusercontent.com/u/3?v=4
+  labels: [{"name": "bug", "color": "d73a4a"}, {"name": "security", "color": "ee0701"}]
+  assignees: []
+  comments_count: 3
+  github_created_at: 2025-10-20 09:00:00
+  github_updated_at: 2025-10-27 14:00:00
+  cached_at: 2025-10-29 15:51:46
