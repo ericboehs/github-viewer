@@ -10,7 +10,18 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_10_29_205238) do
+ActiveRecord::Schema[8.1].define(version: 2025_10_29_230544) do
+  create_table "github_tokens", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "domain", default: "github.com", null: false
+    t.string "label"
+    t.text "token", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["user_id", "domain"], name: "index_github_tokens_on_user_id_and_domain", unique: true
+    t.index ["user_id"], name: "index_github_tokens_on_user_id"
+  end
+
   create_table "issue_comments", force: :cascade do |t|
     t.string "author_avatar_url"
     t.string "author_login"
@@ -51,6 +62,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_29_205238) do
     t.datetime "created_at", null: false
     t.text "description"
     t.string "full_name", null: false
+    t.string "github_domain", default: "github.com", null: false
     t.integer "issue_count", default: 0, null: false
     t.string "name", null: false
     t.integer "open_issue_count", default: 0, null: false
@@ -58,7 +70,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_29_205238) do
     t.datetime "updated_at", null: false
     t.string "url"
     t.integer "user_id", null: false
-    t.index ["user_id", "owner", "name"], name: "index_repositories_on_user_id_and_owner_and_name", unique: true
+    t.index ["user_id", "github_domain", "owner", "name"], name: "idx_on_user_id_github_domain_owner_name_1c50134333", unique: true
     t.index ["user_id"], name: "index_repositories_on_user_id"
   end
 
@@ -82,6 +94,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_29_205238) do
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
 
+  add_foreign_key "github_tokens", "users"
   add_foreign_key "issue_comments", "issues"
   add_foreign_key "issues", "repositories"
   add_foreign_key "repositories", "users"

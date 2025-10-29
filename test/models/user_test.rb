@@ -134,22 +134,9 @@ class UserTest < ActiveSupport::TestCase
     assert_respond_to user, :repositories
   end
 
-  test "should validate presence of github_domain" do
-    user = User.new(
-      email_address: "test@example.com",
-      password: "password123",
-      github_domain: nil
-    )
-    assert_not user.valid?
-    assert_includes user.errors[:github_domain], "can't be blank"
-  end
-
-  test "should have default github_domain" do
-    user = User.create!(
-      email_address: "test@example.com",
-      password: "password123"
-    )
-    assert_equal "github.com", user.github_domain
+  test "should have many github_tokens" do
+    user = users(:one)
+    assert_respond_to user, :github_tokens
   end
 
   test "should destroy dependent repositories" do
@@ -160,5 +147,15 @@ class UserTest < ActiveSupport::TestCase
     user.destroy
 
     assert_not Repository.exists?(repo_id)
+  end
+
+  test "should destroy dependent github_tokens" do
+    user = users(:one)
+    token = user.github_tokens.create!(domain: "github.com", token: "test_token")
+    token_id = token.id
+
+    user.destroy
+
+    assert_not GithubToken.exists?(token_id)
   end
 end

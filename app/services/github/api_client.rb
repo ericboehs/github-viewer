@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 module Github
-  # GitHub API client with per-user authentication, rate limiting, and retries
+  # GitHub API client with token-based authentication, rate limiting, and retries
   # :reek:TooManyStatements - Complex API client with rate limiting and error handling
   # :reek:DataClump - owner/repo_name are GitHub's standard repository identifiers
-  # :reek:MissingSafeMethod - validate_user! raises by design for invalid config
+  # :reek:MissingSafeMethod - validate_config! raises by design for invalid config
   class ApiClient
     include ActiveSupport::Configurable
 
@@ -16,11 +16,12 @@ module Github
     config_accessor :default_rate_limit_delay, default: ApiConfiguration::DEFAULT_RATE_LIMIT_DELAY
     config_accessor :max_retries, default: ApiConfiguration::MAX_RETRIES
 
-    attr_reader :user, :client
+    attr_reader :token, :domain, :client
 
-    def initialize(user)
-      @user = user
-      validate_user!
+    def initialize(token:, domain: "github.com")
+      @token = token
+      @domain = domain
+      validate_config!
       @client = build_client
       configure_client
     end
@@ -81,19 +82,18 @@ module Github
 
     private
 
-    def validate_user!
-      raise ConfigurationError, "User is required" unless @user
-      raise ConfigurationError, "User must have a GitHub token" if @user.github_token.blank?
-      raise ConfigurationError, "User must have a GitHub domain" if @user.github_domain.blank?
+    def validate_config!
+      raise ConfigurationError, "Token is required" if @token.blank?
+      raise ConfigurationError, "Domain is required" if @domain.blank?
     end
 
-    # :reek:DuplicateMethodCall - github_domain checked once for equality
+    # :reek:DuplicateMethodCall - domain checked once for equality
     def build_client
-      client_options = { access_token: @user.github_token }
+      client_options = { access_token: @token }
 
       # Support GitHub Enterprise by setting custom API endpoint
-      unless @user.github_domain == "github.com"
-        client_options[:api_endpoint] = "https://#{@user.github_domain}/api/v3"
+      unless @domain == "github.com"
+        client_options[:api_endpoint] = "https://#{@domain}/api/v3"
       end
 
       Octokit::Client.new(client_options)

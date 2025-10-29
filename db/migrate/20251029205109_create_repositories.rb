@@ -2,6 +2,7 @@ class CreateRepositories < ActiveRecord::Migration[8.1]
   def change
     create_table :repositories do |t|
       t.references :user, null: false, foreign_key: true
+      t.string :github_domain, null: false, default: "github.com"
       t.string :owner, null: false
       t.string :name, null: false
       t.string :full_name, null: false
@@ -14,6 +15,6 @@ class CreateRepositories < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :repositories, [ :user_id, :owner, :name ], unique: true
+    add_index :repositories, [ :user_id, :github_domain, :owner, :name ], unique: true
   end
 end

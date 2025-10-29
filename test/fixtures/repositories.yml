@@ -2,6 +2,7 @@
 
 one:
   user: one
+  github_domain: github.com
   owner: rails
   name: rails
   full_name: rails/rails
@@ -13,6 +14,7 @@ one:
 
 two:
   user: one
+  github_domain: github.com
   owner: ruby
   name: ruby
   full_name: ruby/ruby

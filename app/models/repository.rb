@@ -6,7 +6,8 @@ class Repository < ApplicationRecord
   validates :owner, presence: true
   validates :name, presence: true
   validates :full_name, presence: true
-  validates :owner, uniqueness: { scope: [ :user_id, :name ] }
+  validates :github_domain, presence: true
+  validates :owner, uniqueness: { scope: [ :user_id, :github_domain, :name ] }
 
   scope :recently_cached, -> { where("cached_at > ?", 5.minutes.ago) }
   scope :stale, -> { where("cached_at IS NULL OR cached_at <= ?", 5.minutes.ago) }
