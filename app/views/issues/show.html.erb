@@ -40,92 +40,136 @@
 
     <main>
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <!-- Issue Body -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
-          <div class="px-4 sm:px-6 py-4 sm:py-5">
-            <div class="flex flex-col sm:flex-row sm:items-start gap-4">
-              <% if @issue.author_avatar_url %>
-                <div class="flex-shrink-0">
-                  <%= render AvatarComponent.new(
-                    src: @issue.author_avatar_url,
-                    alt: @issue.author_login || "Author",
-                    size: :medium
-                  ) %>
+        <div class="lg:grid lg:grid-cols-12 lg:gap-8">
+          <!-- Main Content Area -->
+          <div class="lg:col-span-9">
+            <!-- Issue Body -->
+            <div class="bg-white dark:bg-black shadow rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
+              <div class="px-4 sm:px-6 py-4 sm:py-5">
+                <!-- Debug Toggle -->
+                <div class="mb-4 flex justify-end">
+                  <button onclick="document.getElementById('issue-raw-markdown').classList.toggle('hidden')"
+                          class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <svg class="inline w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                    </svg>
+                    Toggle Raw Markdown
+                  </button>
                 </div>
-              <% end %>
-              <div class="flex-1 min-w-0">
-                <div class="prose prose-sm sm:prose max-w-none break-words
-                            !text-gray-900 dark:!text-gray-200
-                            [&_p]:!text-gray-900 dark:[&_p]:!text-gray-200
-                            [&_li]:!text-gray-900 dark:[&_li]:!text-gray-200
-                            [&_td]:!text-gray-900 dark:[&_td]:!text-gray-200
-                            [&_th]:!text-gray-900 dark:[&_th]:!text-gray-200
-                            prose-headings:!text-gray-900 dark:prose-headings:!text-white
-                            prose-a:!text-blue-600 dark:prose-a:!text-blue-400 prose-a:break-all
-                            prose-strong:!text-gray-900 dark:prose-strong:!text-white
-                            prose-code:!text-pink-600 dark:prose-code:!text-pink-400
-                            prose-code:bg-gray-100 dark:prose-code:bg-gray-900
-                            prose-pre:bg-gray-100 dark:prose-pre:bg-gray-900
-                            prose-pre:!text-gray-900 dark:prose-pre:!text-gray-200
-                            prose-pre:border prose-pre:border-gray-300 dark:prose-pre:border-gray-700">
-                  <% if @issue.body.present? %>
-                    <%= render_markdown(@issue.body) %>
-                  <% else %>
-                    <p class="text-gray-500 dark:text-gray-400 italic">No description provided.</p>
-                  <% end %>
-                </div>
-              </div>
-            </div>
 
-            <!-- Labels -->
-            <% if @issue.labels.present? %>
-              <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div class="flex flex-wrap gap-2">
-                  <% @issue.labels.each do |label| %>
-                    <%= render IssueLabelComponent.new(label: label) %>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <!-- Assignees -->
-            <% if @issue.assignees.present? %>
-              <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignees</h3>
-                <div class="flex flex-wrap gap-2">
-                  <% @issue.assignees.each do |assignee| %>
-                    <div class="flex items-center gap-2">
+                <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+                  <% if @issue.author_avatar_url %>
+                    <div class="flex-shrink-0">
                       <%= render AvatarComponent.new(
-                        src: assignee["avatar_url"] || assignee[:avatar_url],
-                        alt: assignee["login"] || assignee[:login],
-                        size: :small
+                        src: @issue.author_avatar_url,
+                        alt: @issue.author_login || "Author",
+                        size: :medium
                       ) %>
-                      <span class="text-sm text-gray-700 dark:text-gray-300"><%= assignee["login"] || assignee[:login] %></span>
                     </div>
                   <% end %>
+                  <div class="flex-1 min-w-0">
+                    <% if @issue.body.present? %>
+                      <div class="markdown text-gray-900 dark:text-gray-200">
+                        <%= render_markdown(@issue.body) %>
+                      </div>
+                    <% else %>
+                      <p class="text-gray-500 dark:text-gray-400 italic">No description provided.</p>
+                    <% end %>
+
+                    <!-- Raw Markdown Display (Hidden by default) -->
+                    <% if @issue.body.present? %>
+                      <div id="issue-raw-markdown" class="hidden mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Raw Markdown</h4>
+                        <pre class="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded border border-gray-300 dark:border-gray-600 overflow-x-auto text-gray-900 dark:text-gray-200"><%= @issue.body %></pre>
+                      </div>
+                    <% end %>
+                  </div>
                 </div>
               </div>
-            <% end %>
-          </div>
-        </div>
+            </div>
 
-        <!-- Comments -->
-        <div class="mb-6">
-          <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            <%= t('issues.show.comments') %> (<%= @issue.issue_comments.count %>)
-          </h2>
+            <!-- Comments -->
+            <div class="mb-6">
+              <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                <%= t('issues.show.comments') %> (<%= @issue.issue_comments.count %>)
+              </h2>
 
-          <% if @issue.issue_comments.any? %>
-            <div class="space-y-4">
-              <% @issue.issue_comments.each do |comment| %>
-                <%= render IssueCommentComponent.new(comment: comment) %>
+              <% if @issue.issue_comments.any? %>
+                <div class="space-y-4">
+                  <% @issue.issue_comments.each do |comment| %>
+                    <%= render IssueCommentComponent.new(comment: comment) %>
+                  <% end %>
+                </div>
+              <% else %>
+                <div class="text-center py-8 bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p class="text-gray-500 dark:text-gray-400"><%= t('issues.show.no_comments') %></p>
+                </div>
               <% end %>
             </div>
-          <% else %>
-            <div class="text-center py-8 bg-white dark:bg-gray-800 shadow rounded-lg">
-              <p class="text-gray-500 dark:text-gray-400"><%= t('issues.show.no_comments') %></p>
+          </div>
+
+          <!-- Sidebar -->
+          <div class="lg:col-span-3 mb-6 lg:mb-0">
+            <div class="space-y-4">
+              <!-- Assignees Section -->
+              <div class="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Assignees</h3>
+                <% if @issue.assignees.present? %>
+                  <div class="space-y-2">
+                    <% @issue.assignees.each do |assignee| %>
+                      <div class="flex items-center gap-2">
+                        <%= render AvatarComponent.new(
+                          src: assignee["avatar_url"] || assignee[:avatar_url],
+                          alt: assignee["login"] || assignee[:login],
+                          size: :small
+                        ) %>
+                        <span class="text-sm text-gray-900 dark:text-gray-200 font-medium"><%= assignee["login"] || assignee[:login] %></span>
+                      </div>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 italic">No one assigned</p>
+                <% end %>
+              </div>
+
+              <!-- Labels Section -->
+              <div class="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Labels</h3>
+                <% if @issue.labels.present? %>
+                  <div class="flex flex-wrap gap-1.5">
+                    <% @issue.labels.each do |label| %>
+                      <%= render IssueLabelComponent.new(label: label) %>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 italic">None yet</p>
+                <% end %>
+              </div>
+
+              <!-- Metadata Section -->
+              <div class="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Details</h3>
+                <dl class="space-y-2">
+                  <% if @issue.github_created_at %>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Opened</dt>
+                      <dd class="text-sm text-gray-900 dark:text-gray-200"><%= @issue.github_created_at.strftime("%b %d, %Y") %></dd>
+                    </div>
+                  <% end %>
+                  <% if @issue.github_updated_at %>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400">Updated</dt>
+                      <dd class="text-sm text-gray-900 dark:text-gray-200"><%= time_ago_in_words(@issue.github_updated_at) %> ago</dd>
+                    </div>
+                  <% end %>
+                  <div>
+                    <dt class="text-xs text-gray-500 dark:text-gray-400">Comments</dt>
+                    <dd class="text-sm text-gray-900 dark:text-gray-200"><%= @issue.comments_count %></dd>
+                  </div>
+                </dl>
+              </div>
             </div>
-          <% end %>
+          </div>
         </div>
       </div>
     </main>
