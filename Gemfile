@@ -85,4 +85,7 @@ group :test do
 
   # Code coverage tracking
   gem "simplecov", require: false
+
+  # Mocking and stubbing for tests [https://github.com/freerange/mocha]
+  gem "mocha"
 end

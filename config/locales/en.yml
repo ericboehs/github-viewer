@@ -6,6 +6,7 @@ en:
   app:
     logo_alt: GithubViewer
     title: GithubViewer
+    description: GitHub Issues Viewer with smart caching
   buttons:
     cancel: Cancel
   dashboard:

@@ -53,7 +53,7 @@ class Github::RepositorySyncService
       description: repo_data[:description],
       url: repo_data[:url],
       issue_count: repo_data[:issue_count] || 0,
-      open_issue_count: repo_data[:open_issue_count] || 0,
+      open_issue_count: repo_data[:open_issues_count] || 0,  # Note: API returns open_issues_count
       cached_at: Time.current
     }
   end

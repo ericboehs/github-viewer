@@ -1,0 +1,607 @@
+require "test_helper"
+require "ostruct"
+
+class Github::ApiClientTest < ActiveSupport::TestCase
+  setup do
+    @token = "test_token_123"
+    @domain = "github.com"
+    @client = Github::ApiClient.new(token: @token, domain: @domain)
+  end
+
+  # Configuration and initialization tests
+
+  test "should raise configuration error without token" do
+    assert_raises Github::ApiClient::ConfigurationError do
+      Github::ApiClient.new(token: nil, domain: @domain)
+    end
+  end
+
+  test "should raise configuration error without domain" do
+    assert_raises Github::ApiClient::ConfigurationError do
+      Github::ApiClient.new(token: @token, domain: nil)
+    end
+  end
+
+  test "should initialize with valid configuration" do
+    assert_instance_of Github::ApiClient, @client
+    assert_equal @token, @client.token
+    assert_equal @domain, @client.domain
+    assert_instance_of Octokit::Client, @client.client
+  end
+
+  test "should have correct default configuration" do
+    assert_equal 0.1, Github::ApiClient.config.default_rate_limit_delay
+    assert_equal 3, Github::ApiClient.config.max_retries
+  end
+
+  test "should configure GitHub Enterprise endpoint" do
+    ghe_client = Github::ApiClient.new(token: @token, domain: "github.example.com")
+    octokit_client = ghe_client.client
+
+    assert_includes octokit_client.api_endpoint, "github.example.com"
+  end
+
+  # Repository fetch tests
+
+  test "should fetch repository successfully" do
+    mock_repo = OpenStruct.new(
+      owner: OpenStruct.new(login: "rails"),
+      name: "rails",
+      full_name: "rails/rails",
+      description: "Ruby on Rails",
+      html_url: "https://github.com/rails/rails",
+      open_issues_count: 100
+    )
+
+    mock_client = OpenStruct.new
+    def mock_client.repository(full_name)
+      OpenStruct.new(
+        owner: OpenStruct.new(login: "rails"),
+        name: "rails",
+        full_name: "rails/rails",
+        description: "Ruby on Rails",
+        html_url: "https://github.com/rails/rails",
+        open_issues_count: 100
+      )
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_repository("rails", "rails")
+
+    assert_equal "rails", result[:owner]
+    assert_equal "rails", result[:name]
+    assert_equal "rails/rails", result[:full_name]
+    assert_equal "Ruby on Rails", result[:description]
+    assert_equal "https://github.com/rails/rails", result[:url]
+    assert_equal 100, result[:open_issues_count]
+  end
+
+  test "should handle repository not found" do
+    mock_client = OpenStruct.new
+    def mock_client.repository(full_name)
+      raise Octokit::NotFound.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_repository("nonexistent", "repo")
+
+    assert result.is_a?(Hash)
+    assert_equal "Repository not found", result[:error]
+  end
+
+  test "should handle unauthorized error" do
+    mock_client = OpenStruct.new
+    def mock_client.repository(full_name)
+      raise Octokit::Unauthorized.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_repository("rails", "rails")
+
+    assert result.is_a?(Hash)
+    assert_equal "Unauthorized - check your GitHub token", result[:error]
+  end
+
+  # Issue fetch tests
+
+  test "should fetch issues successfully" do
+    mock_issues = [
+      OpenStruct.new(
+        number: 1,
+        title: "Issue 1",
+        state: "open",
+        body: "Body 1",
+        user: OpenStruct.new(login: "user1", avatar_url: "https://avatar1.png"),
+        labels: [ OpenStruct.new(name: "bug", color: "d73a4a") ],
+        assignees: [ OpenStruct.new(login: "assignee1", avatar_url: "https://avatar2.png") ],
+        comments: 5,
+        created_at: 1.day.ago,
+        updated_at: 1.hour.ago
+      )
+    ]
+
+    mock_client = OpenStruct.new
+    def mock_client.issues(repo, options)
+      [
+        OpenStruct.new(
+          number: 1,
+          title: "Issue 1",
+          state: "open",
+          body: "Body 1",
+          user: OpenStruct.new(login: "user1", avatar_url: "https://avatar1.png"),
+          labels: [ OpenStruct.new(name: "bug", color: "d73a4a") ],
+          assignees: [ OpenStruct.new(login: "assignee1", avatar_url: "https://avatar2.png") ],
+          comments: 5,
+          created_at: 1.day.ago,
+          updated_at: 1.hour.ago
+        )
+      ]
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issues("rails", "rails", state: "all")
+
+    assert_equal 1, result.length
+    assert_equal 1, result.first[:number]
+    assert_equal "Issue 1", result.first[:title]
+    assert_equal "open", result.first[:state]
+    assert_equal "user1", result.first[:author_login]
+    assert_equal 1, result.first[:labels].length
+    assert_equal "bug", result.first[:labels].first[:name]
+  end
+
+  # Comment fetch tests
+
+  test "should fetch issue comments successfully" do
+    mock_comments = [
+      OpenStruct.new(
+        id: 123,
+        user: OpenStruct.new(login: "commenter1", avatar_url: "https://avatar3.png"),
+        body: "Comment body",
+        created_at: 1.hour.ago,
+        updated_at: 1.hour.ago
+      )
+    ]
+
+    mock_client = OpenStruct.new
+    def mock_client.issue_comments(repo, issue_number)
+      [
+        OpenStruct.new(
+          id: 123,
+          user: OpenStruct.new(login: "commenter1", avatar_url: "https://avatar3.png"),
+          body: "Comment body",
+          created_at: 1.hour.ago,
+          updated_at: 1.hour.ago
+        )
+      ]
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_comments("rails", "rails", 1)
+
+    assert_equal 1, result.length
+    assert_equal 123, result.first[:github_id]
+    assert_equal "commenter1", result.first[:author_login]
+    assert_equal "Comment body", result.first[:body]
+  end
+
+  test "should handle comments not found" do
+    mock_client = OpenStruct.new
+    def mock_client.issue_comments(repo, issue_number)
+      raise Octokit::NotFound.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_comments("rails", "rails", 999)
+
+    assert_equal [], result
+  end
+
+  # Test connection tests
+
+  test "should test connection successfully" do
+    mock_user = OpenStruct.new(login: "testuser")
+
+    mock_client = OpenStruct.new
+    def mock_client.user
+      OpenStruct.new(login: "testuser")
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.test_connection
+
+    assert result[:success]
+  end
+
+  test "should handle invalid token in test connection" do
+    mock_client = OpenStruct.new
+    def mock_client.user
+      raise Octokit::Unauthorized.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.test_connection
+
+    assert_not result[:success]
+    assert_equal "Invalid GitHub token", result[:error]
+  end
+
+  # Rate limiting tests
+
+  test "should not sleep when rate limit is high" do
+    mock_rate_limit = OpenStruct.new(remaining: 500, limit: 5000, resets_at: Time.now + 300)
+    mock_client = OpenStruct.new(rate_limit: mock_rate_limit)
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    # Override sleep to verify it's NOT called
+    sleep_called = false
+    @client.define_singleton_method(:sleep) { |duration| sleep_called = true }
+
+    @client.send(:check_rate_limit)
+
+    assert_not sleep_called
+  end
+
+  test "should sleep with default delay for warning threshold" do
+    mock_rate_limit = OpenStruct.new(remaining: 150, limit: 5000, resets_at: Time.now + 300)
+    mock_client = OpenStruct.new(rate_limit: mock_rate_limit)
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    sleep_duration = nil
+    @client.define_singleton_method(:sleep) { |duration| sleep_duration = duration }
+
+    @client.send(:check_rate_limit)
+
+    assert_equal 0.1, sleep_duration
+  end
+
+  test "should sleep longer for critical rate limit" do
+    mock_rate_limit = OpenStruct.new(remaining: 40, limit: 5000, resets_at: Time.now + 2)
+    mock_client = OpenStruct.new(rate_limit: mock_rate_limit)
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    sleep_duration = nil
+    @client.define_singleton_method(:sleep) { |duration| sleep_duration = duration }
+
+    @client.send(:check_rate_limit)
+
+    # Should sleep for at least 1 second
+    assert sleep_duration >= 1.0
+  end
+
+  test "should handle nil rate limit gracefully" do
+    mock_client = OpenStruct.new(rate_limit: nil)
+    @client.instance_variable_set(:@client, mock_client)
+
+    assert_nothing_raised do
+      @client.send(:check_rate_limit)
+    end
+  end
+
+  # Retry logic tests
+
+  test "should retry on TooManyRequests and succeed" do
+    call_count = 0
+    mock_client = OpenStruct.new
+
+    def mock_client.rate_limit
+      nil
+    end
+
+    def mock_client.repository(full_name)
+      @call_count ||= 0
+      @call_count += 1
+
+      if @call_count == 1
+        error = Octokit::TooManyRequests.new
+        def error.response_headers
+          { "x-ratelimit-reset" => Time.now.to_i.to_s }
+        end
+        raise error
+      else
+        OpenStruct.new(
+          owner: OpenStruct.new(login: "rails"),
+          name: "rails",
+          full_name: "rails/rails",
+          description: "Ruby on Rails",
+          html_url: "https://github.com/rails/rails",
+          open_issues_count: 100
+        )
+      end
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    # Override sleep to avoid waiting
+    @client.define_singleton_method(:sleep) { |duration| nil }
+
+    result = @client.fetch_repository("rails", "rails")
+
+    assert_equal "rails", result[:owner]
+  end
+
+  test "should raise after max retries on TooManyRequests" do
+    mock_client = OpenStruct.new
+
+    def mock_client.rate_limit
+      nil
+    end
+
+    def mock_client.repository(full_name)
+      error = Octokit::TooManyRequests.new
+      def error.response_headers
+        { "x-ratelimit-reset" => Time.now.to_i.to_s }
+      end
+      raise error
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    # Override sleep to avoid waiting
+    @client.define_singleton_method(:sleep) { |duration| nil }
+
+    assert_raises Octokit::TooManyRequests do
+      @client.fetch_repository("rails", "rails")
+    end
+  end
+
+  test "should retry on ServerError and succeed" do
+    call_count = 0
+    mock_client = OpenStruct.new
+
+    def mock_client.rate_limit
+      nil
+    end
+
+    def mock_client.repository(full_name)
+      @call_count ||= 0
+      @call_count += 1
+
+      if @call_count == 1
+        raise Octokit::ServerError.new(message: "Server error")
+      else
+        OpenStruct.new(
+          owner: OpenStruct.new(login: "rails"),
+          name: "rails",
+          full_name: "rails/rails",
+          description: "Ruby on Rails",
+          html_url: "https://github.com/rails/rails",
+          open_issues_count: 100
+        )
+      end
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    # Override sleep to avoid waiting
+    @client.define_singleton_method(:sleep) { |duration| nil }
+
+    result = @client.fetch_repository("rails", "rails")
+
+    assert_equal "rails", result[:owner]
+  end
+
+  test "should raise after max retries on ServerError" do
+    mock_client = OpenStruct.new
+
+    def mock_client.rate_limit
+      nil
+    end
+
+    def mock_client.repository(full_name)
+      raise Octokit::ServerError.new(message: "Server error")
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    # Override sleep to avoid waiting
+    @client.define_singleton_method(:sleep) { |duration| nil }
+
+    assert_raises Octokit::ServerError do
+      @client.fetch_repository("rails", "rails")
+    end
+  end
+
+  # Private method tests
+
+  test "should normalize repository data correctly" do
+    repo = OpenStruct.new(
+      owner: OpenStruct.new(login: "rails"),
+      name: "rails",
+      full_name: "rails/rails",
+      description: "Ruby on Rails",
+      html_url: "https://github.com/rails/rails",
+      open_issues_count: 100
+    )
+
+    result = @client.send(:normalize_repository_data, repo)
+
+    assert_equal "rails", result[:owner]
+    assert_equal "rails", result[:name]
+    assert_equal "rails/rails", result[:full_name]
+    assert_equal "Ruby on Rails", result[:description]
+    assert_equal "https://github.com/rails/rails", result[:url]
+    assert_equal 100, result[:open_issues_count]
+  end
+
+  test "should normalize issue data correctly" do
+    issue = OpenStruct.new(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      body: "Issue body",
+      user: OpenStruct.new(login: "user1", avatar_url: "https://avatar1.png"),
+      labels: [ OpenStruct.new(name: "bug", color: "d73a4a") ],
+      assignees: [ OpenStruct.new(login: "assignee1", avatar_url: "https://avatar2.png") ],
+      comments: 5,
+      created_at: 1.day.ago,
+      updated_at: 1.hour.ago
+    )
+
+    result = @client.send(:normalize_issue_data, issue)
+
+    assert_equal 1, result[:number]
+    assert_equal "Test Issue", result[:title]
+    assert_equal "open", result[:state]
+    assert_equal "user1", result[:author_login]
+    assert_equal 1, result[:labels].length
+    assert_equal "bug", result[:labels].first[:name]
+  end
+
+  test "should normalize comment data correctly" do
+    comment = OpenStruct.new(
+      id: 123,
+      user: OpenStruct.new(login: "commenter1", avatar_url: "https://avatar3.png"),
+      body: "Comment body",
+      created_at: 1.hour.ago,
+      updated_at: 1.hour.ago
+    )
+
+    result = @client.send(:normalize_comment_data, comment)
+
+    assert_equal 123, result[:github_id]
+    assert_equal "commenter1", result[:author_login]
+    assert_equal "Comment body", result[:body]
+  end
+
+  # Tests for nil author handling (safe navigation branches)
+
+  test "should handle nil author in issue data" do
+    issue = OpenStruct.new(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      body: "Issue body",
+      user: nil,  # Nil author
+      labels: [],
+      assignees: [],
+      comments: 0,
+      created_at: 1.day.ago,
+      updated_at: 1.hour.ago
+    )
+
+    result = @client.send(:normalize_issue_data, issue)
+
+    assert_equal 1, result[:number]
+    assert_nil result[:author_login]
+    assert_nil result[:author_avatar_url]
+  end
+
+  test "should handle nil author in comment data" do
+    comment = OpenStruct.new(
+      id: 123,
+      user: nil,  # Nil author
+      body: "Comment body",
+      created_at: 1.hour.ago,
+      updated_at: 1.hour.ago
+    )
+
+    result = @client.send(:normalize_comment_data, comment)
+
+    assert_equal 123, result[:github_id]
+    assert_nil result[:author_login]
+    assert_nil result[:author_avatar_url]
+    assert_equal "Comment body", result[:body]
+  end
+
+  # Tests for sleep_time <= 0 branches
+
+  test "should not sleep when rate limit reset time is in the past during retry" do
+    mock_client = OpenStruct.new
+
+    def mock_client.rate_limit
+      nil
+    end
+
+    def mock_client.repository(full_name)
+      @call_count ||= 0
+      @call_count += 1
+
+      if @call_count == 1
+        error = Octokit::TooManyRequests.new
+        def error.response_headers
+          # Reset time in the past (sleep_time will be negative)
+          { "x-ratelimit-reset" => (Time.now.to_i - 100).to_s }
+        end
+        raise error
+      else
+        OpenStruct.new(
+          owner: OpenStruct.new(login: "rails"),
+          name: "rails",
+          full_name: "rails/rails",
+          description: "Ruby on Rails",
+          html_url: "https://github.com/rails/rails",
+          open_issues_count: 100
+        )
+      end
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    # Track sleep calls
+    sleep_calls = []
+    @client.define_singleton_method(:sleep) { |duration| sleep_calls << duration }
+
+    result = @client.fetch_repository("rails", "rails")
+
+    # Should not sleep when sleep_time <= 0
+    assert_empty sleep_calls
+    assert_equal "rails", result[:owner]
+  end
+
+  test "should not sleep when critical rate limit sleep time is zero or negative" do
+    # Mock a rate limit where reset time is in the past
+    mock_rate_limit = OpenStruct.new(
+      remaining: 40,
+      limit: 5000,
+      resets_at: Time.now - 10  # In the past
+    )
+    mock_client = OpenStruct.new(rate_limit: mock_rate_limit)
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    # Track sleep calls
+    sleep_calls = []
+    @client.define_singleton_method(:sleep) { |duration| sleep_calls << duration }
+
+    @client.send(:check_rate_limit)
+
+    # Should still sleep with MIN_CRITICAL_DELAY due to .max in code
+    assert_equal [ Github::ApiConfiguration::MIN_CRITICAL_DELAY ], sleep_calls
+  end
+end

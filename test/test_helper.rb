@@ -21,8 +21,6 @@ SimpleCov.start "rails" do
   add_filter "/test/"
   add_filter "app/channels/application_cable/connection.rb"
   add_filter "app/jobs/application_job.rb"
-  # Temporarily exclude services until they're fully implemented
-  add_filter "app/services/"
 
   # Group coverage results for better organization
   add_group "Controllers", "app/controllers"
@@ -52,6 +50,9 @@ end
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+
+# Load Mocha for mocking and stubbing
+require "mocha/minitest"
 
 # Prosopite N+1 query detection (only works with PostgreSQL)
 # Disabled for SQLite3 since pg_query gem is required
