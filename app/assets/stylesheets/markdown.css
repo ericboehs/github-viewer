@@ -35,7 +35,7 @@
 
 @media (prefers-color-scheme: dark) {
   .markdown h1 {
-    border-bottom-color: #8b949e;
+    border-bottom-color: #30363d;
   }
 }
 
@@ -47,7 +47,7 @@
 
 @media (prefers-color-scheme: dark) {
   .markdown h2 {
-    border-bottom-color: #8b949e;
+    border-bottom-color: #30363d;
   }
 }
 
@@ -134,7 +134,14 @@
 
 /* Task lists */
 .markdown ul:has(> li > input[type="checkbox"]) {
-  padding-left: 0;
+  padding-left: 1rem;
+}
+
+/* Nested task lists need indentation */
+.markdown li:has(> input[type="checkbox"]) ul:has(> li > input[type="checkbox"]) {
+  padding-left: 2em;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .markdown li:has(> input[type="checkbox"]) {
@@ -143,7 +150,19 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
+
+/* Force nested lists to appear on new line */
+.markdown li:has(> input[type="checkbox"]) > ul {
+  flex-basis: 100%;
+}
+
+/* Tighter spacing for nested task list items */
+.markdown li:has(> input[type="checkbox"]) ul li + li {
+  margin-top: 0.25em;
+}
+
 
 .markdown li > input[type="checkbox"] {
   appearance: none;
@@ -218,7 +237,7 @@
 /* Code */
 .markdown code,
 .markdown tt {
-  padding: 0.2em 0.4em;
+  padding: 1px 3px;
   margin: 0;
   font-size: 85%;
   background-color: rgba(175, 184, 193, 0.2);
@@ -240,14 +259,14 @@
   overflow: auto;
   font-size: 85%;
   line-height: 1.45;
-  background-color: #f6f8fa;
   border-radius: 6px;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  background-color: #f6f8fa !important;
 }
 
 @media (prefers-color-scheme: dark) {
   .markdown pre {
-    background-color: #161b22;
+    background-color: #0d1117 !important;
   }
 }
 
@@ -257,8 +276,8 @@
   font-size: 100%;
   word-break: normal;
   white-space: pre;
-  background: transparent;
   border: 0;
+  background: transparent !important;
 }
 
 /* Blockquotes */
@@ -347,7 +366,7 @@
 
 @media (prefers-color-scheme: dark) {
   .markdown hr {
-    background-color: #8b949e;
+    background-color: #30363d;
   }
 }
 

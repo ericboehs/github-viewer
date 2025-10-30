@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 # Controller for viewing GitHub issues from tracked repositories
+# :reek:InstanceVariableAssumption
 class IssuesController < ApplicationController
   before_action :set_repository
 
   def index
+    issues = @repository.issues
     # Sync issues if cache is cold (no issues cached yet)
-    if @repository.issues.empty?
+    if issues.empty?
       sync_result = Github::IssueSyncService.new(
         user: Current.user,
         repository: @repository
@@ -17,7 +19,7 @@ class IssuesController < ApplicationController
       end
     end
 
-    @issues = @repository.issues.order(github_updated_at: :desc)
+    @issues = issues.order(github_updated_at: :desc)
   end
 
   def show
@@ -30,10 +32,12 @@ class IssuesController < ApplicationController
       repository: @repository
     ).call
 
+    issues_path = repository_issues_path(@repository)
+
     if result[:success]
-      redirect_to repository_issues_path(@repository), notice: t("issues.refresh.success", count: result[:synced_count])
+      redirect_to issues_path, notice: t("issues.refresh.success", count: result[:synced_count])
     else
-      redirect_to repository_issues_path(@repository), alert: t("issues.refresh.error", error: result[:error])
+      redirect_to issues_path, alert: t("issues.refresh.error", error: result[:error])
     end
   end
 

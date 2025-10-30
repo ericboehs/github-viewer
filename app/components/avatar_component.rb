@@ -1,4 +1,6 @@
 # Renders a user avatar image from Gravatar or external URL with fallback to initials
+# :reek:TooManyInstanceVariables { max_instance_variables: 5 }
+# :reek:RepeatedConditional
 class AvatarComponent < ViewComponent::Base
   def initialize(user: nil, src: nil, alt: nil, size: 8, text_size: "sm")
     @user = user
@@ -13,19 +15,24 @@ class AvatarComponent < ViewComponent::Base
   attr_reader :user, :src, :alt, :size, :text_size
 
   def avatar_url
-    return user.avatar_url(size: 256) if user
+    return user.avatar_url(size: 256) if using_user_avatar?
     src
   end
 
   def avatar_alt
-    return user.email_address if user
+    return user.email_address if using_user_avatar?
     alt || "User avatar"
   end
 
   def initials
-    return user.initials if user
+    return user.initials if using_user_avatar?
     return alt[0..1].upcase if alt
     "?"
+  end
+
+  # :reek:RepeatedConditional - Checking user presence is necessary pattern for polymorphic avatar sources
+  def using_user_avatar?
+    user.present?
   end
 
   def size_classes

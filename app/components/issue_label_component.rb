@@ -2,6 +2,7 @@
 
 # Component for displaying a GitHub issue label with color
 class IssueLabelComponent < ViewComponent::Base
+  # :reek:FeatureEnvy - Extracting values from label hash is initialization responsibility
   def initialize(label:)
     @label = label
     @name = label["name"] || label[:name]
@@ -31,6 +32,9 @@ class IssueLabelComponent < ViewComponent::Base
 
   # Calculate contrasting text color based on background color
   # Uses relative luminance formula from WCAG
+  # :reek:TooManyStatements - Color calculation algorithm requires multiple steps
+  # :reek:UtilityFunction - Pure calculation method, appropriate as private helper
+  # :reek:UncommunicativeVariableName { accept: ['r', 'g', 'b'] } - Standard RGB abbreviations
   def text_color_for_background(hex_color)
     return "#000000" unless hex_color
 

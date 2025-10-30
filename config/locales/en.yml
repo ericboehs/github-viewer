@@ -86,6 +86,7 @@ en:
         repository: Repository
         domain: Domain
         last_synced: Last Synced
+        never_synced: Never synced
         actions: Actions
       actions:
         refresh: Refresh
@@ -97,6 +98,7 @@ en:
         title: Add Repository
         description: Add a GitHub repository by URL or shorthand (e.g., owner/repo)
         button: Add Repository
+        formats_label: 'Supports formats:'
         format_examples:
           shorthand: owner/repo
           domain: github.com/owner/repo

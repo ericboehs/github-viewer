@@ -5,6 +5,7 @@ module MarkdownHelper
   # Renders markdown text to HTML with GitHub-flavored markdown extensions
   # @param text [String] The markdown text to render
   # @return [ActiveSupport::SafeBuffer] HTML-safe rendered markdown
+  # :reek:UtilityFunction - Helper method for view templates, appropriate as pure function
   def render_markdown(text)
     return "" if text.blank?
 

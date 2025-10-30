@@ -33,4 +33,44 @@ class AvatarComponentTest < ViewComponent::TestCase
 
     assert_text user.initials
   end
+
+  test "renders with external src and no user" do
+    render_inline(AvatarComponent.new(src: "https://example.com/avatar.png", alt: "Test User"))
+
+    assert_selector "img[src='https://example.com/avatar.png']"
+    assert_selector "img[alt='Test User']"
+  end
+
+  test "uses alt text for initials when no user" do
+    render_inline(AvatarComponent.new(src: "https://example.com/avatar.png", alt: "John Doe"))
+
+    assert_text "JO"  # First two characters uppercase
+  end
+
+  test "shows question mark initials when no user and no alt" do
+    render_inline(AvatarComponent.new(src: "https://example.com/avatar.png"))
+
+    assert_text "?"
+  end
+
+  test "normalizes small symbol size" do
+    user = User.create!(email_address: "test@example.com", password: "password123")
+    render_inline(AvatarComponent.new(user: user, size: :small))
+
+    assert_selector "div.size-6.rounded-full"
+  end
+
+  test "normalizes medium symbol size" do
+    user = User.create!(email_address: "test@example.com", password: "password123")
+    render_inline(AvatarComponent.new(user: user, size: :medium))
+
+    assert_selector "div.size-10.rounded-full"
+  end
+
+  test "normalizes large symbol size" do
+    user = User.create!(email_address: "test@example.com", password: "password123")
+    render_inline(AvatarComponent.new(user: user, size: :large))
+
+    assert_selector "div.size-16.rounded-full"
+  end
 end

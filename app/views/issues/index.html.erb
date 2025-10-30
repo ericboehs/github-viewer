@@ -6,11 +6,6 @@
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between">
           <div>
-            <nav class="mb-2">
-              <%= link_to repositories_path, class: "text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300" do %>
-                ← Back to Repositories
-              <% end %>
-            </nav>
             <h1 class="text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
               <%= @repository.full_name %>
             </h1>
@@ -33,7 +28,7 @@
           <div class="px-4 py-5 sm:p-6">
             <%= render 'shared/flash_messages' %>
 
-            <% if @repository.stale? %>
+            <% if @repository.stale? && @repository.cached_at.present? %>
               <div class="mb-4 rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-4">
                 <div class="flex">
                   <div class="flex-shrink-0">
@@ -46,7 +41,7 @@
                       Stale Data
                     </h3>
                     <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                      <p>Issues were last synced <%= @repository.staleness_in_words %>. Click "Refresh Issues" to get the latest data.</p>
+                      <p>Issues were last synced <%= time_ago_tag(@repository.cached_at) %>. Click "Refresh Issues" to get the latest data.</p>
                     </div>
                   </div>
                 </div>

@@ -27,17 +27,19 @@ class IssueStateComponent < ViewComponent::Base
   def state_icon
     if @state == "open"
       # Open circle icon
-      tag.svg(class: "w-4 h-4", fill: "currentColor", viewBox: "0 0 16 16", xmlns: "http://www.w3.org/2000/svg") do
+      svg_icon do
         tag.path(d: "M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8z")
       end
     else
       # Check circle icon
-      tag.svg(class: "w-4 h-4", fill: "currentColor", viewBox: "0 0 16 16", xmlns: "http://www.w3.org/2000/svg") do
-        safe_join([
-          tag.path(d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm3.78-9.72a.751.751 0 0 0-.018-1.042.751.751 0 0 0-1.042-.018L6.75 9.19 5.28 7.72a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042l2 2a.75.75 0 0 0 1.06 0z")
-        ])
+      svg_icon do
+        tag.path(d: "M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm3.78-9.72a.751.751 0 0 0-.018-1.042.751.751 0 0 0-1.042-.018L6.75 9.19 5.28 7.72a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042l2 2a.75.75 0 0 0 1.06 0z")
       end
     end
+  end
+
+  def svg_icon(&block)
+    tag.svg(class: "w-4 h-4", fill: "currentColor", viewBox: "0 0 16 16", xmlns: "http://www.w3.org/2000/svg", &block)
   end
 
   def state_text

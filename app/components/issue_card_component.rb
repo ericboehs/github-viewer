@@ -50,10 +50,11 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def issue_labels
-    return if @issue.labels.blank?
+    labels = @issue.labels
+    return if labels.blank?
 
     tag.div(class: "flex flex-wrap gap-1 mt-2") do
-      @issue.labels.map { |label| render IssueLabelComponent.new(label: label) }.join.html_safe
+      labels.map { |label| render IssueLabelComponent.new(label: label) }.join.html_safe
     end
   end
 
@@ -73,21 +74,23 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def author_info
-    return unless @issue.author_login
+    author_login = @issue.author_login
+    return unless author_login
 
     tag.span do
       concat "opened by "
-      concat tag.span(@issue.author_login, class: "font-medium")
+      concat tag.span(author_login, class: "font-medium")
     end
   end
 
   def comment_count
-    return if @issue.comments_count.zero?
+    count = @issue.comments_count
+    return if count.zero?
 
     tag.span(class: "flex items-center gap-1") do
       safe_join([
         comment_icon,
-        tag.span(@issue.comments_count.to_s)
+        tag.span(count.to_s)
       ])
     end
   end
@@ -99,8 +102,12 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def timestamp
-    return unless @issue.github_updated_at
+    updated_at = @issue.github_updated_at
+    return unless updated_at
 
-    tag.span("updated #{time_ago_in_words(@issue.github_updated_at)} ago")
+    tag.span do
+      concat "updated "
+      concat helpers.time_ago_tag(updated_at)
+    end
   end
 end
