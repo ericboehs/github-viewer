@@ -63,14 +63,19 @@ class IssueCommentComponent < ViewComponent::Base
 
   def comment_body
     tag.div(class: "px-4 py-4 bg-white dark:bg-gray-800") do
-      tag.div(class: "prose prose-sm sm:prose dark:prose-invert max-w-none
-                      prose-headings:text-gray-900 dark:prose-headings:text-gray-100
-                      prose-p:text-gray-700 dark:prose-p:text-gray-300
-                      prose-a:text-blue-600 dark:prose-a:text-blue-400
-                      prose-strong:text-gray-900 dark:prose-strong:text-gray-100
-                      prose-code:text-pink-600 dark:prose-code:text-pink-400
+      tag.div(class: "prose prose-sm sm:prose max-w-none break-words
+                      !text-gray-900 dark:!text-gray-200
+                      [&_p]:!text-gray-900 dark:[&_p]:!text-gray-200
+                      [&_li]:!text-gray-900 dark:[&_li]:!text-gray-200
+                      [&_td]:!text-gray-900 dark:[&_td]:!text-gray-200
+                      [&_th]:!text-gray-900 dark:[&_th]:!text-gray-200
+                      prose-headings:!text-gray-900 dark:prose-headings:!text-white
+                      prose-a:!text-blue-600 dark:prose-a:!text-blue-400 prose-a:break-all
+                      prose-strong:!text-gray-900 dark:prose-strong:!text-white
+                      prose-code:!text-pink-600 dark:prose-code:!text-pink-400
                       prose-code:bg-gray-100 dark:prose-code:bg-gray-900
                       prose-pre:bg-gray-100 dark:prose-pre:bg-gray-900
+                      prose-pre:!text-gray-900 dark:prose-pre:!text-gray-200
                       prose-pre:border prose-pre:border-gray-300 dark:prose-pre:border-gray-700") do
         helpers.render_markdown(@comment.body || "")
       end
