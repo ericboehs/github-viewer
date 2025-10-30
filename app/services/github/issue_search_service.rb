@@ -4,6 +4,8 @@ module Github
   # Dual-mode issue search service supporting both local SQLite and GitHub API search
   # Provides fast local filtering and sorting with optional full-text GitHub search
   # :reek:TooManyInstanceVariables { max_instance_variables: 6 }
+  # :reek:LongParameterList - Service requires configuration parameters
+  # :reek:ControlParameter - filters and sort_by are configuration, not control flow
   class IssueSearchService
     attr_reader :user, :repository, :query, :filters, :sort_by, :search_mode
 
@@ -24,6 +26,7 @@ module Github
       @search_mode = search_mode
     end
 
+    # :reek:UncommunicativeVariableName - 'e' is Rails convention for exception
     def call
       case search_mode
       when LOCAL_MODE
@@ -54,6 +57,7 @@ module Github
     end
 
     # :reek:TooManyStatements - Orchestrates GitHub API search and local sync
+    # :reek:UncommunicativeVariableName - 'e' is Rails convention for exception
     def github_search
       domain = repository.github_domain
       github_token = user.github_tokens.find_by(domain: domain)
@@ -66,9 +70,8 @@ module Github
       results = client.search_issues(search_query)
 
       # Handle API errors
-      if results.is_a?(Hash) && results[:error]
-        return { success: false, error: results[:error] }
-      end
+      error = results[:error] if results.is_a?(Hash)
+      return { success: false, error: error } if error
 
       # Sync found issues to local database
       synced_issues = sync_search_results(results)
@@ -90,37 +93,53 @@ module Github
       issues.where("title LIKE ? OR body LIKE ?", search_term, search_term)
     end
 
+    # :reek:TooManyStatements - Applies multiple filter conditions
     def apply_filters(issues)
-      issues = issues.by_state(filters[:state]) if filters[:state].present?
-      issues = issues.with_label(filters[:label]) if filters[:label].present?
-      issues = issues.assigned_to(filters[:assignee]) if filters[:assignee].present?
+      state = filters[:state]
+      label = filters[:label]
+      assignee = filters[:assignee]
+
+      issues = issues.by_state(state) if state.present?
+      issues = issues.with_label(label) if label.present?
+      issues = issues.assigned_to(assignee) if assignee.present?
       issues
     end
 
     # :reek:ControlParameter - sort_by controls query ordering
+    # :reek:FeatureEnvy - issues encapsulates ordering logic
     def apply_sorting(issues)
+      default_order = issues.order(github_updated_at: :desc)
+
       case sort_by
       when "created"
         issues.order(github_created_at: :desc)
       when "updated"
-        issues.order(github_updated_at: :desc)
+        default_order
       when "comments"
         issues.order(comments_count: :desc)
       else
-        issues.order(github_updated_at: :desc)
+        default_order
       end
     end
 
+    # :reek:TooManyStatements - Builds composite search query string
     def build_github_search_query
       parts = [ "repo:#{repository.full_name}" ]
       parts << query if query.present?
-      parts << "state:#{filters[:state]}" if filters[:state].present?
-      parts << "label:\"#{filters[:label]}\"" if filters[:label].present?
-      parts << "assignee:#{filters[:assignee]}" if filters[:assignee].present?
+
+      state = filters[:state]
+      label = filters[:label]
+      assignee = filters[:assignee]
+
+      parts << "state:#{state}" if state.present?
+      parts << "label:\"#{label}\"" if label.present?
+      parts << "assignee:#{assignee}" if assignee.present?
       parts.join(" ")
     end
 
     # :reek:UtilityFunction - Data transformation helper
+    # :reek:TooManyStatements - Maps API data to model attributes
+    # :reek:FeatureEnvy - issue_data encapsulates API response structure
     def sync_search_results(results)
       synced_issues = []
 
@@ -166,6 +185,7 @@ module Github
     end
 
     # :reek:FeatureEnvy - exception encapsulates error details
+    # :reek:TooManyStatements - Error logging requires multiple statements
     def handle_error(exception)
       message = exception.message
       error_msg = "Search failed: #{message}"

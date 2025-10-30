@@ -5,22 +5,27 @@
 class IssuesController < ApplicationController
   before_action :set_repository
 
+  # :reek:TooManyStatements - Controller action orchestrates sync and search
   def index
+    current_user = Current.user
+    issues = @repository.issues
+    flash_now = flash.now
+
     # Sync issues if cache is cold (no issues cached yet)
-    if @repository.issues.empty?
+    if issues.empty?
       sync_result = Github::IssueSyncService.new(
-        user: Current.user,
+        user: current_user,
         repository: @repository
       ).call
 
       if !sync_result[:success]
-        flash.now[:alert] = t("issues.sync_error", error: sync_result[:error])
+        flash_now[:alert] = t("issues.sync_error", error: sync_result[:error])
       end
     end
 
     # Use search service for filtering and sorting
     search_result = Github::IssueSearchService.new(
-      user: Current.user,
+      user: current_user,
       repository: @repository,
       query: params[:q],
       filters: build_filters,
@@ -32,8 +37,8 @@ class IssuesController < ApplicationController
       @issues = search_result[:issues]
       @search_mode = search_result[:mode]
     else
-      @issues = @repository.issues.order(github_updated_at: :desc)
-      flash.now[:alert] = search_result[:error]
+      @issues = issues.order(github_updated_at: :desc)
+      flash_now[:alert] = search_result[:error]
     end
   end
 
