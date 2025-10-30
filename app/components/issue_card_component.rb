@@ -8,7 +8,7 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def call
-    tag.div(class: "border-b border-gray-200 dark:border-gray-700 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors") do
+    tag.div(class: "issue-card border-b border-gray-200 dark:border-gray-700 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors") do
       safe_join([
         issue_header,
         issue_metadata

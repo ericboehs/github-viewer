@@ -6,9 +6,8 @@ class IssuesController < ApplicationController
   before_action :set_repository
 
   def index
-    issues = @repository.issues
     # Sync issues if cache is cold (no issues cached yet)
-    if issues.empty?
+    if @repository.issues.empty?
       sync_result = Github::IssueSyncService.new(
         user: Current.user,
         repository: @repository
@@ -19,7 +18,23 @@ class IssuesController < ApplicationController
       end
     end
 
-    @issues = issues.order(github_updated_at: :desc)
+    # Use search service for filtering and sorting
+    search_result = Github::IssueSearchService.new(
+      user: Current.user,
+      repository: @repository,
+      query: params[:q],
+      filters: build_filters,
+      sort_by: params[:sort] || "updated",
+      search_mode: params[:search_mode]&.to_sym || :local
+    ).call
+
+    if search_result[:success]
+      @issues = search_result[:issues]
+      @search_mode = search_result[:mode]
+    else
+      @issues = @repository.issues.order(github_updated_at: :desc)
+      flash.now[:alert] = search_result[:error]
+    end
   end
 
   def show
@@ -45,5 +60,13 @@ class IssuesController < ApplicationController
 
   def set_repository
     @repository = Current.user.repositories.find(params[:repository_id])
+  end
+
+  def build_filters
+    {
+      state: params[:state],
+      label: params[:label],
+      assignee: params[:assignee]
+    }.compact
   end
 end

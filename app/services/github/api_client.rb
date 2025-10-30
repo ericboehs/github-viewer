@@ -67,6 +67,19 @@ module Github
       []
     end
 
+    # Search issues using GitHub's search API
+    # Query syntax: https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests
+    def search_issues(query)
+      with_rate_limiting do
+        results = @client.search_issues(query, per_page: ApiConfiguration::DEFAULT_PAGE_SIZE)
+        results.items.map { |issue| normalize_issue_data(issue) }
+      end
+    rescue Octokit::NotFound
+      { error: "No results found" }
+    rescue Octokit::Unauthorized
+      { error: "Unauthorized - check your GitHub token" }
+    end
+
     # :reek:TooManyStatements - Includes API call and multiple rescue clauses
     # :reek:UncommunicativeVariableName - 'e' is Rails convention for exception
     def test_connection

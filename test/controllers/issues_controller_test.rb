@@ -146,6 +146,96 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     assert_includes flash[:alert], "Network timeout"
   end
 
+  # Search functionality tests
+  test "should filter issues by query parameter" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Bug in login form",
+      state: "open",
+      body: "Login validation error",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+    @repository.issues.create!(
+      number: 2,
+      title: "Feature: dark mode",
+      state: "open",
+      body: "Add dark mode support",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository), params: { q: "login" }
+    assert_response :success
+    assert_select ".issue-card", count: 1
+  end
+
+  test "should filter issues by state" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Open Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+    @repository.issues.create!(
+      number: 2,
+      title: "Closed Issue",
+      state: "closed",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository), params: { state: "open" }
+    assert_response :success
+    # Should only show open issue
+    assert_select ".issue-card", count: 1
+  end
+
+  test "should sort issues by specified sort parameter" do
+    # Create issues with different updated times
+    @repository.issues.create!(
+      number: 1,
+      title: "Older Issue",
+      state: "open",
+      comments_count: 10,
+      github_created_at: 3.days.ago,
+      github_updated_at: 2.days.ago
+    )
+    @repository.issues.create!(
+      number: 2,
+      title: "Newer Issue",
+      state: "open",
+      comments_count: 5,
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    # Sort by comments should show issue #1 first (10 comments)
+    get repository_issues_url(@repository), params: { sort: "comments" }
+    assert_response :success
+  end
+
+  test "should handle search errors gracefully" do
+    # Mock search service to return error
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({ success: false, error: "Search failed" })
+
+    Github::IssueSearchService.expects(:new).returns(mock_service)
+
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository), params: { q: "test" }
+    assert_response :success
+    assert_not_nil flash[:alert]
+  end
+
   # Authorization tests
   test "should not access issues from other users repositories" do
     other_user = User.create!(

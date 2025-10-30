@@ -539,6 +539,93 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "Comment body", result[:body]
   end
 
+  # Search tests
+
+  test "should search issues successfully" do
+    mock_search_result = OpenStruct.new(
+      items: [
+        OpenStruct.new(
+          number: 1,
+          title: "Bug in search",
+          state: "open",
+          body: "Search is broken",
+          user: OpenStruct.new(login: "user1", avatar_url: "https://avatar1.png"),
+          labels: [ OpenStruct.new(name: "bug", color: "d73a4a") ],
+          assignees: [],
+          comments: 3,
+          created_at: 1.day.ago,
+          updated_at: 1.hour.ago
+        )
+      ]
+    )
+
+    mock_client = OpenStruct.new
+    def mock_client.search_issues(query, options)
+      OpenStruct.new(
+        items: [
+          OpenStruct.new(
+            number: 1,
+            title: "Bug in search",
+            state: "open",
+            body: "Search is broken",
+            user: OpenStruct.new(login: "user1", avatar_url: "https://avatar1.png"),
+            labels: [ OpenStruct.new(name: "bug", color: "d73a4a") ],
+            assignees: [],
+            comments: 3,
+            created_at: 1.day.ago,
+            updated_at: 1.hour.ago
+          )
+        ]
+      )
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.search_issues("repo:rails/rails bug")
+
+    assert_equal 1, result.length
+    assert_equal 1, result.first[:number]
+    assert_equal "Bug in search", result.first[:title]
+    assert_equal "user1", result.first[:author_login]
+  end
+
+  test "should handle search issues not found" do
+    mock_client = OpenStruct.new
+    def mock_client.search_issues(query, options)
+      raise Octokit::NotFound.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.search_issues("repo:nonexistent/repo query")
+
+    assert result.is_a?(Hash)
+    assert_equal "No results found", result[:error]
+  end
+
+  test "should handle search unauthorized error" do
+    mock_client = OpenStruct.new
+    def mock_client.search_issues(query, options)
+      raise Octokit::Unauthorized.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.search_issues("repo:rails/rails bug")
+
+    assert result.is_a?(Hash)
+    assert_equal "Unauthorized - check your GitHub token", result[:error]
+  end
+
   # Tests for sleep_time <= 0 branches
 
   test "should not sleep when rate limit reset time is in the past during retry" do
