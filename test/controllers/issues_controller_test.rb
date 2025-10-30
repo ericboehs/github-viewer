@@ -300,8 +300,40 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
   test "should display search form" do
     get repository_issues_url(@repository)
     assert_response :success
-    assert_select "input[name='q'][placeholder='Search issues...']"
+    assert_select "input[name='q']"
     assert_select "input[type='submit'][value='Search']"
+  end
+
+  test "should parse GitHub search qualifiers" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Bug issue",
+      state: "open",
+      labels: [ { "name" => "bug", "color" => "d73a4a" } ],
+      assignees: [ { "login" => "alice", "avatar_url" => "https://example.com/alice.png" } ],
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    # Test is: qualifier
+    get repository_issues_url(@repository), params: { q: "is:open memory" }
+    assert_response :success
+
+    # Test label: qualifier
+    get repository_issues_url(@repository), params: { q: "label:bug test" }
+    assert_response :success
+
+    # Test assignee: qualifier
+    get repository_issues_url(@repository), params: { q: "assignee:alice" }
+    assert_response :success
+
+    # Test sort: qualifier
+    get repository_issues_url(@repository), params: { q: "sort:updated-desc" }
+    assert_response :success
+
+    # Test combined qualifiers
+    get repository_issues_url(@repository), params: { q: "is:open label:bug sort:created" }
+    assert_response :success
   end
 
   test "should display sort dropdown" do

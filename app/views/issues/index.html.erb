@@ -24,19 +24,19 @@
         <!-- Search and Filter Section -->
         <%= form_with url: repository_issues_path(@repository), method: :get, class: "mb-6" do |f| %>
           <!-- Search Bar -->
-          <div class="flex gap-3 mb-4 items-end">
+          <div class="flex gap-3 mb-4">
             <div class="flex-1">
               <%= render Auth::InputComponent.new(
                 form: f,
                 field: :q,
                 label: nil,
                 type: :text,
-                placeholder: "Search issues...",
+                placeholder: "Search issues... (e.g., is:open label:bug)",
                 autocomplete: "off",
                 value: params[:q]
               ) %>
             </div>
-            <%= f.submit "Search", class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-700" %>
+            <%= f.submit "Search", class: "inline-flex items-center px-4 py-[0.4375rem] border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-700 h-[2.375rem]" %>
           </div>
 
           <!-- Filters Row -->
@@ -44,11 +44,9 @@
             <!-- State Filter Buttons -->
             <div class="inline-flex rounded-md shadow-sm" role="group">
               <%= link_to "Open", repository_issues_path(@repository, q: params[:q], state: "open", label: params[:label], assignee: params[:assignee], sort: params[:sort]),
-                  class: "px-4 py-2 text-sm font-medium rounded-l-md border #{params[:state] == 'open' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}" %>
+                  class: "px-4 py-2 text-sm font-medium rounded-l-md border #{params[:state] != 'closed' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}" %>
               <%= link_to "Closed", repository_issues_path(@repository, q: params[:q], state: "closed", label: params[:label], assignee: params[:assignee], sort: params[:sort]),
-                  class: "px-4 py-2 text-sm font-medium border-t border-b #{params[:state] == 'closed' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}" %>
-              <%= link_to "All", repository_issues_path(@repository, q: params[:q], label: params[:label], assignee: params[:assignee], sort: params[:sort]),
-                  class: "px-4 py-2 text-sm font-medium rounded-r-md border #{params[:state].blank? ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}" %>
+                  class: "px-4 py-2 text-sm font-medium rounded-r-md border #{params[:state] == 'closed' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}" %>
             </div>
 
             <!-- Label Filter -->

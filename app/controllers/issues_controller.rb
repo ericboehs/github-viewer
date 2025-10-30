@@ -23,14 +23,17 @@ class IssuesController < ApplicationController
       end
     end
 
+    # Parse search query for GitHub qualifiers
+    parsed_query = parse_search_query(params[:q])
+
     # Use search service for filtering and sorting
     search_result = Github::IssueSearchService.new(
       user: current_user,
       repository: @repository,
-      query: params[:q],
-      filters: build_filters,
-      sort_by: params[:sort] || "updated",
-      search_mode: params[:search_mode]&.to_sym || :local
+      query: parsed_query[:query],
+      filters: parsed_query[:filters].present? ? parsed_query[:filters].merge(build_filters) : build_filters,
+      sort_by: parsed_query[:sort] || params[:sort] || "updated",
+      search_mode: parsed_query[:has_qualifiers] ? :github : (params[:search_mode]&.to_sym || :local)
     ).call
 
     if search_result[:success]
@@ -110,5 +113,54 @@ class IssuesController < ApplicationController
       end
     end
     assignees_set.to_a.sort
+  end
+
+  # Parse GitHub search qualifiers from query string
+  # Supports: is:open, is:closed, label:name, assignee:username, sort:field-direction
+  # :reek:TooManyStatements - Parses multiple qualifier types
+  def parse_search_query(query_string)
+    return { query: nil, filters: {}, sort: nil, has_qualifiers: false } if query_string.blank?
+
+    query_parts = []
+    filters = {}
+    sort = nil
+    has_qualifiers = false
+
+    # Split query into tokens, preserving quoted strings
+    tokens = query_string.scan(/(?:"[^"]*"|[^\s"])+/)
+
+    tokens.each do |token|
+      case token
+      when /^is:(open|closed)$/i
+        filters[:state] = Regexp.last_match(1).downcase
+        has_qualifiers = true
+      when /^state:(open|closed)$/i
+        filters[:state] = Regexp.last_match(1).downcase
+        has_qualifiers = true
+      when /^label:(.+)$/i
+        # Remove surrounding quotes if present
+        filters[:label] = Regexp.last_match(1).gsub(/^["']|["']$/, "")
+        has_qualifiers = true
+      when /^assignee:(.+)$/i
+        filters[:assignee] = Regexp.last_match(1).gsub(/^["']|["']$/, "")
+        has_qualifiers = true
+      when /^sort:(created|updated|comments)(?:-(asc|desc))?$/i
+        # Parse sort field and direction (default to desc if not specified)
+        field = Regexp.last_match(1).downcase
+        direction = Regexp.last_match(2)&.downcase || "desc"
+        sort = direction == "asc" ? "#{field}-asc" : field
+        has_qualifiers = true
+      else
+        # Not a qualifier, add to search query
+        query_parts << token
+      end
+    end
+
+    {
+      query: query_parts.join(" ").presence,
+      filters: filters,
+      sort: sort,
+      has_qualifiers: has_qualifiers
+    }
   end
 end
