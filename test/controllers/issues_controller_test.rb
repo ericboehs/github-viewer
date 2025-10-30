@@ -236,6 +236,81 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil flash[:alert]
   end
 
+  # Filter extraction tests
+  test "should display label filter when issues have labels" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Issue 1",
+      state: "open",
+      labels: [ { "name" => "bug", "color" => "d73a4a" } ],
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_select "select[name='label']", count: 1
+    assert_select "option", text: "bug"
+  end
+
+  test "should display assignee filter when issues have assignees" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Issue 1",
+      state: "open",
+      assignees: [ { "login" => "alice", "avatar_url" => "https://example.com/alice.png" } ],
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_select "select[name='assignee']", count: 1
+    assert_select "option", text: "alice"
+  end
+
+  test "should not display label filter when no labels exist" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Issue without labels",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_select "select[name='label']", count: 0
+  end
+
+  test "should not display assignee filter when no assignees exist" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Issue without assignees",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_select "select[name='assignee']", count: 0
+  end
+
+  test "should display search form" do
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_select "input[name='q'][placeholder='Search issues...']"
+    assert_select "input[type='submit'][value='Search']"
+  end
+
+  test "should display sort dropdown" do
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_select "select[name='sort']"
+    assert_select "option", text: "Recently updated"
+  end
+
   # Authorization tests
   test "should not access issues from other users repositories" do
     other_user = User.create!(

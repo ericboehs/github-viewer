@@ -40,6 +40,10 @@ class IssuesController < ApplicationController
       @issues = issues.order(github_updated_at: :desc)
       flash_now[:alert] = search_result[:error]
     end
+
+    # Extract unique labels and assignees for filter dropdowns
+    @available_labels = extract_unique_labels(issues)
+    @available_assignees = extract_unique_assignees(issues)
   end
 
   def show
@@ -84,5 +88,27 @@ class IssuesController < ApplicationController
       label: params[:label],
       assignee: params[:assignee]
     }.compact
+  end
+
+  def extract_unique_labels(issues)
+    labels_set = Set.new
+    issues.each do |issue|
+      next unless issue.labels.present?
+      issue.labels.each do |label|
+        labels_set.add(label["name"] || label[:name])
+      end
+    end
+    labels_set.to_a.sort
+  end
+
+  def extract_unique_assignees(issues)
+    assignees_set = Set.new
+    issues.each do |issue|
+      next unless issue.assignees.present?
+      issue.assignees.each do |assignee|
+        assignees_set.add(assignee["login"] || assignee[:login])
+      end
+    end
+    assignees_set.to_a.sort
   end
 end

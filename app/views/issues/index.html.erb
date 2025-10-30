@@ -26,6 +26,113 @@
 
     <main>
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <!-- Search and Filter Section -->
+        <%= form_with url: repository_issues_path(@repository), method: :get, class: "mb-6" do |f| %>
+          <!-- Search Bar -->
+          <div class="flex gap-3 mb-4">
+            <div class="flex-1">
+              <%= f.text_field :q,
+                  value: params[:q],
+                  placeholder: "Search issues...",
+                  class: "block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" %>
+            </div>
+            <%= f.submit "Search", class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" %>
+          </div>
+
+          <!-- Filters Row -->
+          <div class="flex flex-wrap gap-3 items-center">
+            <!-- State Filter Buttons -->
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+              <%= link_to "Open", repository_issues_path(@repository, q: params[:q], state: "open", label: params[:label], assignee: params[:assignee], sort: params[:sort]),
+                  class: "px-4 py-2 text-sm font-medium rounded-l-md border #{params[:state] == 'open' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}" %>
+              <%= link_to "Closed", repository_issues_path(@repository, q: params[:q], state: "closed", label: params[:label], assignee: params[:assignee], sort: params[:sort]),
+                  class: "px-4 py-2 text-sm font-medium border-t border-b #{params[:state] == 'closed' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}" %>
+              <%= link_to "All", repository_issues_path(@repository, q: params[:q], label: params[:label], assignee: params[:assignee], sort: params[:sort]),
+                  class: "px-4 py-2 text-sm font-medium rounded-r-md border #{params[:state].blank? ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}" %>
+            </div>
+
+            <!-- Label Filter -->
+            <% if @available_labels.any? %>
+              <div>
+                <%= f.select :label,
+                    options_for_select([["Filter by label...", ""]] + @available_labels.map { |l| [l, l] }, params[:label]),
+                    {},
+                    class: "block rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm",
+                    onchange: "this.form.requestSubmit()" %>
+              </div>
+            <% end %>
+
+            <!-- Assignee Filter -->
+            <% if @available_assignees.any? %>
+              <div>
+                <%= f.select :assignee,
+                    options_for_select([["Filter by assignee...", ""]] + @available_assignees.map { |a| [a, a] }, params[:assignee]),
+                    {},
+                    class: "block rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm",
+                    onchange: "this.form.requestSubmit()" %>
+              </div>
+            <% end %>
+
+            <!-- Sort Dropdown -->
+            <div>
+              <%= f.select :sort,
+                  options_for_select([
+                    ["Newest", "created"],
+                    ["Oldest", "created-asc"],
+                    ["Recently updated", "updated"],
+                    ["Least recently updated", "updated-asc"],
+                    ["Most commented", "comments"],
+                    ["Least commented", "comments-asc"]
+                  ], params[:sort] || "updated"),
+                  {},
+                  class: "block rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm",
+                  onchange: "this.form.requestSubmit()" %>
+            </div>
+
+            <!-- Clear Filters -->
+            <% if params[:q].present? || params[:state].present? || params[:label].present? || params[:assignee].present? %>
+              <%= link_to "Clear filters", repository_issues_path(@repository),
+                  class: "text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white underline" %>
+            <% end %>
+          </div>
+
+          <!-- Active Filters Display -->
+          <% if params[:q].present? || params[:label].present? || params[:assignee].present? %>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <% if params[:q].present? %>
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                  Search: "<%= params[:q] %>"
+                  <%= link_to repository_issues_path(@repository, state: params[:state], label: params[:label], assignee: params[:assignee], sort: params[:sort]), class: "ml-1 hover:text-blue-600 dark:hover:text-blue-300" do %>
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  <% end %>
+                </span>
+              <% end %>
+              <% if params[:label].present? %>
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                  Label: <%= params[:label] %>
+                  <%= link_to repository_issues_path(@repository, q: params[:q], state: params[:state], assignee: params[:assignee], sort: params[:sort]), class: "ml-1 hover:text-green-600 dark:hover:text-green-300" do %>
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  <% end %>
+                </span>
+              <% end %>
+              <% if params[:assignee].present? %>
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                  Assignee: <%= params[:assignee] %>
+                  <%= link_to repository_issues_path(@repository, q: params[:q], state: params[:state], label: params[:label], sort: params[:sort]), class: "ml-1 hover:text-purple-600 dark:hover:text-purple-300" do %>
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  <% end %>
+                </span>
+              <% end %>
+            </div>
+          <% end %>
+        <% end %>
+
         <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
           <div class="px-4 py-5 sm:p-6">
             <%= render 'shared/flash_messages' %>
