@@ -46,18 +46,29 @@ class IssuesController < ApplicationController
     @issue = @repository.issues.find_by!(number: params[:id])
   end
 
+  # :reek:TooManyStatements - Controller action orchestrates sync and redirect
   def refresh
-    result = Github::IssueSyncService.new(
-      user: Current.user,
-      repository: @repository
-    ).call
+    issue_id = params[:id]
+    issue_id_present = issue_id.present?
 
-    issues_path = repository_issues_path(@repository)
+    # Determine if syncing single issue or all issues
+    sync_service_params = { user: Current.user, repository: @repository }
+    sync_service_params[:issue_number] = issue_id.to_i if issue_id_present
+
+    result = Github::IssueSyncService.new(**sync_service_params).call
+
+    # Determine redirect path based on whether this is a member or collection action
+    redirect_path = if issue_id_present
+      issue = @repository.issues.find_by!(number: issue_id)
+      repository_issue_path(@repository, issue.number)
+    else
+      repository_issues_path(@repository)
+    end
 
     if result[:success]
-      redirect_to issues_path, notice: t("issues.refresh.success", count: result[:synced_count])
+      redirect_to redirect_path, notice: t("issues.refresh.success", count: result[:synced_count])
     else
-      redirect_to issues_path, alert: t("issues.refresh.error", error: result[:error])
+      redirect_to redirect_path, alert: t("issues.refresh.error", error: result[:error])
     end
   end
 

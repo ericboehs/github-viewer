@@ -131,6 +131,8 @@ en:
       back_to_list: Back to Issues
       comments: Comments
       no_comments: No comments yet
+      refresh_button: Refresh
+      last_refreshed: "Refreshed %{time} ago"
     refresh:
       success: "Successfully synced %{count} issues"
       error: "Failed to refresh issues: %{error}"

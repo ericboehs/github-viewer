@@ -111,6 +111,68 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     assert_equal 0, issue.issue_comments.count
   end
 
+  # Single issue sync tests
+
+  test "should successfully sync a single issue by number" do
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 42)
+    mock_client = create_mock_client_with_single_issue(42)
+
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    result = service.call
+
+    assert result[:success]
+    assert_equal 1, result[:synced_count]
+
+    # Verify only the requested issue was created
+    assert_equal 1, @repository.issues.count
+    issue = @repository.issues.find_by(number: 42)
+    assert_not_nil issue
+    assert_equal "Test Issue 42", issue.title
+    assert_equal "open", issue.state
+  end
+
+  test "should handle API error when fetching single issue" do
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 99)
+    mock_client = Object.new
+    mock_client.define_singleton_method(:fetch_issue) do |_owner, _repo_name, _issue_number|
+      { error: "Issue not found" }
+    end
+
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    result = service.call
+
+    assert_not result[:success]
+    assert_equal "Issue not found", result[:error]
+    assert result[:cache_preserved]
+  end
+
+  test "should update existing single issue on re-sync" do
+    # Create initial issue
+    @repository.issues.create!(
+      number: 42,
+      title: "Old Title",
+      state: "open",
+      body: "Old body",
+      author_login: "olduser"
+    )
+
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 42)
+    mock_client = create_mock_client_with_single_issue(42)
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    result = service.call
+
+    assert result[:success]
+    assert_equal 1, result[:synced_count]
+
+    # Verify issue was updated, not duplicated
+    assert_equal 1, @repository.issues.count
+    issue = @repository.issues.find_by(number: 42)
+    assert_equal "Test Issue 42", issue.title  # Updated
+  end
+
   # Error handling tests
 
   test "should return error when github token is missing" do
@@ -234,6 +296,18 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     mock_client = Object.new
     mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:|
       [ test_context.sample_issue_data(1) ]
+    end
+    mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
+      []
+    end
+    mock_client
+  end
+
+  def create_mock_client_with_single_issue(issue_number)
+    test_context = self
+    mock_client = Object.new
+    mock_client.define_singleton_method(:fetch_issue) do |_owner, _repo_name, _issue_number|
+      test_context.sample_issue_data(_issue_number)
     end
     mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
       []

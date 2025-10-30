@@ -3,13 +3,15 @@
 module Github
   # Synchronizes issues and comments from GitHub API to local database
   # Fetches all issues for a repository with labels, assignees, and comments
+  # Optionally syncs a single issue when issue_number is provided
   # :reek:TooManyStatements - Service orchestrates API calls, batch upserts, and error handling
   class IssueSyncService
-    attr_reader :user, :repository
+    attr_reader :user, :repository, :issue_number
 
-    def initialize(user:, repository:)
+    def initialize(user:, repository:, issue_number: nil)
       @user = user
       @repository = repository
+      @issue_number = issue_number
     end
 
     # :reek:DuplicateMethodCall - repository.github_domain accessed for token lookup and client
@@ -21,7 +23,14 @@ module Github
       client = Github::ApiClient.new(token: github_token.token, domain: domain)
 
       # Fetch issues from GitHub API
-      issues_data = client.fetch_issues(repository.owner, repository.name, state: "all")
+      issues_data = if issue_number.present?
+        # Fetch single issue
+        single_issue = client.fetch_issue(repository.owner, repository.name, issue_number)
+        single_issue.is_a?(Hash) && single_issue[:error] ? single_issue : [ single_issue ]
+      else
+        # Fetch all issues
+        client.fetch_issues(repository.owner, repository.name, state: "all")
+      end
 
       # Handle API errors
       if issues_data.is_a?(Hash)
