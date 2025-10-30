@@ -58,7 +58,7 @@
           block.textContent = plainText;
 
           // Smart ERB detection
-          const hasErbTags = plainText.includes('<%%') || plainText.includes('%%>');
+          const hasErbTags = plainText.includes('<' + '%') || plainText.includes('%' + '>');
 
           if (lang === 'ruby' && hasErbTags) {
             // Ruby code with ERB tags → use ERB

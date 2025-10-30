@@ -7,9 +7,19 @@ en:
     logo_alt: GithubViewer
     title: GithubViewer
     description: GitHub Issues Viewer with smart caching
+  auth:
+    sign_in:
+      page_title: Sign In
+    sign_up:
+      page_title: Sign Up
+    forgot_password:
+      page_title: Forgot Password
+    reset_password:
+      page_title: Reset Password
   buttons:
     cancel: Cancel
   dashboard:
+    page_title: Dashboard
     section_title: Dashboard
     welcome_message: Welcome to GithubViewer! Features will be available here soon.
     welcome_title: Welcome to GithubViewer
@@ -34,6 +44,7 @@ en:
     avatar:
       gravatar_description: Avatar from Gravatar
     edit:
+      page_title: Edit Profile
       title: Edit Profile
     form:
       email_label: Email address
@@ -42,6 +53,7 @@ en:
       password_label: Password
       update_button: Update Profile
     show:
+      page_title: Profile
       edit_button: Edit Profile
       member_since: Member since %{date}
       title: Your Profile
@@ -68,6 +80,7 @@ en:
     destroy:
       success: GitHub token removed successfully.
   repositories:
+    page_title: Repositories
     errors:
       invalid_url: 'Invalid repository URL. Please use format: owner/repo or https://github.com/owner/repo'
       already_tracked: Repository already tracked.
@@ -105,6 +118,7 @@ en:
           full_url: https://github.com/owner/repo
 
   issues:
+    page_title: Issues
     sync_error: "Failed to sync issues: %{error}"
     index:
       title: Issues

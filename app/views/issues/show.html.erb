@@ -1,3 +1,5 @@
+<% content_for :title, "#{@issue.title} ##{@issue.number} - #{@repository.full_name}" %>
+
 <div class="min-h-full bg-white dark:bg-black">
   <%= render 'shared/navbar' %>
 
