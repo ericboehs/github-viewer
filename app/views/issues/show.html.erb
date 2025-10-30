@@ -1,0 +1,111 @@
+<div class="min-h-full bg-gray-50 dark:bg-gray-900">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-10">
+    <header class="mb-8">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <nav class="mb-4">
+          <%= link_to repository_issues_path(@repository), class: "text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300" do %>
+            <%= t('issues.show.back_to_list') %>
+          <% end %>
+        </nav>
+        <div class="flex items-start gap-4">
+          <%= render IssueStateComponent.new(state: @issue.state) %>
+          <div class="flex-1">
+            <h1 class="text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+              <%= @issue.title %>
+            </h1>
+            <div class="mt-2 flex items-center gap-2 text-gray-500 dark:text-gray-400">
+              <span class="font-mono">#<%= @issue.number %></span>
+              <span>•</span>
+              <% if @issue.author_login %>
+                <span>opened by <span class="font-medium"><%= @issue.author_login %></span></span>
+              <% end %>
+              <% if @issue.github_created_at %>
+                <span>•</span>
+                <span><%= time_ago_in_words(@issue.github_created_at) %> ago</span>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <!-- Issue Body -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
+          <div class="px-6 py-5">
+            <div class="flex items-start gap-4">
+              <% if @issue.author_avatar_url %>
+                <%= render AvatarComponent.new(
+                  src: @issue.author_avatar_url,
+                  alt: @issue.author_login || "Author",
+                  size: :medium
+                ) %>
+              <% end %>
+              <div class="flex-1">
+                <div class="prose dark:prose-invert max-w-none">
+                  <% if @issue.body.present? %>
+                    <%= simple_format(@issue.body) %>
+                  <% else %>
+                    <p class="text-gray-500 dark:text-gray-400 italic">No description provided.</p>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+
+            <!-- Labels -->
+            <% if @issue.labels.present? %>
+              <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex flex-wrap gap-2">
+                  <% @issue.labels.each do |label| %>
+                    <%= render IssueLabelComponent.new(label: label) %>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <!-- Assignees -->
+            <% if @issue.assignees.present? %>
+              <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignees</h3>
+                <div class="flex flex-wrap gap-2">
+                  <% @issue.assignees.each do |assignee| %>
+                    <div class="flex items-center gap-2">
+                      <%= render AvatarComponent.new(
+                        src: assignee["avatar_url"] || assignee[:avatar_url],
+                        alt: assignee["login"] || assignee[:login],
+                        size: :small
+                      ) %>
+                      <span class="text-sm text-gray-700 dark:text-gray-300"><%= assignee["login"] || assignee[:login] %></span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <!-- Comments -->
+        <div class="mb-6">
+          <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            <%= t('issues.show.comments') %> (<%= @issue.issue_comments.count %>)
+          </h2>
+
+          <% if @issue.issue_comments.any? %>
+            <div class="space-y-4">
+              <% @issue.issue_comments.each do |comment| %>
+                <%= render IssueCommentComponent.new(comment: comment) %>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="text-center py-8 bg-white dark:bg-gray-800 shadow rounded-lg">
+              <p class="text-gray-500 dark:text-gray-400"><%= t('issues.show.no_comments') %></p>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

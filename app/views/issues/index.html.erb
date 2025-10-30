@@ -1,0 +1,76 @@
+<div class="min-h-full bg-gray-50 dark:bg-gray-900">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-10">
+    <header class="mb-8">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between">
+          <div>
+            <nav class="mb-2">
+              <%= link_to repositories_path, class: "text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300" do %>
+                ← Back to Repositories
+              <% end %>
+            </nav>
+            <h1 class="text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+              <%= @repository.full_name %>
+            </h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <%= t('issues.index.title') %>
+            </p>
+          </div>
+          <div>
+            <%= button_to repository_issues_refresh_path(@repository), method: :post, class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" do %>
+              <%= t('issues.index.refresh_button') %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+          <div class="px-4 py-5 sm:p-6">
+            <%= render 'shared/flash_messages' %>
+
+            <% if @repository.stale? %>
+              <div class="mb-4 rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-4">
+                <div class="flex">
+                  <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <div class="ml-3">
+                    <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-400">
+                      Stale Data
+                    </h3>
+                    <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                      <p>Issues were last synced <%= @repository.staleness_in_words %>. Click "Refresh Issues" to get the latest data.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+
+            <% if @issues.any? %>
+              <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                <% @issues.each do |issue| %>
+                  <%= render IssueCardComponent.new(issue: issue, repository: @repository) %>
+                <% end %>
+              </div>
+            <% else %>
+              <div class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-white"><%= t('issues.index.empty.title') %></h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= t('issues.index.empty.description') %></p>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

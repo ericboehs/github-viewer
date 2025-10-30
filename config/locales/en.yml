@@ -101,3 +101,20 @@ en:
           shorthand: owner/repo
           domain: github.com/owner/repo
           full_url: https://github.com/owner/repo
+
+  issues:
+    sync_error: "Failed to sync issues: %{error}"
+    index:
+      title: Issues
+      empty:
+        title: No issues found
+        description: This repository has no issues, or they haven't been synced yet.
+      refresh_button: Refresh Issues
+    show:
+      title: "Issue #%{number}"
+      back_to_list: Back to Issues
+      comments: Comments
+      no_comments: No comments yet
+    refresh:
+      success: "Successfully synced %{count} issues"
+      error: "Failed to refresh issues: %{error}"
