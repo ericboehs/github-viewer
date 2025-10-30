@@ -45,9 +45,9 @@
                 ) %>
               <% end %>
               <div class="flex-1">
-                <div class="prose dark:prose-invert max-w-none">
+                <div class="prose prose-sm dark:prose-invert max-w-none prose-pre:bg-gray-100 dark:prose-pre:bg-gray-900 prose-code:text-pink-600 dark:prose-code:text-pink-400">
                   <% if @issue.body.present? %>
-                    <%= simple_format(@issue.body) %>
+                    <%= render_markdown(@issue.body) %>
                   <% else %>
                     <p class="text-gray-500 dark:text-gray-400 italic">No description provided.</p>
                   <% end %>

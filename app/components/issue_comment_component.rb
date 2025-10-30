@@ -63,10 +63,8 @@ class IssueCommentComponent < ViewComponent::Base
 
   def comment_body
     tag.div(class: "px-4 py-4") do
-      tag.div(class: "prose dark:prose-invert max-w-none") do
-        # For now, display as plain text
-        # TODO: Add markdown rendering with a gem like redcarpet or commonmarker
-        simple_format(@comment.body || "")
+      tag.div(class: "prose prose-sm dark:prose-invert max-w-none prose-pre:bg-gray-100 dark:prose-pre:bg-gray-900 prose-code:text-pink-600 dark:prose-code:text-pink-400") do
+        helpers.render_markdown(@comment.body || "")
       end
     end
   end
