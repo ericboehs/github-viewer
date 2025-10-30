@@ -22,6 +22,7 @@ en:
       reset_link_text: this password reset page
   navigation:
     dashboard: Dashboard
+    repositories: Repositories
     mobile_menu:
       open: Open main menu
     user_menu:
@@ -43,3 +44,59 @@ en:
       edit_button: Edit Profile
       member_since: Member since %{date}
       title: Your Profile
+      github_tokens:
+        title: GitHub Tokens
+        description: Manage your GitHub personal access tokens for different GitHub instances
+        table:
+          domain: Domain
+          token: Token
+          added: Added
+          actions: Actions
+        actions:
+          remove: Remove
+        destroy:
+          confirm: Are you sure you want to remove this token?
+        form:
+          add_button: Add
+        help_text: Create a token at
+        help_link: GitHub Settings → Personal access tokens
+  github_tokens:
+    create:
+      success: GitHub token added successfully.
+      error: 'Failed to add token: %{errors}'
+    destroy:
+      success: GitHub token removed successfully.
+  repositories:
+    errors:
+      invalid_url: 'Invalid repository URL. Please use format: owner/repo or https://github.com/owner/repo'
+      already_tracked: Repository already tracked.
+    create:
+      success: Repository added successfully.
+      error: 'Failed to add repository: %{error}'
+    destroy:
+      success: Repository removed successfully.
+      confirm: Are you sure you want to remove this repository?
+    refresh:
+      success: Repository refreshed successfully.
+      error: 'Failed to refresh repository: %{error}'
+    index:
+      title: Repositories
+      table:
+        repository: Repository
+        domain: Domain
+        last_synced: Last Synced
+        actions: Actions
+      actions:
+        refresh: Refresh
+        remove: Remove
+      empty:
+        title: No repositories
+        description: Get started by adding your first repository.
+      import:
+        title: Add Repository
+        description: Add a GitHub repository by URL or shorthand (e.g., owner/repo)
+        button: Add Repository
+        format_examples:
+          shorthand: owner/repo
+          domain: github.com/owner/repo
+          full_url: https://github.com/owner/repo

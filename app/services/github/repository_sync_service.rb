@@ -17,7 +17,7 @@ class Github::RepositorySyncService
     return { success: false, error: missing_token_error } unless github_token
 
     client = Github::ApiClient.new(token: github_token.token, domain: github_domain)
-    repo_data = client.fetch_repository(owner: owner, repo_name: repo_name)
+    repo_data = client.fetch_repository(owner, repo_name)
 
     error = repo_data[:error]
     return { success: false, error: error } if error
@@ -52,8 +52,8 @@ class Github::RepositorySyncService
       full_name: repo_data[:full_name],
       description: repo_data[:description],
       url: repo_data[:url],
-      issue_count: repo_data[:issue_count],
-      open_issue_count: repo_data[:open_issue_count],
+      issue_count: repo_data[:issue_count] || 0,
+      open_issue_count: repo_data[:open_issue_count] || 0,
       cached_at: Time.current
     }
   end

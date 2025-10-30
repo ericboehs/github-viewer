@@ -6,9 +6,9 @@ class GithubTokensController < ApplicationController
     token = Current.user.github_tokens.build(github_token_params)
 
     if token.save
-      redirect_to user_path, notice: "GitHub token added successfully."
+      redirect_to user_path, notice: t("github_tokens.create.success")
     else
-      redirect_to user_path, alert: "Failed to add token: #{token.errors.full_messages.join(', ')}"
+      redirect_to user_path, alert: t("github_tokens.create.error", errors: token.errors.full_messages.join(", "))
     end
   end
 
@@ -16,7 +16,7 @@ class GithubTokensController < ApplicationController
     token = Current.user.github_tokens.find(params[:id])
     token.destroy
 
-    redirect_to user_path, notice: "GitHub token removed successfully."
+    redirect_to user_path, notice: t("github_tokens.destroy.success")
   end
 
   private

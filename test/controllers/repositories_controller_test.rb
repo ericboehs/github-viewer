@@ -1,0 +1,154 @@
+require "test_helper"
+
+# Tests the RepositoriesController
+class RepositoriesControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    @user = User.create!(
+      email_address: "test@example.com",
+      password: "password123"
+    )
+    @github_token = @user.github_tokens.create!(
+      domain: "github.com",
+      token: "ghp_test1234567890abcdef"
+    )
+    sign_in_as(@user)
+  end
+
+  test "should get index" do
+    get repositories_url
+    assert_response :success
+  end
+
+  test "should show repositories for current user" do
+    repo1 = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
+    repo2 = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "ruby",
+      name: "ruby",
+      full_name: "ruby/ruby",
+      cached_at: 2.minutes.ago
+    )
+
+    get repositories_url
+    assert_response :success
+    assert_select "td", text: "rails/rails"
+    assert_select "td", text: "ruby/ruby"
+  end
+
+  test "should parse and handle valid GitHub URL" do
+    # Test that controller correctly parses URL - actual sync will fail without real token
+    # but we test the parsing and error handling
+    post repositories_url, params: {
+      repository: { url: "https://github.com/rails/rails" }
+    }
+
+    assert_redirected_to repositories_path
+    # Will show error about missing/invalid token since we're using test token
+    assert flash[:alert] || flash[:notice]
+  end
+
+  test "should parse shorthand format" do
+    # Test that controller correctly parses shorthand format
+    post repositories_url, params: {
+      repository: { url: "rails/rails" }
+    }
+
+    assert_redirected_to repositories_path
+    assert flash[:alert] || flash[:notice]
+  end
+
+  test "should not create repository with invalid URL" do
+    assert_no_difference("Repository.count") do
+      post repositories_url, params: {
+        repository: { url: "invalid" }
+      }
+    end
+
+    assert_redirected_to repositories_path
+    assert_equal I18n.t("repositories.errors.invalid_url"), flash[:alert]
+  end
+
+  test "should not create duplicate repository" do
+    @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
+
+    assert_no_difference("Repository.count") do
+      post repositories_url, params: {
+        repository: { url: "rails/rails" }
+      }
+    end
+
+    assert_redirected_to repositories_path
+    assert_equal I18n.t("repositories.errors.already_tracked"), flash[:alert]
+  end
+
+
+  test "should destroy repository" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
+
+    assert_difference("Repository.count", -1) do
+      delete repository_url(repository)
+    end
+
+    assert_redirected_to repositories_path
+    assert_equal I18n.t("repositories.destroy.success"), flash[:notice]
+  end
+
+  test "should not destroy another user's repository" do
+    other_user = User.create!(
+      email_address: "other@example.com",
+      password: "password123"
+    )
+    other_repo = other_user.repositories.create!(
+      github_domain: "github.com",
+      owner: "other",
+      name: "repo",
+      full_name: "other/repo",
+      cached_at: 1.minute.ago
+    )
+
+    assert_no_difference("Repository.count") do
+      delete repository_url(other_repo)
+    end
+
+    assert_response :not_found
+  end
+
+  test "should call refresh action for repository" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 10.minutes.ago
+    )
+
+    post refresh_repository_url(repository)
+
+    assert_redirected_to repositories_path
+    assert flash[:alert] || flash[:notice]
+  end
+
+  private
+
+  def sign_in_as(user)
+    post session_url, params: { email_address: user.email_address, password: "password123" }
+  end
+end

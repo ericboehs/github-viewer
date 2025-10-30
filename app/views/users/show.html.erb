@@ -20,20 +20,20 @@
 
   <!-- GitHub Tokens Section -->
   <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
-    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">GitHub Tokens</h3>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Manage your GitHub personal access tokens for different GitHub instances</p>
+    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4"><%= t('users.show.github_tokens.title') %></h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6"><%= t('users.show.github_tokens.description') %></p>
 
     <!-- Tokens Table -->
     <div class="overflow-hidden">
       <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
         <thead class="bg-gray-50 dark:bg-gray-800">
           <tr>
-            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">Domain</th>
-            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Token</th>
+            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6"><%= t('users.show.github_tokens.table.domain') %></th>
+            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white"><%= t('users.show.github_tokens.table.token') %></th>
             <% if @user.github_tokens.any? %>
-              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Added</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white"><%= t('users.show.github_tokens.table.added') %></th>
               <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                <span class="sr-only">Actions</span>
+                <span class="sr-only"><%= t('users.show.github_tokens.table.actions') %></span>
               </th>
             <% end %>
           </tr>
@@ -51,9 +51,9 @@
                 <%= time_ago_in_words(token.created_at) %> ago
               </td>
               <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                <%= button_to "Remove", github_token_path(token),
+                <%= button_to t('users.show.github_tokens.actions.remove'), github_token_path(token),
                     method: :delete,
-                    data: { confirm: "Are you sure you want to remove this token?" },
+                    data: { confirm: t('users.show.github_tokens.destroy.confirm') },
                     class: "text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300" %>
               </td>
             </tr>
@@ -89,7 +89,7 @@
 
         <div class="col-span-3 flex items-center justify-end pr-3">
           <%= render Auth::ButtonComponent.new(
-            text: "Add",
+            text: t('users.show.github_tokens.form.add_button'),
             type: :submit,
             variant: :primary
           ) %>
@@ -98,9 +98,9 @@
     <% end %>
 
     <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
-      Create a token at
+      <%= t('users.show.github_tokens.help_text') %>
       <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" class="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400">
-        GitHub Settings → Personal access tokens
+        <%= t('users.show.github_tokens.help_link') %>
       </a>
     </p>
   </div>
