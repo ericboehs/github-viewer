@@ -250,7 +250,7 @@ module Github
       )
 
       mock_client = mock("ApiClient")
-      mock_client.expects(:search_issues).with("repo:octocat/hello-world bug").returns([
+      mock_client.expects(:search_issues).with("repo:octocat/hello-world bug", sort: "updated", order: "desc").returns([
         {
           number: 4,
           title: "New bug found",
@@ -297,7 +297,7 @@ module Github
 
       mock_client = mock("ApiClient")
       expected_query = "repo:octocat/hello-world search term state:open label:\"bug\" assignee:dev1"
-      mock_client.expects(:search_issues).with(expected_query).returns([])
+      mock_client.expects(:search_issues).with(expected_query, sort: "updated", order: "desc").returns([])
 
       Github::ApiClient.expects(:new).returns(mock_client)
 

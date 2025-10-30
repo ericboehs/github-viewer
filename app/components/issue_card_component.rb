@@ -59,13 +59,12 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def issue_metadata
-    tag.div(class: "mt-2 ml-8 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400") do
+    tag.div(class: "mt-2 ml-8 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400") do
       safe_join([
         issue_number,
         author_info,
-        comment_count,
         timestamp
-      ].compact, tag.span("•", class: "text-gray-300 dark:text-gray-600"))
+      ].compact, tag.span("·", class: "text-gray-400 dark:text-gray-500"))
     end
   end
 
@@ -75,29 +74,13 @@ class IssueCardComponent < ViewComponent::Base
 
   def author_info
     author_login = @issue.author_login
-    return unless author_login
+    created_at = @issue.github_created_at
+    return unless author_login && created_at
 
     tag.span do
-      concat "opened by "
       concat tag.span(author_login, class: "font-medium")
-    end
-  end
-
-  def comment_count
-    count = @issue.comments_count
-    return if count.zero?
-
-    tag.span(class: "flex items-center gap-1") do
-      safe_join([
-        comment_icon,
-        tag.span(count.to_s)
-      ])
-    end
-  end
-
-  def comment_icon
-    tag.svg(class: "w-4 h-4", fill: "currentColor", viewBox: "0 0 16 16", xmlns: "http://www.w3.org/2000/svg") do
-      tag.path(d: "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z")
+      concat " opened "
+      concat helpers.time_ago_tag(created_at)
     end
   end
 
@@ -106,7 +89,7 @@ class IssueCardComponent < ViewComponent::Base
     return unless updated_at
 
     tag.span do
-      concat "updated "
+      concat "Updated "
       concat helpers.time_ago_tag(updated_at)
     end
   end

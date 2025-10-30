@@ -133,7 +133,7 @@ class IssueCardComponentTest < ViewComponent::TestCase
     assert_nil label_wrapper, "Labels wrapper should not be rendered when labels are empty"
   end
 
-  test "renders comment count when greater than zero" do
+  test "does not render comment count" do
     issue = @repository.issues.create!(
       number: 1,
       title: "Test Issue",
@@ -146,25 +146,9 @@ class IssueCardComponentTest < ViewComponent::TestCase
 
     render_inline(IssueCardComponent.new(issue: issue, repository: @repository))
 
-    assert_text "5"
-    assert_selector "svg" # comment icon
-  end
-
-  test "does not render comment count when zero" do
-    issue = @repository.issues.create!(
-      number: 1,
-      title: "Test Issue",
-      state: "open",
-      author_login: "author",
-      comments_count: 0,
-      github_created_at: 1.day.ago,
-      github_updated_at: 1.hour.ago
-    )
-
-    render_inline(IssueCardComponent.new(issue: issue, repository: @repository))
-
-    # Should not show "0" comments
-    assert_selector "svg", count: 1 # Only the state icon
+    # Comment count is not displayed in the new design
+    assert_no_text "5 comments"
+    assert_no_text "comment"
   end
 
   test "renders time tag with Stimulus controller" do

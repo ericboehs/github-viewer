@@ -65,9 +65,10 @@ module Github
 
       client = Github::ApiClient.new(token: github_token.token, domain: domain)
 
-      # Search using GitHub API
+      # Search using GitHub API with sort parameters
       search_query = build_github_search_query
-      results = client.search_issues(search_query)
+      sort_params = parse_sort_params
+      results = client.search_issues(search_query, sort: sort_params[:sort], order: sort_params[:order])
 
       # Handle API errors
       error = results[:error] if results.is_a?(Hash)
@@ -135,6 +136,22 @@ module Github
       parts << "label:\"#{label}\"" if label.present?
       parts << "assignee:#{assignee}" if assignee.present?
       parts.join(" ")
+    end
+
+    # Parse sort_by into GitHub API sort and order parameters
+    # Examples: "updated" -> {sort: "updated", order: "desc"}
+    #          "created-asc" -> {sort: "created", order: "asc"}
+    def parse_sort_params
+      return { sort: nil, order: nil } if sort_by.blank?
+
+      # Parse sort-direction format (e.g., "updated-asc")
+      if sort_by.include?("-")
+        parts = sort_by.split("-")
+        { sort: parts[0], order: parts[1] }
+      else
+        # Default to descending order
+        { sort: sort_by, order: "desc" }
+      end
     end
 
     # :reek:UtilityFunction - Data transformation helper

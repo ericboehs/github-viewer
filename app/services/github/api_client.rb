@@ -69,9 +69,14 @@ module Github
 
     # Search issues using GitHub's search API
     # Query syntax: https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests
-    def search_issues(query)
+    # :reek:LongParameterList - GitHub API requires these parameters
+    def search_issues(query, sort: nil, order: nil)
       with_rate_limiting do
-        results = @client.search_issues(query, per_page: ApiConfiguration::DEFAULT_PAGE_SIZE)
+        search_options = { per_page: ApiConfiguration::DEFAULT_PAGE_SIZE }
+        search_options[:sort] = sort if sort.present?
+        search_options[:order] = order if order.present?
+
+        results = @client.search_issues(query, search_options)
         results.items.map { |issue| normalize_issue_data(issue) }
       end
     rescue Octokit::NotFound

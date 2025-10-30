@@ -26,14 +26,17 @@ class IssuesController < ApplicationController
     # Parse search query for GitHub qualifiers
     parsed_query = parse_search_query(params[:q])
 
-    # Use search service for filtering and sorting
+    # Default to local mode for fast search
+    # Users can explicitly opt into GitHub mode via params[:search_mode]
+    search_mode = params[:search_mode]&.to_sym || :local
+
     search_result = Github::IssueSearchService.new(
       user: current_user,
       repository: @repository,
       query: parsed_query[:query],
-      filters: parsed_query[:filters].present? ? parsed_query[:filters].merge(build_filters) : build_filters,
+      filters: parsed_query[:filters],
       sort_by: parsed_query[:sort] || params[:sort] || "updated",
-      search_mode: parsed_query[:has_qualifiers] ? :github : (params[:search_mode]&.to_sym || :local)
+      search_mode: search_mode
     ).call
 
     if search_result[:success]
@@ -64,12 +67,15 @@ class IssuesController < ApplicationController
 
     result = Github::IssueSyncService.new(**sync_service_params).call
 
+    # Preserve search query
+    search_params = params[:q].present? ? { q: params[:q] } : {}
+
     # Determine redirect path based on whether this is a member or collection action
     redirect_path = if issue_id_present
       issue = @repository.issues.find_by!(number: issue_id)
       repository_issue_path(@repository, issue.number)
     else
-      repository_issues_path(@repository)
+      repository_issues_path(@repository, search_params)
     end
 
     if result[:success]
@@ -83,14 +89,6 @@ class IssuesController < ApplicationController
 
   def set_repository
     @repository = Current.user.repositories.find(params[:repository_id])
-  end
-
-  def build_filters
-    {
-      state: params[:state],
-      label: params[:label],
-      assignee: params[:assignee]
-    }.compact
   end
 
   def extract_unique_labels(issues)
