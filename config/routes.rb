@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   resource :session
   resources :passwords, param: :token
   resources :users, only: [ :new, :create ]
+  resources :github_tokens, only: [ :create, :destroy ]
   resources :repositories, only: [ :index, :create, :destroy ] do
     member do
       post :refresh

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 # Synchronizes repository data from GitHub API to local database
+# :reek:TooManyStatements - Service orchestrates token lookup, API call, and persistence
 class Github::RepositorySyncService
   attr_reader :user, :github_domain, :owner, :repo_name
 

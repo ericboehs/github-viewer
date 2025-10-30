@@ -4,7 +4,6 @@ class CreateGithubTokens < ActiveRecord::Migration[8.1]
       t.references :user, null: false, foreign_key: true
       t.string :domain, null: false, default: "github.com"
       t.text :token, null: false
-      t.string :label
 
       t.timestamps
     end
