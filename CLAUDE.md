@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Rails 8.1.0 application called **GitHub Team Auditor** (`GithubTeamAuditor` module) built for auditing GitHub teams. The application uses modern Rails features including Solid libraries (Cache, Queue, Cable) and is configured for deployment with Kamal.
+This is a Rails 8.1.0 application called **GitHub Issues Viewer** (`GithubViewer` module) built for viewing and managing GitHub issues with smart caching. The application provides a GitHub.com-quality UI for browsing issues from multiple repositories across GitHub.com and GitHub Enterprise, with per-user GitHub tokens and hybrid on-demand caching. Uses modern Rails features including Solid libraries (Cache, Queue, Cable) and is configured for deployment with Kamal.
 
 ## Development Commands
 
@@ -36,16 +36,48 @@ This is a Rails 8.1.0 application called **GitHub Team Auditor** (`GithubTeamAud
 - **Rails 8.1.0** with modern asset pipeline (Propshaft)
 - **Ruby 3.4.7**
 - **SQLite3** for all environments including production
+- **Octokit 10.0+** for GitHub REST and GraphQL API integration
 - **ImportMap** for JavaScript (no Node.js bundling)
 - **Hotwire** (Turbo + Stimulus) for interactivity
+- **Tailwind CSS** via CDN for GitHub-style UI
+- **ViewComponent** for reusable UI components
 - **Solid Libraries**: Database-backed cache, queue, and cable
 
 ### Multi-Database Setup
 The application uses separate SQLite databases:
-- Primary database for application data
-- `cache` database for Solid Cache
-- `queue` database for Solid Queue  
-- `cable` database for Solid Cable
+- **Primary database**: Users, repositories, issues, comments (with per-user caching)
+- **Cache database**: Solid Cache for application-level caching
+- **Queue database**: Solid Queue for background jobs
+- **Cable database**: Solid Cable for WebSocket connections
+
+### GitHub Integration Architecture
+
+#### Service Layer (`app/services/github/`)
+- **ApiConfiguration**: Centralized constants for rate limiting, retries, pagination
+- **ApiClient**: GitHub REST API client with rate limiting, retries, exponential backoff
+- **GraphqlClient**: GitHub GraphQL client for efficient batch queries
+- **RepositorySyncService**: Syncs repository metadata from GitHub API
+- **IssueSyncService**: Syncs issues with labels, assignees, comments
+- **IssueSearchService**: Handles both local SQLite and GitHub API search
+
+#### Caching Strategy
+- **Hybrid on-demand caching**: Serve cached data if available, fetch from API if cache is cold
+- **Per-user cache keying**: Each user maintains separate caches (user_id + repository_id)
+- **Manual refresh**: Users can refresh with staleness indicators
+- **Graceful degradation**: Show stale cached data with warnings when API fails (rate limit, invalid token)
+- **No background jobs initially**: All syncing happens on-demand in requests
+
+#### Models
+- **User**: Authentication + encrypted GitHub token + domain (github.com or GHE)
+- **Repository**: Per-user tracked repos (owner, name, metadata, cached_at)
+- **Issue**: Cached issues with full metadata (number, title, state, body, labels, assignees, cached_at)
+- **IssueComment**: Issue comments with author info and markdown body
+
+#### ViewComponents for GitHub UI
+- **Issue components**: IssueCard, IssueLabel, IssueState, IssueAssignee
+- **Comment components**: IssueComment with markdown rendering
+- **Repository components**: RepositoryCard
+- **Common components**: AvatarComponent, AlertComponent, staleness warnings
 
 ### Code Quality Standards
 - **EditorConfig**: UTF-8, LF line endings, 2-space indentation
@@ -68,7 +100,11 @@ See `docs/accessibility.md` for detailed accessibility testing guide.
 ## Key Files & Directories
 
 ### Application Structure
-- `app/` - Standard Rails MVC structure (currently minimal)
+- `app/models/` - User, Repository, Issue, IssueComment models
+- `app/controllers/` - Authentication, repositories, issues controllers
+- `app/components/` - ViewComponents for GitHub UI (issues, labels, comments, etc.)
+- `app/services/github/` - GitHub API integration services
+- `app/views/` - Slim templates for layouts and pages
 - `config/application.rb` - Main application configuration
 - `config/database.yml` - Multi-database SQLite configuration
 - `config/deploy.yml` - Kamal deployment configuration
@@ -111,10 +147,10 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 
 **Examples:**
 ```bash
-git commit -m "feat: add GitHub team member validation"
-git commit -m "fix: handle API rate limiting in team fetcher"
-git commit -m "docs: update setup instructions in README"
-git commit -m "refactor: extract team analysis logic to service"
+git commit -m "feat: add issue comment viewing with markdown rendering"
+git commit -m "fix: handle API rate limiting in issue sync service"
+git commit -m "docs: update GitHub token setup instructions in README"
+git commit -m "refactor: extract repository URL parsing to helper"
 ```
 
 ### Code Coverage

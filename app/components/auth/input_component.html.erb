@@ -1,15 +1,17 @@
 <div>
-  <% if forgot_password_link %>
-    <div class="flex items-center justify-between">
-      <%= form.label field, label_text, class: "block text-sm/6 font-medium text-gray-900 dark:text-white", for: field_id %>
-      <div class="text-sm">
-        <%= forgot_password_link %>
+  <% if label != nil %>
+    <% if forgot_password_link %>
+      <div class="flex items-center justify-between">
+        <%= form.label field, label_text, class: "block text-sm/6 font-medium text-gray-900 dark:text-white", for: field_id %>
+        <div class="text-sm">
+          <%= forgot_password_link %>
+        </div>
       </div>
-    </div>
-  <% else %>
-    <%= form.label field, label_text, class: "block text-sm/6 font-medium text-gray-900 dark:text-white", for: field_id %>
+    <% else %>
+      <%= form.label field, label_text, class: "block text-sm/6 font-medium text-gray-900 dark:text-white", for: field_id %>
+    <% end %>
   <% end %>
-  <div class="mt-2">
+  <div class="<%= label != nil ? 'mt-2' : '' %>">
     <%= form.send("#{type}_field", field,
           id: field_id,
           class: input_classes,

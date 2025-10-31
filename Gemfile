@@ -22,6 +22,15 @@ gem "jbuilder"
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 gem "bcrypt", "~> 3.1.7"
 
+# GitHub API client [https://github.com/octokit/octokit.rb]
+gem "octokit", "~> 10.0"
+# HTTP retry middleware [https://github.com/lostisland/faraday-retry]
+gem "faraday-retry"
+# Markdown rendering [https://github.com/gjtorikian/commonmarker]
+gem "commonmarker"
+# Pagination [https://github.com/ddnexus/pagy]
+gem "pagy"
+
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 
@@ -80,4 +89,7 @@ group :test do
 
   # Code coverage tracking
   gem "simplecov", require: false
+
+  # Mocking and stubbing for tests [https://github.com/freerange/mocha]
+  gem "mocha"
 end

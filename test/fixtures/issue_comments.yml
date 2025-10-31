@@ -1,0 +1,19 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  issue: one
+  github_id: 123456789
+  author_login: dhh
+  author_avatar_url: https://avatars.githubusercontent.com/u/2741?v=4
+  body: This looks good to me!
+  github_created_at: 2025-10-26 11:00:00
+  github_updated_at: 2025-10-26 11:00:00
+
+two:
+  issue: one
+  github_id: 123456790
+  author_login: tenderlove
+  author_avatar_url: https://avatars.githubusercontent.com/u/3?v=4
+  body: I agree, let's merge this.
+  github_created_at: 2025-10-27 09:30:00
+  github_updated_at: 2025-10-27 09:30:00

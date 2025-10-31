@@ -1,6 +1,6 @@
 # Testing Guide
 
-This document outlines the testing strategy and best practices for the RailsStarter application.
+This document outlines the testing strategy and best practices for the GithubViewer application.
 
 ## Overview
 
@@ -244,7 +244,7 @@ class AuthenticationTest < ApplicationSystemTestCase
     click_button "Sign in"
 
     assert_current_path root_path
-    assert_text "Welcome to RailsStarter"
+    assert_text "Welcome to GithubViewer"
   end
 
   test "user sees error with invalid credentials" do

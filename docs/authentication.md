@@ -1,6 +1,6 @@
 # Authentication System
 
-This document outlines the authentication system implemented in the RailsStarter application.
+This document outlines the authentication system implemented in the GithubViewer application.
 
 ## Overview
 
@@ -212,7 +212,7 @@ Sessions are configured in `config/application.rb`:
 
 ```ruby
 # Session store configuration
-config.session_store :cookie_store, key: '_rails_starter_session'
+config.session_store :cookie_store, key: '_github_viewer_session'
 ```
 
 ### Routes

@@ -1,7 +1,6 @@
 require "test_helper"
 
 # session1/session2 in these DSL-style tests trigger Reek despite being clear.
-# :reek:UncommunicativeVariableName { enabled: false }
 class UserTest < ActiveSupport::TestCase
   setup do
     @user = User.create!(
@@ -127,5 +126,35 @@ class UserTest < ActiveSupport::TestCase
     assert_raises(ActiveSupport::MessageVerifier::InvalidSignature) do
       User.find_by_password_reset_token!("invalid_token")
     end
+  end
+
+  test "should have many repositories" do
+    user = users(:one)
+    assert_respond_to user, :repositories
+  end
+
+  test "should have many github_tokens" do
+    user = users(:one)
+    assert_respond_to user, :github_tokens
+  end
+
+  test "should destroy dependent repositories" do
+    user = users(:one)
+    repo = user.repositories.first
+    repo_id = repo.id
+
+    user.destroy
+
+    assert_not Repository.exists?(repo_id)
+  end
+
+  test "should destroy dependent github_tokens" do
+    user = users(:one)
+    token = user.github_tokens.create!(domain: "github.com", token: "test_token")
+    token_id = token.id
+
+    user.destroy
+
+    assert_not GithubToken.exists?(token_id)
   end
 end

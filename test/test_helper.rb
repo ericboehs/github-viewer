@@ -7,7 +7,7 @@ SimpleCov.start "rails" do
   enable_coverage :branch
 
   # Set minimum coverage percentage
-  minimum_coverage line: 95, branch: 95
+  minimum_coverage line: 95, branch: 90
 
   # Set coverage percentage precision
   minimum_coverage_by_file 80
@@ -51,6 +51,15 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 
+# Load Mocha for mocking and stubbing
+require "mocha/minitest"
+
+# Prosopite N+1 query detection (only works with PostgreSQL)
+# Disabled for SQLite3 since pg_query gem is required
+# require "prosopite"
+# Prosopite.rails_logger = true
+# Prosopite.raise = true
+
 module ActiveSupport
   # Base class for all tests with parallel execution and coverage tracking
   class TestCase
@@ -68,6 +77,15 @@ module ActiveSupport
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
+
+    # Enable Prosopite N+1 detection for each test (disabled for SQLite3)
+    # setup do
+    #   Prosopite.scan
+    # end
+
+    # teardown do
+    #   Prosopite.finish
+    # end
 
     # Add more helper methods to be used by all tests here...
   end

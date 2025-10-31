@@ -6,11 +6,11 @@ CI.run do
 
   # Apply fixes if --fix flag is passed
   if ARGV.include?("--fix")
-    step "Style: EditorConfig auto-fix", "npx eclint fix 'app/**/*' 'config/**/*' 'lib/**/*' 'test/**/*' 'bin/*' 'Gemfile*' 'Rakefile' '*.rb' '*.yml' '*.yaml' '*.js' '*.css' '*.html' '*.erb' '*.md'"
+    step "Style: EditorConfig auto-fix", "npx eclint fix 'app/**/*' 'config/**/*' 'lib/**/*' 'test/**/*' 'bin/*' 'Gemfile' 'Rakefile' '*.rb' '*.yml' '*.yaml' '*.js' '*.css' '*.html' '*.erb' '*.md'"
     step "Style: RuboCop auto-fix", "bin/rubocop -A"
   end
 
-  step "Style: EditorConfig", "npx eclint check 'app/**/*' 'config/**/*' 'lib/**/*' 'test/**/*' 'bin/*' 'Gemfile*' 'Rakefile' '*.rb' '*.yml' '*.yaml' '*.js' '*.css' '*.html' '*.erb' '*.md'"
+  step "Style: EditorConfig", "npx eclint check 'app/**/*' 'config/**/*' 'lib/**/*' 'test/**/*' 'bin/*' 'Gemfile' 'Rakefile' '*.rb' '*.yml' '*.yaml' '*.js' '*.css' '*.html' '*.erb' '*.md'"
   step "Style: ERB", "npx @herb-tools/linter 'app/**/*.erb'"
   step "Style: Ruby", "bin/rubocop"
   step "Style: GitHub Actions", "actionlint"

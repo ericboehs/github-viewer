@@ -21,6 +21,86 @@
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%# Tailwind CSS Play CDN %>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <%# Prism.js for syntax highlighting with GitHub theme %>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/katorlys/prism-theme-github/themes/prism-theme-github-light.css" media="(prefers-color-scheme: light)">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/katorlys/prism-theme-github/themes/prism-theme-github-dark.css" media="(prefers-color-scheme: dark)">
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup-templating.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-ruby.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-erb.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-css.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-go.min.js"></script>
+    <script>
+      function highlightCodeBlocks() {
+        // Wait for Prism to be available
+        if (typeof Prism === 'undefined') {
+          setTimeout(highlightCodeBlocks, 50);
+          return;
+        }
+
+        document.querySelectorAll('.markdown pre code').forEach((block) => {
+          // Skip if already highlighted by Prism (check for data attribute)
+          if (block.hasAttribute('data-prism-highlighted')) return;
+
+          // Get the language from the pre tag's lang attribute
+          const pre = block.parentElement;
+          let lang = pre.getAttribute('lang');
+
+          // Remove commonmarker's span tags and get plain text
+          const plainText = block.textContent;
+          block.textContent = plainText;
+
+          // Smart ERB detection
+          const hasErbTags = plainText.includes('<' + '%') || plainText.includes('%' + '>');
+
+          if (lang === 'ruby' && hasErbTags) {
+            // Ruby code with ERB tags → use ERB
+            lang = 'erb';
+          } else if (lang === 'erb' && !hasErbTags) {
+            // Marked as ERB but no ERB tags → fall back to ruby
+            // (ERB highlighter can't highlight plain code)
+            lang = 'ruby';
+          }
+
+          // Add language class if available
+          if (lang) {
+            block.className = `language-${lang}`;
+          }
+
+          // Highlight with Prism
+          Prism.highlightElement(block);
+
+          // Mark as highlighted
+          block.setAttribute('data-prism-highlighted', 'true');
+        });
+      }
+
+      // Clear highlighting markers before caching (for Turbo cache restoration)
+      document.addEventListener('turbo:before-cache', () => {
+        document.querySelectorAll('.markdown pre code').forEach((block) => {
+          block.removeAttribute('data-prism-highlighted');
+          block.className = '';  // Reset className so it gets recalculated from pre[lang]
+        });
+      });
+
+      // Run on turbo:load (for turbo navigation)
+      document.addEventListener('turbo:load', highlightCodeBlocks);
+
+      // Also run when DOM is ready (for initial page load)
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', highlightCodeBlocks);
+      } else {
+        // DOM is already ready, run immediately
+        highlightCodeBlocks();
+      }
+    </script>
     <style type="text/tailwindcss">
       @theme {
         --color-emerald-50: #ecfdf5;

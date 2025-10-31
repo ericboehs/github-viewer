@@ -1,4 +1,8 @@
+<% content_for :title, t('users.show.page_title') %>
+
 <%= render UserPageComponent.new(title_key: 'users.show.title') do %>
+  <%= render 'shared/flash_messages' %>
+
   <div class="flex flex-col items-center text-center space-y-4">
     <%= render AvatarComponent.new(user: @user, size: 20, text_size: "2xl") %>
 
@@ -14,5 +18,92 @@
         variant: :secondary
       ) %>
     </div>
+  </div>
+
+  <!-- GitHub Tokens Section -->
+  <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
+    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4"><%= t('users.show.github_tokens.title') %></h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6"><%= t('users.show.github_tokens.description') %></p>
+
+    <!-- Tokens Table -->
+    <div class="overflow-hidden">
+      <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-800">
+          <tr>
+            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6"><%= t('users.show.github_tokens.table.domain') %></th>
+            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white"><%= t('users.show.github_tokens.table.token') %></th>
+            <% if @user.github_tokens.any? %>
+              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white"><%= t('users.show.github_tokens.table.added') %></th>
+              <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                <span class="sr-only"><%= t('users.show.github_tokens.table.actions') %></span>
+              </th>
+            <% end %>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+          <% @user.github_tokens.order(created_at: :desc).each do |token| %>
+            <tr>
+              <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white font-mono sm:pl-6">
+                <%= token.domain %>
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                <%= token.token.first(6) %>*****<%= token.token.last(2) %>
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                <%= time_ago_in_words(token.created_at) %> ago
+              </td>
+              <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                <%= button_to t('users.show.github_tokens.actions.remove'), github_token_path(token),
+                    method: :delete,
+                    data: { confirm: t('users.show.github_tokens.destroy.confirm') },
+                    class: "text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Add Token Form -->
+    <%= form_with model: GithubToken.new(domain: "github.com"), url: github_tokens_path, local: true, autocomplete: "off", class: "border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800" do |f| %>
+      <div class="grid grid-cols-12 gap-8 py-4 pl-3 pr-3">
+        <div class="col-span-3">
+          <%= render Auth::InputComponent.new(
+            form: f,
+            field: :domain,
+            label: nil,
+            type: :text,
+            placeholder: "github.com",
+            autocomplete: "off"
+          ) %>
+        </div>
+
+        <div class="col-span-6">
+          <%= render Auth::InputComponent.new(
+            form: f,
+            field: :token,
+            label: nil,
+            type: :text,
+            placeholder: "ghp_xxxxxxxxxxxx",
+            autocomplete: "off"
+          ) %>
+        </div>
+
+        <div class="col-span-3 flex items-center justify-end pr-3">
+          <%= render Auth::ButtonComponent.new(
+            text: t('users.show.github_tokens.form.add_button'),
+            type: :submit,
+            variant: :primary
+          ) %>
+        </div>
+      </div>
+    <% end %>
+
+    <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+      <%= t('users.show.github_tokens.help_text') %>
+      <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" class="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400">
+        <%= t('users.show.github_tokens.help_link') %>
+      </a>
+    </p>
   </div>
 <% end %>

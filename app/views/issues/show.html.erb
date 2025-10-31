@@ -1,0 +1,155 @@
+<% content_for :title, "#{@issue.title} ##{@issue.number} - #{@repository.full_name}" %>
+
+<div class="min-h-full bg-white dark:bg-black">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <header class="mb-6 sm:mb-8">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-4">
+        <%= render 'shared/flash_messages' %>
+      </div>
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="mb-3">
+          <h1 class="text-2xl sm:text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white break-words">
+            <%= @issue.title %>
+            <%= link_to "##{@issue.number}",
+                "https://#{@repository.github_domain}/#{@repository.owner}/#{@repository.name}/issues/#{@issue.number}",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                class: "text-gray-500 dark:text-gray-400 font-normal hover:text-blue-600 dark:hover:text-blue-400 hover:underline" %>
+          </h1>
+        </div>
+        <div class="flex items-center">
+          <%= render IssueStateComponent.new(state: @issue.state, show_text: true) %>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="lg:grid lg:grid-cols-12 lg:gap-8">
+          <!-- Main Content Area -->
+          <div class="lg:col-span-9">
+            <!-- Issue Body -->
+            <div class="mb-6">
+              <div class="bg-white dark:bg-black rounded-lg border border-blue-200 dark:border-gray-700 overflow-hidden">
+                <!-- Header -->
+                <div class="bg-blue-50 dark:bg-gray-900 px-4 py-3 border-b border-blue-200 dark:border-gray-700">
+                  <div class="flex items-center gap-2">
+                    <% if @issue.author_avatar_url %>
+                      <%= render AvatarComponent.new(
+                        src: @issue.author_avatar_url,
+                        alt: @issue.author_login || "Author",
+                        size: :small
+                      ) %>
+                    <% end %>
+                    <span class="font-semibold text-gray-900 dark:text-white"><%= @issue.author_login || "Unknown" %></span>
+                    <span class="text-gray-500 dark:text-gray-400 text-sm">
+                      opened <%= time_ago_tag(@issue.github_created_at) %>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Body -->
+                <div class="px-4 sm:px-6 py-4 sm:py-5">
+                  <% if @issue.body.present? %>
+                    <div class="markdown text-gray-900 dark:text-gray-200">
+                      <%= render_markdown(@issue.body) %>
+                    </div>
+                  <% else %>
+                    <p class="text-gray-500 dark:text-gray-400 italic"><%= t('issues.show.no_description') %></p>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+
+            <!-- Comments -->
+            <% if @issue.issue_comments.any? %>
+              <div class="mb-6 space-y-4">
+                <% @issue.issue_comments.each do |comment| %>
+                  <%= render IssueCommentComponent.new(comment: comment) %>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
+          <!-- Sidebar -->
+          <div class="lg:col-span-3 mb-6 lg:mb-0">
+            <div class="space-y-4">
+              <!-- Assignees Section -->
+              <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3"><%= t('issues.show.assignees_heading') %></h3>
+                <% if @issue.assignees.present? %>
+                  <div class="space-y-2">
+                    <% @issue.assignees.each do |assignee| %>
+                      <div class="flex items-center gap-2">
+                        <%= render AvatarComponent.new(
+                          src: assignee["avatar_url"] || assignee[:avatar_url],
+                          alt: assignee["login"] || assignee[:login],
+                          size: :small
+                        ) %>
+                        <span class="text-sm text-gray-900 dark:text-gray-200 font-medium"><%= assignee["login"] || assignee[:login] %></span>
+                      </div>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 italic"><%= t('issues.show.no_assignees') %></p>
+                <% end %>
+              </div>
+
+              <!-- Labels Section -->
+              <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3"><%= t('issues.show.labels_heading') %></h3>
+                <% if @issue.labels.present? %>
+                  <div class="flex flex-wrap gap-1.5">
+                    <% @issue.labels.each do |label| %>
+                      <%= render IssueLabelComponent.new(label: label) %>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 italic"><%= t('issues.show.no_labels') %></p>
+                <% end %>
+              </div>
+
+              <!-- Metadata Section -->
+              <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3"><%= t('issues.show.details_heading') %></h3>
+                <dl class="space-y-2">
+                  <% if @issue.github_created_at %>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400"><%= t('issues.show.opened_label') %></dt>
+                      <dd class="text-sm text-gray-900 dark:text-gray-200"><%= time_ago_tag(@issue.github_created_at) %></dd>
+                    </div>
+                  <% end %>
+                  <% if @issue.github_updated_at %>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400"><%= t('issues.show.updated_label') %></dt>
+                      <dd class="text-sm text-gray-900 dark:text-gray-200"><%= time_ago_tag(@issue.github_updated_at) %></dd>
+                    </div>
+                  <% end %>
+                  <div>
+                    <dt class="text-xs text-gray-500 dark:text-gray-400"><%= t('issues.show.comments_label') %></dt>
+                    <dd class="text-sm text-gray-900 dark:text-gray-200"><%= @issue.comments_count %></dd>
+                  </div>
+                  <% if @issue.cached_at.present? %>
+                    <div>
+                      <dt class="text-xs text-gray-500 dark:text-gray-400"><%= t('issues.show.refreshed_label') %></dt>
+                      <dd class="text-sm text-gray-900 dark:text-gray-200 flex items-center gap-1">
+                        <%= time_ago_tag(@issue.cached_at) %>
+                        <%= button_to refresh_repository_issue_path(@repository, @issue.number, debug: params[:debug]), method: :post, class: "inline-flex items-center text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer" do %>
+                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        <% end %>
+                      </dd>
+                    </div>
+                  <% end %>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

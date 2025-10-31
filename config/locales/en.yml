@@ -4,16 +4,91 @@ en:
     dismiss: Dismiss
     validation_errors_header: 'Please correct the following errors:'
   app:
-    logo_alt: RailsStarter
-    title: RailsStarter
+    description: GitHub Issues Viewer with smart caching
+    logo_alt: GithubViewer
+    title: GithubViewer
+  auth:
+    forgot_password:
+      page_title: Forgot Password
+    passwords:
+      invalid_or_expired: Password reset link is invalid or has expired.
+      mismatch: Passwords did not match.
+      reset_sent: Password reset instructions sent (if user with that email address exists).
+      reset_success: Password has been reset.
+    reset_password:
+      page_title: Reset Password
+    sessions:
+      rate_limit: Try again later.
+    sign_in:
+      invalid_credentials: Invalid email or password
+      page_title: Sign In
+    sign_up:
+      page_title: Sign Up
+    users:
+      create_success: Account created successfully! Please sign in.
   buttons:
     cancel: Cancel
   dashboard:
+    page_title: Dashboard
+    recently_updated_heading: Recently Updated Repositories
     section_title: Dashboard
-    welcome_message: Welcome to RailsStarter! Features will be available here soon.
-    welcome_title: Welcome to RailsStarter
+    updated_prefix: Updated
+    welcome_message: Welcome to GithubViewer! Features will be available here soon.
+    welcome_title: Welcome to GithubViewer
   errors:
     form_submission_errors: There were errors with your submission
+  github_tokens:
+    create:
+      error: 'Failed to add token: %{errors}'
+      success: GitHub token added successfully.
+    destroy:
+      success: GitHub token removed successfully.
+  issues:
+    errors:
+      cannot_reach_showing_cached: 'Cannot reach %{domain}. Showing cached data. Error: %{error}'
+      rate_limit_unavailable: Rate limit info unavailable
+      rate_limited_showing_cached: '%{error}. Showing all cached issues.'
+    index:
+      assignee_filter:
+        button: Assignees
+        no_assignees: No assignees
+        search_placeholder: Search assignees...
+      empty:
+        description: This repository has no issues, or they haven't been synced yet.
+        title: No issues found
+      refresh_button: Refresh
+      search_button: Search
+      search_placeholder: Search issues... (e.g., is:open label:bug)
+      stale_tooltip: Issues were last synced %{time}
+      state_filter:
+        closed: Closed
+        open: Open
+      title: Issues
+    page_title: Issues
+    rate_limits:
+      notice: 'GitHub Rate Limits - %{messages}'
+      warning: 'GitHub Rate Limits - %{messages}'
+    refresh:
+      error: 'Failed to refresh issues: %{error}'
+      success: Successfully synced %{count} issues
+    show:
+      assignees_heading: Assignees
+      back_to_list: Back to Issues
+      comments: Comments
+      comments_label: Comments
+      details_heading: Details
+      labels_heading: Labels
+      last_refreshed: Refreshed %{time} ago
+      no_assignees: No one assigned
+      no_comments: No comments yet
+      no_description: No description provided.
+      no_labels: None yet
+      opened_label: Opened
+      refresh_button: Refresh
+      refreshed_label: Refreshed
+      title: 'Issue #%{number}'
+      updated_label: Updated
+    sync_error: 'Failed to sync issues: %{error}'
   mailer:
     password_reset:
       body_html: You can reset your password within the next 15 minutes on
@@ -24,14 +99,53 @@ en:
     dashboard: Dashboard
     mobile_menu:
       open: Open main menu
+    repositories: Repositories
     user_menu:
       open: Open user menu
       profile: Your Profile
       sign_out: Sign out
+  repositories:
+    create:
+      error: 'Failed to add repository: %{error}'
+      success: Repository added successfully.
+    destroy:
+      confirm: Are you sure you want to remove this repository?
+      success: Repository removed successfully.
+    errors:
+      already_tracked: Repository already tracked.
+      invalid_url: 'Invalid repository URL. Please use format: owner/repo or https://github.com/owner/repo'
+    index:
+      actions:
+        refresh: Refresh
+        remove: Remove
+      empty:
+        description: Get started by adding your first repository.
+        title: No repositories
+      import:
+        button: Add Repository
+        description: Add a GitHub repository by URL or shorthand (e.g., owner/repo)
+        format_examples:
+          domain: github.com/owner/repo
+          full_url: https://github.com/owner/repo
+          shorthand: owner/repo
+        formats_label: 'Supports formats:'
+        title: Add Repository
+      table:
+        actions: Actions
+        domain: Domain
+        last_synced: Last Synced
+        never_synced: Never synced
+        repository: Repository
+      title: Repositories
+    page_title: Repositories
+    refresh:
+      error: 'Failed to refresh repository: %{error}'
+      success: Repository refreshed successfully.
   users:
     avatar:
       gravatar_description: Avatar from Gravatar
     edit:
+      page_title: Edit Profile
       title: Edit Profile
     form:
       email_label: Email address
@@ -41,5 +155,25 @@ en:
       update_button: Update Profile
     show:
       edit_button: Edit Profile
+      github_tokens:
+        actions:
+          remove: Remove
+        description: Manage your GitHub personal access tokens for different GitHub
+          instances
+        destroy:
+          confirm: Are you sure you want to remove this token?
+        form:
+          add_button: Add
+        help_link: GitHub Settings → Personal access tokens
+        help_text: Create a token at
+        table:
+          actions: Actions
+          added: Added
+          domain: Domain
+          token: Token
+        title: GitHub Tokens
       member_since: Member since %{date}
+      page_title: Profile
       title: Your Profile
+    update:
+      success: Profile updated successfully.
