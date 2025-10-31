@@ -12,6 +12,7 @@ class Issue < ApplicationRecord
   scope :by_state, ->(state) { where(state: state) if state.present? }
   scope :with_label, ->(label) { where("labels LIKE ?", "%#{label}%") if label.present? }
   scope :assigned_to, ->(login) { where("assignees LIKE ?", "%#{login}%") if login.present? }
+  scope :authored_by, ->(login) { where(author_login: login) if login.present? }
   scope :recently_cached, -> { where("cached_at > ?", 5.minutes.ago) }
 
   def open?

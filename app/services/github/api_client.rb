@@ -5,6 +5,10 @@ module Github
   # :reek:TooManyStatements - Complex API client with rate limiting and error handling
   # :reek:DataClump - owner/repo_name are GitHub's standard repository identifiers
   # :reek:MissingSafeMethod - validate_config! raises by design for invalid config
+  # :reek:TooManyMethods - API client provides comprehensive GitHub API access
+  # :reek:InstanceVariableAssumption - Client caches rate limit data
+  # :reek:DuplicateMethodCall - Client response accessed for readability
+  # :reek:FeatureEnvy - Methods delegate to rate_limit and headers objects
   class ApiClient
     include ActiveSupport::Configurable
 
@@ -77,6 +81,10 @@ module Github
         search_options[:order] = order if order.present?
 
         results = @client.search_issues(query, search_options)
+
+        # Capture rate limit info from response headers
+        @last_rate_limit = extract_rate_limit_from_headers
+
         results.items.map { |issue| normalize_issue_data(issue) }
       end
     rescue Octokit::NotFound
@@ -96,6 +104,11 @@ module Github
       { success: false, error: "Invalid GitHub token" }
     rescue => e
       { success: false, error: e.message }
+    end
+
+    def rate_limit_info
+      # Return the rate limit info captured from the last API call
+      @last_rate_limit
     end
 
     private
@@ -131,16 +144,9 @@ module Github
         check_rate_limit
         yield
       rescue Octokit::TooManyRequests => e
-        if retries < config.max_retries
-          retries += 1
-          reset_time = e.response_headers["x-ratelimit-reset"].to_i
-          sleep_time = [ reset_time - Time.now.to_i, ApiConfiguration::MAX_RETRY_DELAY ].min
-          Rails.logger.warn "Rate limited. Sleeping for #{sleep_time}s (attempt #{retries}/#{config.max_retries})"
-          sleep(sleep_time) if sleep_time > 0
-          retry
-        else
-          raise
-        end
+        # Don't retry on rate limit - fail fast and let controller fall back to cache
+        Rails.logger.warn "Rate limited. Failing fast to allow cache fallback."
+        raise
       rescue Octokit::ServerError => e
         if retries < config.max_retries
           retries += 1
@@ -165,14 +171,41 @@ module Github
 
       Rails.logger.debug "Rate limit: #{remaining}/#{limit} remaining, resets at #{rate_limit.resets_at}"
 
+      # Don't sleep on warnings - just log and let request proceed
+      # This allows fast fallback to cache when rate limited
       if remaining < ApiConfiguration::CRITICAL_RATE_LIMIT_THRESHOLD
-        reset_time = rate_limit.resets_at
-        sleep_time = [ reset_time - Time.now, ApiConfiguration::MIN_CRITICAL_DELAY ].max
-        Rails.logger.warn "Rate limit critical (#{remaining}/#{limit}). Sleeping #{sleep_time}s"
-        sleep(sleep_time) if sleep_time > 0
+        Rails.logger.warn "Rate limit critical (#{remaining}/#{limit}). Request may be rate limited."
       elsif remaining < ApiConfiguration::WARNING_RATE_LIMIT_THRESHOLD
-        sleep(config.default_rate_limit_delay)
+        Rails.logger.debug "Rate limit warning (#{remaining}/#{limit})."
       end
+    end
+
+    # Extract rate limit info from the last response headers
+    # GitHub returns rate limit info in X-RateLimit-* headers
+    def extract_rate_limit_from_headers
+      return nil unless @client.last_response
+
+      headers = @client.last_response.headers
+      remaining = headers["x-ratelimit-remaining"]
+      limit = headers["x-ratelimit-limit"]
+      reset = headers["x-ratelimit-reset"]
+      resource = headers["x-ratelimit-resource"]
+
+      return nil unless remaining && limit && reset
+
+      # GitHub has different resources: core (5000/hr), search (30/min), graphql, etc.
+      info = {
+        resource => {
+          remaining: remaining.to_i,
+          limit: limit.to_i,
+          resets_at: Time.at(reset.to_i)
+        }
+      }
+
+      info
+    rescue StandardError => error
+      Rails.logger.debug "Could not extract rate limit from headers: #{error.message}"
+      nil
     end
 
     # :reek:UtilityFunction - Data transformation helper

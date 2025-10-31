@@ -138,7 +138,7 @@ module Github
       service = IssueSearchService.new(
         user: @user,
         repository: @repository,
-        filters: { label: "bug" }
+        filters: { labels: [ "bug" ] }
       )
       result = service.call
 
@@ -165,7 +165,7 @@ module Github
         user: @user,
         repository: @repository,
         query: "feature",
-        filters: { state: "open", label: "enhancement" }
+        filters: { state: "open", labels: [ "enhancement" ] }
       )
       result = service.call
 
@@ -250,7 +250,7 @@ module Github
       )
 
       mock_client = mock("ApiClient")
-      mock_client.expects(:search_issues).with("repo:octocat/hello-world bug", sort: "updated", order: "desc").returns([
+      mock_client.expects(:search_issues).with("repo:octocat/hello-world bug", sort: "created", order: "desc").returns([
         {
           number: 4,
           title: "New bug found",
@@ -265,6 +265,7 @@ module Github
           updated_at: 1.day.ago
         }
       ])
+      mock_client.expects(:rate_limit_info).returns(nil)
 
       Github::ApiClient.expects(:new).with(
         token: github_token.token,
@@ -297,7 +298,8 @@ module Github
 
       mock_client = mock("ApiClient")
       expected_query = "repo:octocat/hello-world search term state:open label:\"bug\" assignee:dev1"
-      mock_client.expects(:search_issues).with(expected_query, sort: "updated", order: "desc").returns([])
+      mock_client.expects(:search_issues).with(expected_query, sort: "created", order: "desc").returns([])
+      mock_client.expects(:rate_limit_info).returns(nil)
 
       Github::ApiClient.expects(:new).returns(mock_client)
 
@@ -305,7 +307,7 @@ module Github
         user: @user,
         repository: @repository,
         query: "search term",
-        filters: { state: "open", label: "bug", assignee: "dev1" },
+        filters: { state: "open", labels: [ "bug" ], assignee: "dev1" },
         search_mode: :github
       )
       result = service.call
@@ -422,6 +424,72 @@ module Github
 
       refute result[:success]
       assert_includes result[:error], "Invalid search mode"
+    end
+
+    test "should sort by comments when sort_by is comments" do
+      service = IssueSearchService.new(
+        user: @user,
+        repository: @repository,
+        sort_by: "comments",
+        search_mode: :local
+      )
+      result = service.call
+
+      assert result[:success]
+      # issue2 has 10 comments, issue1 has 5 comments
+      assert_equal 2, result[:issues].first.number
+    end
+
+    test "should handle blank sort_by parameter" do
+      service = IssueSearchService.new(
+        user: @user,
+        repository: @repository,
+        sort_by: "",
+        search_mode: :local
+      )
+      result = service.call
+
+      assert result[:success]
+      # Should still return all issues
+      assert result[:issues].length >= 2
+    end
+
+    test "should parse sort with direction separator" do
+      service = IssueSearchService.new(
+        user: @user,
+        repository: @repository,
+        sort_by: "created-asc",
+        search_mode: :local
+      )
+      result = service.call
+
+      assert result[:success]
+      # Should return issues in some order
+      assert result[:issues].any?
+    end
+
+    test "should handle rate limit error without rate limit headers" do
+      @user.github_tokens.create!(domain: "github.com", token: "test_token")
+
+      mock_client = mock("ApiClient")
+      mock_error = Octokit::TooManyRequests.new(
+        response_headers: {}
+      )
+      mock_client.expects(:search_issues).raises(mock_error)
+
+      Github::ApiClient.expects(:new).returns(mock_client)
+
+      service = IssueSearchService.new(
+        user: @user,
+        repository: @repository,
+        query: "test",
+        search_mode: :github
+      )
+      result = service.call
+
+      refute result[:success]
+      assert_includes result[:error], "rate limit"
+      assert_nil result[:rate_limit]
     end
   end
 end

@@ -76,8 +76,7 @@ class IssueCardComponentTest < ViewComponent::TestCase
 
     render_inline(IssueCardComponent.new(issue: issue, repository: @repository))
 
-    assert_text "opened by"
-    assert_text "cooldev"
+    assert_text "cooldev opened"
   end
 
   test "does not render author section when author_login is nil" do
@@ -133,22 +132,33 @@ class IssueCardComponentTest < ViewComponent::TestCase
     assert_nil label_wrapper, "Labels wrapper should not be rendered when labels are empty"
   end
 
-  test "does not render comment count" do
+  test "renders comment count when issue has comments" do
     issue = @repository.issues.create!(
       number: 1,
       title: "Test Issue",
       state: "open",
       author_login: "author",
-      comments_count: 5,
       github_created_at: 1.day.ago,
       github_updated_at: 1.hour.ago
     )
 
+    # Create some issue_comments
+    3.times do |i|
+      issue.issue_comments.create!(
+        github_id: i + 1,
+        body: "Test comment",
+        author_login: "commenter",
+        author_avatar_url: "https://example.com/avatar.png",
+        github_created_at: 1.hour.ago,
+        github_updated_at: 1.hour.ago
+      )
+    end
+
     render_inline(IssueCardComponent.new(issue: issue, repository: @repository))
 
-    # Comment count is not displayed in the new design
-    assert_no_text "5 comments"
-    assert_no_text "comment"
+    # Comment count should be displayed with icon and number
+    assert_selector "svg"
+    assert_text "3"
   end
 
   test "renders time tag with Stimulus controller" do
@@ -165,7 +175,7 @@ class IssueCardComponentTest < ViewComponent::TestCase
 
     assert_selector "time[data-controller='time']"
     assert_selector "time[datetime]"
-    assert_text "updated"
+    assert_text "Updated"
   end
 
   test "renders time tag with ISO 8601 datetime" do
@@ -184,7 +194,7 @@ class IssueCardComponentTest < ViewComponent::TestCase
     assert_selector "time[datetime*='2025-01-15T']"
   end
 
-  test "does not render timestamp when github_updated_at is nil" do
+  test "does not render updated timestamp when github_updated_at is nil" do
     issue = @repository.issues.build(
       number: 1,
       title: "Test Issue",
@@ -196,6 +206,8 @@ class IssueCardComponentTest < ViewComponent::TestCase
 
     render_inline(IssueCardComponent.new(issue: issue, repository: @repository))
 
-    assert_no_selector "time"
+    # Should still show created time, but not updated time
+    assert_selector "time", count: 1
+    assert_no_text "Updated"
   end
 end

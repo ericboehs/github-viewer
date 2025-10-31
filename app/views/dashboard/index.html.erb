@@ -11,14 +11,36 @@
     </header>
     <main>
       <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div class="px-4 py-5 sm:p-6">
-            <h2 class="text-lg font-medium leading-6 text-gray-900 dark:text-white"><%= t('dashboard.section_title') %></h2>
-            <div class="mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-              <p><%= t('dashboard.welcome_message') %></p>
+        <% if @recently_updated_repos.any? %>
+          <div>
+            <h2 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4"><%= t('dashboard.recently_updated_heading') %></h2>
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
+              <% @recently_updated_repos.each do |repository| %>
+                <div class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  <%= link_to repository_issues_path(repository), class: "block" do %>
+                    <div class="flex items-center justify-between">
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-blue-600 dark:text-blue-400 truncate hover:underline">
+                          <%= repository.full_name %>
+                        </p>
+                        <% if repository.description.present? %>
+                          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                            <%= repository.description %>
+                          </p>
+                        <% end %>
+                      </div>
+                      <div class="ml-4 flex-shrink-0 text-right">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                          <%= t('dashboard.updated_prefix') %> <%= time_ago_tag(repository.cached_at) %>
+                        </p>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
             </div>
           </div>
-        </div>
+        <% end %>
       </div>
     </main>
   </div>

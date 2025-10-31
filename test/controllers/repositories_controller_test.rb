@@ -14,7 +14,20 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user)
   end
 
+  test "should redirect to new when no repositories" do
+    get repositories_url
+    assert_redirected_to new_repository_path
+  end
+
   test "should get index" do
+    # Create at least one repository so we don't get redirected to new
+    @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
     get repositories_url
     assert_response :success
   end
@@ -37,8 +50,8 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
     get repositories_url
     assert_response :success
-    assert_select "td", text: "rails/rails"
-    assert_select "td", text: "ruby/ruby"
+    assert_select "a", text: "rails/rails"
+    assert_select "a", text: "ruby/ruby"
   end
 
   test "should parse and handle valid GitHub URL" do
@@ -144,6 +157,74 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to repositories_path
     assert flash[:alert] || flash[:notice]
+  end
+
+  test "should handle refresh success" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 10.minutes.ago
+    )
+
+    mock_service = mock("RepositorySyncService")
+    mock_service.expects(:call).returns({ success: true })
+
+    Github::RepositorySyncService.expects(:new).returns(mock_service)
+
+    post refresh_repository_url(repository)
+
+    assert_redirected_to repositories_path
+    assert_equal I18n.t("repositories.refresh.success"), flash[:notice]
+  end
+
+  test "should handle refresh error" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 10.minutes.ago
+    )
+
+    mock_service = mock("RepositorySyncService")
+    mock_service.expects(:call).returns({ success: false, error: "API rate limit" })
+
+    Github::RepositorySyncService.expects(:new).returns(mock_service)
+
+    post refresh_repository_url(repository)
+
+    assert_redirected_to repositories_path
+    assert flash[:alert].include?("API rate limit")
+  end
+
+  test "should handle create success" do
+    mock_service = mock("RepositorySyncService")
+    mock_service.expects(:call).returns({ success: true })
+
+    Github::RepositorySyncService.expects(:new).returns(mock_service)
+
+    post repositories_url, params: {
+      repository: { url: "rails/rails" }
+    }
+
+    assert_redirected_to repositories_path
+    assert_equal I18n.t("repositories.create.success"), flash[:notice]
+  end
+
+  test "should handle create error" do
+    mock_service = mock("RepositorySyncService")
+    mock_service.expects(:call).returns({ success: false, error: "Invalid token" })
+
+    Github::RepositorySyncService.expects(:new).returns(mock_service)
+
+    post repositories_url, params: {
+      repository: { url: "owner/repo" }
+    }
+
+    assert_redirected_to repositories_path
+    assert flash[:alert].include?("Invalid token")
   end
 
   private

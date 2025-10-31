@@ -288,6 +288,9 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, issue_number|
       issue_number == 1 ? test_context.sample_comments_data : []
     end
+    mock_client.define_singleton_method(:rate_limit_info) do
+      nil
+    end
     mock_client
   end
 
@@ -300,6 +303,9 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
       []
     end
+    mock_client.define_singleton_method(:rate_limit_info) do
+      nil
+    end
     mock_client
   end
 
@@ -311,6 +317,9 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     end
     mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
       []
+    end
+    mock_client.define_singleton_method(:rate_limit_info) do
+      nil
     end
     mock_client
   end

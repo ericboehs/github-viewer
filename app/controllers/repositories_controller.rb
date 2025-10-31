@@ -1,11 +1,17 @@
 # frozen_string_literal: true
 
 # Controller for managing tracked GitHub repositories
+# :reek:InstanceVariableAssumption - Controller sets instance variables for views
 class RepositoriesController < ApplicationController
   include RepositoriesHelper
 
   def index
     @repositories = Current.user.repositories.order(cached_at: :desc)
+    redirect_to new_repository_path if @repositories.empty?
+  end
+
+  def new
+    @repository = Repository.new
   end
 
   # :reek:TooManyStatements - Controller action orchestrates URL parsing, duplicate check, and API sync

@@ -12,7 +12,7 @@ class UsersController < ApplicationController
     @user = User.new(user_params)
 
     if @user.save
-      redirect_to new_session_path, notice: "Account created successfully! Please sign in."
+      redirect_to new_session_path, notice: t("auth.users.create_success")
     else
       render :new, status: :unprocessable_entity
     end
@@ -30,7 +30,7 @@ class UsersController < ApplicationController
     @user = Current.user
 
     if @user.update(user_params)
-      redirect_to user_path, notice: "Profile updated successfully."
+      redirect_to user_path, notice: t("users.update.success")
     else
       render :edit, status: :unprocessable_entity
     end

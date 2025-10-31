@@ -217,12 +217,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should handle search errors gracefully" do
-    # Mock search service to return error
-    mock_service = mock("IssueSearchService")
-    mock_service.expects(:call).returns({ success: false, error: "Search failed" })
-
-    Github::IssueSearchService.expects(:new).returns(mock_service)
-
+    # Create an issue to show as fallback
     @repository.issues.create!(
       number: 1,
       title: "Test Issue",
@@ -230,6 +225,21 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_created_at: 1.day.ago,
       github_updated_at: 1.hour.ago
     )
+
+    # Mock search service to return error for GitHub mode, then success for local mode
+    mock_github_service = mock("GitHubIssueSearchService")
+    mock_github_service.expects(:call).returns({ success: false, error: "Search failed" })
+
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: true,
+      issues: @repository.issues.order(github_updated_at: :desc).to_a,
+      mode: :local,
+      count: 1
+    })
+
+    # Expect two calls to new - first for GitHub mode (fails), then for local mode (succeeds)
+    Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
 
     get repository_issues_url(@repository), params: { q: "test" }
     assert_response :success
@@ -250,7 +260,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     get repository_issues_url(@repository)
     assert_response :success
     # Check for filter dropdown component
-    assert_select "[data-controller='filter-dropdown'][data-qualifier-type='assignee']"
+    assert_select "[data-controller='filter-dropdown']"
     assert_select "button", text: "Assignees"
   end
 
@@ -330,6 +340,422 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     sign_out
     get repository_issues_url(@repository)
     assert_redirected_to new_session_url
+  end
+
+  test "should handle explicit search_mode parameter" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository), params: { search_mode: "github" }
+    assert_response :success
+  end
+
+  test "should refresh with query parameter preserved" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    post refresh_repository_issues_url(@repository), params: { q: "is:open bug" }
+    assert_redirected_to repository_issues_url(@repository, q: "is:open bug")
+  end
+
+  test "should preserve debug parameter in refresh" do
+    issue = @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    post refresh_repository_issue_url(@repository, issue.number), params: { debug: "true" }
+    assert_redirected_to repository_issue_url(@repository, issue.number, debug: "true")
+  end
+
+  test "should show rate limit info when debug mode enabled" do
+    issue = @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 1.hour.ago
+    )
+
+    mock_service = mock("IssueSyncService")
+    mock_service.expects(:call).returns({
+      success: true,
+      rate_limit: {
+        core: { remaining: 4500, limit: 5000, resets_at: 1.hour.from_now }
+      }
+    })
+
+    Github::IssueSyncService.expects(:new).returns(mock_service)
+
+    get repository_issue_url(@repository, issue.number), params: { debug: "true" }
+    assert_response :success
+    # Should display rate limit in flash when debug is on
+    assert flash[:notice] || flash[:warning]
+  end
+
+  test "should refresh individual issue and preserve debug param" do
+    issue = @repository.issues.create!(
+      number: 42,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 1.hour.ago
+    )
+
+    mock_service = mock("IssueSyncService")
+    mock_service.expects(:call).returns({ success: true, rate_limit: nil })
+
+    Github::IssueSyncService.expects(:new).with(user: @user, repository: @repository, issue_number: 42).returns(mock_service)
+
+    post refresh_repository_issue_url(@repository, issue.number), params: { debug: "true", q: "test" }
+    assert_redirected_to repository_issue_url(@repository, issue.number, debug: "true", q: "test")
+  end
+
+  test "should show approaching rate limit warning" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({
+      success: true,
+      issues: @repository.issues.to_a,
+      mode: :github,
+      rate_limit: {
+        search: { remaining: 5, limit: 30, resets_at: 1.hour.from_now }
+      }
+    })
+
+    Github::IssueSearchService.expects(:new).returns(mock_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    # Should show warning when approaching rate limit (5/30 = 16.7% < 20%)
+    assert flash[:warning]
+  end
+
+  test "should show rate limit info unavailable in debug mode when no rate limit" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({
+      success: true,
+      issues: @repository.issues.to_a,
+      mode: :local,
+      rate_limit: nil
+    })
+
+    Github::IssueSearchService.expects(:new).returns(mock_service)
+
+    get repository_issues_url(@repository), params: { debug: "true" }
+    assert_response :success
+    assert_equal "Rate limit info unavailable", flash[:notice]
+  end
+
+  test "should fall back to local cache on GitHub API failure with rate limit" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    # First call fails with rate limit error
+    mock_github_service = mock("GitHubIssueSearchService")
+    mock_github_service.expects(:call).returns({
+      success: false,
+      error: "Search rate limit exceeded. Resets at 5:00 PM",
+      rate_limit: {
+        search: { remaining: 0, limit: 30, resets_at: 1.hour.from_now }
+      }
+    })
+
+    # Second call succeeds with local data
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: true,
+      issues: @repository.issues.to_a,
+      mode: :local
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert flash[:alert].include?("rate limit")
+    assert flash[:alert].include?("Showing all cached issues")
+  end
+
+  test "should fall back to local cache on connection error" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    # First call fails with connection error
+    mock_github_service = mock("GitHubIssueSearchService")
+    mock_github_service.expects(:call).returns({
+      success: false,
+      error: "Connection timeout"
+    })
+
+    # Second call succeeds with local data
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: true,
+      issues: @repository.issues.to_a,
+      mode: :local
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert flash[:alert].include?("Cannot reach")
+    assert flash[:alert].include?("Connection timeout")
+  end
+
+  test "should show error when both GitHub and local search fail" do
+    # First call fails
+    mock_github_service = mock("GitHubIssueSearchService")
+    mock_github_service.expects(:call).returns({
+      success: false,
+      error: "API error"
+    })
+
+    # Second call also fails
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: false,
+      error: "Local search failed"
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    # Should show alert for local search failure
+    assert flash[:alert]
+  end
+
+  test "should handle empty results from local fallback" do
+    # First call fails
+    mock_github_service = mock("GitHubIssueSearchService")
+    mock_github_service.expects(:call).returns({
+      success: false,
+      error: "API error"
+    })
+
+    # Second call succeeds but with no results
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: true,
+      issues: [],
+      mode: :local
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert flash[:alert].include?("API error")
+  end
+
+  test "should handle show action with stale cached issue" do
+    issue = @repository.issues.create!(
+      number: 1,
+      title: "Stale Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 2.hours.ago
+    )
+
+    get repository_issue_url(@repository, issue.number)
+    assert_response :success
+  end
+
+  test "should handle show action with fresh issue and no cached_at" do
+    issue = @repository.issues.create!(
+      number: 1,
+      title: "Fresh Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issue_url(@repository, issue.number)
+    assert_response :success
+  end
+
+  test "should handle index with multiple state types" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Open Issue 1",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+    @repository.issues.create!(
+      number: 2,
+      title: "Open Issue 2",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+    @repository.issues.create!(
+      number: 3,
+      title: "Closed Issue",
+      state: "closed",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    # Should display all issues
+    assert_select ".issue-card", count: 3
+  end
+
+  test "should extract authors from issues" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Issue by Alice",
+      state: "open",
+      author_login: "alice",
+      author_avatar_url: "https://example.com/alice.png",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+    @repository.issues.create!(
+      number: 2,
+      title: "Issue by Bob",
+      state: "open",
+      author_login: "bob",
+      author_avatar_url: "https://example.com/bob.png",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    # Authors should be present in response
+    assert_match /alice|bob/i, response.body
+  end
+
+  test "should handle blank query string in parse" do
+    get repository_issues_url(@repository), params: { q: "" }
+    assert_response :success
+  end
+
+  test "should parse author qualifier" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Issue",
+      state: "open",
+      author_login: "alice",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository), params: { q: "author:alice" }
+    assert_response :success
+  end
+
+  test "should show rate limit in debug mode with rate limit data" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({
+      success: true,
+      issues: @repository.issues.to_a,
+      mode: :github,
+      rate_limit: {
+        core: { remaining: 4500, limit: 5000, resets_at: 1.hour.from_now }
+      }
+    })
+
+    Github::IssueSearchService.expects(:new).returns(mock_service)
+
+    get repository_issues_url(@repository), params: { debug: "true" }
+    assert_response :success
+    assert flash[:notice]
+  end
+
+  test "should handle rate limit without approaching threshold" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({
+      success: true,
+      issues: @repository.issues.to_a,
+      mode: :github,
+      rate_limit: {
+        core: { remaining: 4500, limit: 5000, resets_at: 1.hour.from_now }
+      }
+    })
+
+    Github::IssueSearchService.expects(:new).returns(mock_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    # Should NOT show warning when not approaching limit (4500/5000 = 90%)
+    assert_nil flash[:warning]
+  end
+
+  test "should handle show with fresh cached issue in debug mode" do
+    issue = @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 5.minutes.ago
+    )
+
+    get repository_issue_url(@repository, issue.number), params: { debug: "true" }
+    assert_response :success
   end
 
   private

@@ -1,0 +1,52 @@
+<% content_for :title, 'Add Repository' %>
+
+<div class="min-h-full bg-gray-50 dark:bg-gray-900">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-10">
+    <main>
+      <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        <%= render 'shared/flash_messages' %>
+
+        <div class="divide-y divide-gray-200 dark:divide-gray-700 overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow outline -outline-offset-1 outline-gray-200 dark:outline-gray-700">
+          <div class="px-4 py-5 sm:px-6">
+            <h1 class="text-xl font-semibold leading-6 text-gray-900 dark:text-white">Add Repository</h1>
+          </div>
+          <div class="px-4 py-5 sm:p-6">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6"><%= t('repositories.index.import.description') %></p>
+
+            <%= form_with model: @repository, url: repositories_path, local: true, class: "space-y-4" do |f| %>
+              <div class="flex gap-4">
+                <div class="flex-1">
+                  <%= render Auth::InputComponent.new(
+                    form: f,
+                    field: :url,
+                    label: nil,
+                    type: :text,
+                    placeholder: "owner/repo or https://github.com/owner/repo",
+                    autocomplete: "off",
+                    autofocus: true
+                  ) %>
+                </div>
+                <div class="flex items-center">
+                  <%= render Auth::ButtonComponent.new(
+                    text: t('repositories.index.import.button'),
+                    type: :submit,
+                    variant: :primary
+                  ) %>
+                </div>
+              </div>
+            <% end %>
+
+            <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+              <%= t('repositories.index.import.formats_label') %>
+              <code class="text-gray-700 dark:text-gray-300"><%= t('repositories.index.import.format_examples.shorthand') %></code>,
+              <code class="text-gray-700 dark:text-gray-300"><%= t('repositories.index.import.format_examples.domain') %></code>, or
+              <code class="text-gray-700 dark:text-gray-300"><%= t('repositories.index.import.format_examples.full_url') %></code>
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

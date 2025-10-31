@@ -6,6 +6,8 @@ module Github
   # :reek:TooManyInstanceVariables { max_instance_variables: 6 }
   # :reek:LongParameterList - Service requires configuration parameters
   # :reek:ControlParameter - filters and sort_by are configuration, not control flow
+  # :reek:DuplicateMethodCall - Headers and rate limit accessed for readability
+  # :reek:FeatureEnvy - Methods delegate to headers for rate limit extraction
   class IssueSearchService
     attr_reader :user, :repository, :query, :filters, :sort_by, :search_mode
 
@@ -15,7 +17,7 @@ module Github
 
     # Sort options
     SORT_OPTIONS = %w[created updated comments].freeze
-    DEFAULT_SORT = "updated"
+    DEFAULT_SORT = "created"
 
     def initialize(user:, repository:, query: nil, filters: {}, sort_by: DEFAULT_SORT, search_mode: LOCAL_MODE)
       @user = user
@@ -81,7 +83,8 @@ module Github
         success: true,
         issues: synced_issues,
         mode: :github,
-        count: synced_issues.count
+        count: synced_issues.count,
+        rate_limit: client.rate_limit_info
       }
     rescue Octokit::TooManyRequests => e
       handle_rate_limit_error(e)
@@ -97,12 +100,17 @@ module Github
     # :reek:TooManyStatements - Applies multiple filter conditions
     def apply_filters(issues)
       state = filters[:state]
-      label = filters[:label]
+      labels = filters[:labels] || []
       assignee = filters[:assignee]
+      author = filters[:author]
 
       issues = issues.by_state(state) if state.present?
-      issues = issues.with_label(label) if label.present?
+      # Apply each label filter (must have all labels)
+      labels.each do |label|
+        issues = issues.with_label(label)
+      end
       issues = issues.assigned_to(assignee) if assignee.present?
+      issues = issues.authored_by(author) if author.present?
       issues
     end
 
@@ -129,12 +137,17 @@ module Github
       parts << query if query.present?
 
       state = filters[:state]
-      label = filters[:label]
+      labels = filters[:labels] || []
       assignee = filters[:assignee]
+      author = filters[:author]
 
       parts << "state:#{state}" if state.present?
-      parts << "label:\"#{label}\"" if label.present?
+      # Add each label as a separate qualifier
+      labels.each do |label|
+        parts << "label:\"#{label}\""
+      end
       parts << "assignee:#{assignee}" if assignee.present?
+      parts << "author:#{author}" if author.present?
       parts.join(" ")
     end
 
@@ -188,11 +201,28 @@ module Github
       "No GitHub token configured for #{repository.github_domain}"
     end
 
+    # :reek:TooManyStatements - Handles rate limit error with header extraction
     def handle_rate_limit_error(exception)
-      reset_time = exception.response_headers["x-ratelimit-reset"]
-      error_msg = "Search rate limit exceeded. Resets at #{Time.at(reset_time.to_i)}"
+      headers = exception.response_headers
+      reset_time = headers["x-ratelimit-reset"]
+      resets_at = Time.at(reset_time.to_i)
+      error_msg = "Search rate limit exceeded. Showing all cached issues. Resets at #{resets_at.strftime('%I:%M %p')}"
       Rails.logger.warn "Rate limit during search for #{repository.full_name}: #{error_msg}"
-      { success: false, error: error_msg }
+
+      # Extract rate limit info from error response headers to show in banner
+      rate_limit_info = nil
+      if headers["x-ratelimit-remaining"] && headers["x-ratelimit-limit"]
+        resource = headers["x-ratelimit-resource"] || "search"
+        rate_limit_info = {
+          resource => {
+            remaining: headers["x-ratelimit-remaining"].to_i,
+            limit: headers["x-ratelimit-limit"].to_i,
+            resets_at: resets_at
+          }
+        }
+      end
+
+      { success: false, error: error_msg, rate_limit: rate_limit_info }
     end
 
     def handle_auth_error

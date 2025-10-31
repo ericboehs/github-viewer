@@ -16,7 +16,10 @@ class AvatarComponent < ViewComponent::Base
 
   def avatar_url
     return user.avatar_url(size: 256) if using_user_avatar?
-    src
+    return nil if src.blank?
+
+    # Proxy external avatar URLs through our controller for caching
+    helpers.avatar_proxy_path(url: src)
   end
 
   def avatar_alt

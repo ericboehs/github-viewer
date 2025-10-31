@@ -28,6 +28,8 @@ gem "octokit", "~> 10.0"
 gem "faraday-retry"
 # Markdown rendering [https://github.com/gjtorikian/commonmarker]
 gem "commonmarker"
+# Pagination [https://github.com/ddnexus/pagy]
+gem "pagy"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]

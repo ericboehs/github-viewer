@@ -51,4 +51,52 @@ class IssueLabelComponentTest < ViewComponent::TestCase
     # Should render without crashing
     assert_text "test"
   end
+
+  test "renders label as link when repository is provided" do
+    user = User.create!(
+      email_address: "test@example.com",
+      password: "password123",
+      github_token: "test_token",
+      github_domain: "github.com"
+    )
+    repository = user.repositories.create!(
+      owner: "testuser",
+      name: "testrepo",
+      full_name: "testuser/testrepo",
+      url: "https://github.com/testuser/testrepo",
+      github_domain: "github.com"
+    )
+    label = { "name" => "bug", "color" => "d73a4a" }
+
+    render_inline(IssueLabelComponent.new(label: label, repository: repository, query: ""))
+
+    # Link should be present with label filter (URL encoded)
+    assert_selector "a[href*='label%3Abug']"
+    assert_text "bug"
+  end
+
+  test "renders label with spaces quoted in URL" do
+    user = User.create!(
+      email_address: "test@example.com",
+      password: "password123",
+      github_token: "test_token",
+      github_domain: "github.com"
+    )
+    repository = user.repositories.create!(
+      owner: "testuser",
+      name: "testrepo",
+      full_name: "testuser/testrepo",
+      url: "https://github.com/testuser/testrepo",
+      github_domain: "github.com"
+    )
+    label = { "name" => "help wanted", "color" => "008672" }
+
+    render_inline(IssueLabelComponent.new(label: label, repository: repository, query: ""))
+
+    # Link should contain label with quoted value (spaces require quotes, URL encoded)
+    assert_selector "a"
+    link = page.find("a")
+    assert_includes link[:href], "label%3A"  # URL encoded "label:"
+    assert_text "help wanted"
+  end
 end

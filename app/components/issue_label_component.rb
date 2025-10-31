@@ -1,24 +1,45 @@
 # frozen_string_literal: true
 
 # Component for displaying a GitHub issue label with color
+# :reek:TooManyInstanceVariables - Requires label data, repository, and query for link generation
 class IssueLabelComponent < ViewComponent::Base
   # :reek:FeatureEnvy - Extracting values from label hash is initialization responsibility
-  def initialize(label:)
+  def initialize(label:, repository: nil, query: nil)
     @label = label
     @name = label["name"] || label[:name]
     @color = label["color"] || label[:color]
+    @repository = repository
+    @query = query
   end
 
   def call
-    tag.span(class: label_classes, style: label_styles) do
-      @name
+    if @repository
+      link_to label_url, class: label_classes, style: label_styles do
+        @name
+      end
+    else
+      tag.span(class: label_classes, style: label_styles) do
+        @name
+      end
     end
   end
 
   private
 
+  # :reek:TooManyStatements - Building label filter URL requires multiple transformations
+  def label_url
+    query_text = @query || ""
+    # Remove any existing label: qualifier
+    query_without_label = query_text.gsub(/\blabel:("[^"]*"|\S+)/i, "").gsub(/\s+/, " ").strip
+    # Add this label to the query
+    label_name = @name.include?(" ") ? "\"#{@name}\"" : @name
+    new_query = query_without_label.present? ? "#{query_without_label} label:#{label_name}" : "label:#{label_name}"
+
+    helpers.repository_issues_path(@repository, q: new_query)
+  end
+
   def label_classes
-    "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+    "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition-opacity"
   end
 
   def label_styles

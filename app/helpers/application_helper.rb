@@ -1,5 +1,7 @@
 # Base module for application-wide view helpers
 module ApplicationHelper
+  include Pagy::Frontend
+
   # Renders a <time> tag with automatic relative time display and full datetime tooltip
   #
   # @param datetime [Time, DateTime, ActiveSupport::TimeWithZone] The datetime to display

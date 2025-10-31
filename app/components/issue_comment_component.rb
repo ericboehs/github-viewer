@@ -7,37 +7,15 @@ class IssueCommentComponent < ViewComponent::Base
   end
 
   def call
-    tag.div(class: "flex gap-3") do
-      safe_join([
-        author_avatar,
-        comment_box
-      ])
-    end
-  end
-
-  private
-
-  def author_avatar
-    avatar_url = @comment.author_avatar_url
-    return unless avatar_url
-
-    tag.div(class: "flex-shrink-0") do
-      render AvatarComponent.new(
-        src: avatar_url,
-        alt: @comment.author_login || "User",
-        size: :medium
-      )
-    end
-  end
-
-  def comment_box
-    tag.div(class: "flex-1 border border-blue-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-black") do
+    tag.div(class: "border border-blue-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-black") do
       safe_join([
         comment_header,
         comment_body
       ])
     end
   end
+
+  private
 
   def comment_header
     tag.div(class: "bg-blue-50 dark:bg-gray-900 px-4 py-3 border-b border-blue-200 dark:border-gray-700") do
@@ -46,13 +24,25 @@ class IssueCommentComponent < ViewComponent::Base
   end
 
   def author_info
-    tag.div(class: "flex-1 min-w-0") do
+    tag.div(class: "flex items-center gap-2") do
       safe_join([
+        author_avatar,
         author_name,
         tag.span(" commented ", class: "text-gray-500 dark:text-gray-400 text-sm"),
         comment_timestamp
-      ])
+      ].compact)
     end
+  end
+
+  def author_avatar
+    avatar_url = @comment.author_avatar_url
+    return unless avatar_url
+
+    render AvatarComponent.new(
+      src: avatar_url,
+      alt: @comment.author_login || "User",
+      size: :small
+    )
   end
 
   def author_name

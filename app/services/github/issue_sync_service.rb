@@ -5,6 +5,7 @@ module Github
   # Fetches all issues for a repository with labels, assignees, and comments
   # Optionally syncs a single issue when issue_number is provided
   # :reek:TooManyStatements - Service orchestrates API calls, batch upserts, and error handling
+  # :reek:NilCheck - Explicit check for issue_number presence
   class IssueSyncService
     attr_reader :user, :repository, :issue_number
 
@@ -41,10 +42,11 @@ module Github
       # Sync issues and comments
       synced_count = sync_issues_with_comments(client, issues_data)
 
-      # Update repository cache timestamp
-      repository.update!(cached_at: Time.current)
+      # Update repository cache timestamp only when syncing all issues
+      # Single issue refreshes should not update the repository timestamp
+      repository.update!(cached_at: Time.current) if issue_number.nil?
 
-      { success: true, synced_count: synced_count }
+      { success: true, synced_count: synced_count, rate_limit: client.rate_limit_info }
     rescue Octokit::TooManyRequests => rate_limit_error
       handle_rate_limit_error(rate_limit_error)
     rescue Octokit::Unauthorized

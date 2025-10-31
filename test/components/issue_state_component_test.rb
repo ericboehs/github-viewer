@@ -6,7 +6,7 @@ class IssueStateComponentTest < ViewComponent::TestCase
   test "renders open state with text and correct styling" do
     render_inline(IssueStateComponent.new(state: "open", show_text: true))
 
-    assert_selector "span.bg-green-100.text-green-800"
+    assert_selector "span.bg-green-200.text-green-900"
     assert_selector "svg"
     assert_text "Open"
   end
@@ -14,7 +14,7 @@ class IssueStateComponentTest < ViewComponent::TestCase
   test "renders closed state with text and correct styling" do
     render_inline(IssueStateComponent.new(state: "closed", show_text: true))
 
-    assert_selector "span.bg-purple-100.text-purple-800"
+    assert_selector "span.bg-purple-200.text-purple-900"
     assert_selector "svg"
     assert_text "Closed"
   end
