@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Rails 8.1.0 application called **GitHub Issues Viewer** (`GithubViewer` module) built for viewing and managing GitHub issues with smart caching. The application provides a GitHub.com-quality UI for browsing issues from multiple repositories across GitHub.com and GitHub Enterprise, with per-user GitHub tokens and hybrid on-demand caching. Uses modern Rails features including Solid libraries (Cache, Queue, Cable) and is configured for deployment with Kamal.
+This is a Rails 8.1.0 application called **GitHub Issues Viewer** (`GithubViewer` module) - a fully implemented, production-ready application for viewing and managing GitHub issues with smart caching. The application provides a GitHub.com-quality UI for browsing issues from multiple repositories across GitHub.com and GitHub Enterprise, with per-user GitHub tokens and hybrid on-demand caching.
+
+**Status**: ✅ All core features complete (October 2025) with 98.18% test coverage
+
+Uses modern Rails features including Solid libraries (Cache, Queue, Cable) and is configured for deployment with Kamal.
 
 ## Development Commands
 
@@ -54,11 +58,10 @@ The application uses separate SQLite databases:
 
 #### Service Layer (`app/services/github/`)
 - **ApiConfiguration**: Centralized constants for rate limiting, retries, pagination
-- **ApiClient**: GitHub REST API client with rate limiting, retries, exponential backoff
-- **GraphqlClient**: GitHub GraphQL client for efficient batch queries
+- **ApiClient**: GitHub REST API client with rate limiting, retries, exponential backoff, search API support
 - **RepositorySyncService**: Syncs repository metadata from GitHub API
-- **IssueSyncService**: Syncs issues with labels, assignees, comments
-- **IssueSearchService**: Handles both local SQLite and GitHub API search
+- **IssueSyncService**: Syncs issues with labels, assignees, comments (supports single issue or full repository sync)
+- **IssueSearchService**: Handles both local SQLite and GitHub API search with GitHub query syntax parser
 
 #### Caching Strategy
 - **Hybrid on-demand caching**: Serve cached data if available, fetch from API if cache is cold
@@ -73,11 +76,21 @@ The application uses separate SQLite databases:
 - **Issue**: Cached issues with full metadata (number, title, state, body, labels, assignees, cached_at)
 - **IssueComment**: Issue comments with author info and markdown body
 
-#### ViewComponents for GitHub UI
-- **Issue components**: IssueCard, IssueLabel, IssueState, IssueAssignee
-- **Comment components**: IssueComment with markdown rendering
-- **Repository components**: RepositoryCard
-- **Common components**: AvatarComponent, AlertComponent, staleness warnings
+#### ViewComponents for GitHub UI (`app/components/`)
+- **Issue components**: IssueCardComponent, IssueLabelComponent, IssueStateComponent, IssueCommentComponent
+- **Filter components**: FilterDropdown namespace (BaseComponent, ButtonComponent, MenuComponent, SearchComponent, ItemComponent)
+- **Auth components**: Auth namespace (FormContainerComponent, InputComponent, ButtonComponent, LinkComponent)
+- **Common components**: AvatarComponent (with Gravatar fallback), AlertComponent, UserPageComponent
+
+#### Stimulus Controllers (`app/javascript/controllers/`)
+- **TimeController**: Client-side relative time formatting with hover tooltips
+- **FilterDropdownController**: Keyboard navigation, search, and intelligent positioning for filter dropdowns
+- **AccordionController**: Collapsible sections for UI elements
+
+#### Helpers (`app/helpers/`)
+- **MarkdownHelper**: GitHub-flavored markdown rendering with CommonMarker
+- **RepositoriesHelper**: URL parsing for repository imports (supports multiple formats)
+- **ApplicationHelper**: time_ago_tag for semantic time elements
 
 ### Code Quality Standards
 - **EditorConfig**: UTF-8, LF line endings, 2-space indentation
@@ -90,9 +103,11 @@ The application uses separate SQLite databases:
 
 ### Testing Setup
 - **Minitest** (Rails default) for unit and integration tests
+- **Mocha** for mocking and stubbing (used in service tests)
 - **Capybara + Selenium** for system tests
 - **Axe-core** for automated accessibility testing (WCAG 2.1 AA)
 - **SimpleCov** for coverage analysis with branch coverage tracking
+- **Current Coverage**: 98.18% line coverage, 91.84% branch coverage (341 tests, 897 assertions)
 - Pre-commit hooks run full CI pipeline to ensure quality
 
 See `docs/accessibility.md` for detailed accessibility testing guide.
@@ -156,9 +171,10 @@ git commit -m "refactor: extract repository URL parsing to helper"
 ### Code Coverage
 
 The project enforces comprehensive test coverage using SimpleCov:
-- **Minimum coverage**: 95% overall
+- **Target coverage**: 95% line, 90% branch
+- **Current coverage**: 98.18% line, 91.84% branch ✅
 - **Per-file minimum**: 80%
-- **Branch coverage**: Enabled
+- **Test count**: 341 tests, 897 assertions
 - **Coverage reports**: Generated in `coverage/` directory
 - **CI integration**: Coverage reports generated automatically with tests
 
@@ -166,6 +182,7 @@ Coverage configuration in `test/test_helper.rb`:
 - Excludes test files, config, vendor, and database files
 - Groups results by component type (Controllers, Models, Services, etc.)
 - Fails CI if coverage drops below thresholds
+- Parallel test support with SimpleCov worker consolidation
 
 ## Development Workflow
 
@@ -176,3 +193,52 @@ Coverage configuration in `test/test_helper.rb`:
 5. **Coverage**: Check `bin/coverage` for detailed test coverage analysis
 
 The application emphasizes code quality with automated formatting, comprehensive testing, security scanning, and 95% code coverage requirement integrated into the development workflow.
+
+## Current Feature Set (October 2025)
+
+### ✅ Implemented Features
+
+All core features from the PRD are fully implemented and tested:
+
+1. **User Authentication & GitHub Token Management**
+    - Email/password authentication with BCrypt
+    - Encrypted GitHub token storage (Rails encrypted attributes)
+    - Multi-domain support (github.com + GitHub Enterprise)
+    - Token management UI
+
+2. **Multi-Repository Tracking**
+    - Flexible URL parsing (owner/repo, full URLs, domain/owner/repo)
+    - Repository metadata syncing from GitHub
+    - Staleness indicators and manual refresh
+    - Per-user repository isolation
+
+3. **Issue Viewing with Full Metadata**
+    - GitHub.com-style issue list and detail views
+    - Markdown rendering (CommonMarker with GitHub-flavored markdown)
+    - Labels with dynamic colors and WCAG-compliant contrast
+    - Full comment threads with avatars
+    - Relative time display with hover tooltips
+
+4. **Smart Hybrid Caching**
+    - On-demand fetching (cold cache → API, warm cache → instant)
+    - Per-user cache keying with staleness tracking
+    - Graceful degradation with error handling
+    - Manual refresh at repository and individual issue level
+
+5. **Advanced Search & Filtering**
+    - Dual search modes (local SQLite + GitHub API)
+    - GitHub query syntax parser (is:, state:, label:, assignee:, sort:)
+    - Automatic mode switching based on query qualifiers
+    - Filter dropdowns with keyboard navigation
+    - Active filters display with removal chips
+
+### 🔮 Potential Future Enhancements
+
+See PRD.md for complete list of Phase 2 features including:
+- Pull request viewing
+- Real-time WebSocket updates
+- Background sync jobs
+- Issue creation/editing (write operations)
+- GitHub OAuth integration
+- Multi-repo aggregate views
+- Analytics dashboard

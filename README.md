@@ -2,28 +2,54 @@
 
 A modern Rails 8.1.0 application for viewing and managing GitHub issues with smart caching and real-time API integration. Browse issues from multiple repositories across GitHub.com and GitHub Enterprise with a GitHub.com-quality UI.
 
+**Status**: ✅ Production-ready with all core features implemented (October 2025)
+
 ## Features
 
-- **Multi-Repository Support** - Track and view issues from multiple GitHub repositories
-- **Smart Hybrid Caching** - Fast local cache with automatic real-time fallback when data is stale
+### Core Functionality
+
+- **Multi-Repository Support** - Track and view issues from multiple GitHub repositories with flexible URL parsing
+- **Smart Hybrid Caching** - Fast local cache with on-demand API fetching and graceful degradation
 - **GitHub.com Clone UI** - Full-featured issue viewing with labels, assignees, comments, and metadata
-- **Dual Search Modes** - Toggle between fast local SQLite search and comprehensive GitHub API search
+- **Advanced Search & Filtering** - GitHub query syntax parser with filter dropdowns and keyboard navigation
 - **GitHub Enterprise Support** - Works with both GitHub.com and self-hosted GitHub Enterprise servers
-- **Per-User GitHub Tokens** - Each user connects their own GitHub account with secure token storage
-- **Real-Time Sync** - Manual refresh with staleness indicators and graceful error handling
-- **Component-Based UI** - ViewComponent architecture for maintainable GitHub-style components
-- **Comprehensive Testing** - 99%+ test coverage with SimpleCov
+- **Per-User GitHub Tokens** - Each user connects their own GitHub account with encrypted token storage
+- **Real-Time Sync** - Manual refresh at repository and individual issue level with staleness indicators
+
+### Technical Highlights
+
+- **Component-Based UI** - ViewComponent architecture with reusable GitHub-style components
+- **GitHub-Flavored Markdown** - Full markdown rendering for issue bodies and comments
+- **Dual Search Modes** - Local SQLite search and GitHub API search with automatic mode switching
+- **Comprehensive Testing** - 98.18% line coverage, 91.84% branch coverage (341 tests, 897 assertions)
+- **Dark Mode Support** - Full dark mode throughout the application
+- **Accessibility** - WCAG 2.1 AA compliant with automated accessibility testing
 
 ## Tech Stack
 
+### Backend
 - **Rails 8.1.0** with modern asset pipeline (Propshaft)
-- **SQLite3** for all environments including production
-- **Octokit** for GitHub REST and GraphQL API integration
-- **ImportMap** for JavaScript (no Node.js bundling required)
-- **Hotwire** (Turbo + Stimulus) for interactive features with minimal JS
+- **Ruby 3.4.7**
+- **SQLite3** for all environments including production (multi-database setup)
+- **Octokit 10.0+** for GitHub REST API integration with rate limiting and retries
+- **CommonMarker** for GitHub-flavored markdown rendering
+- **BCrypt** for secure password hashing
+- **Solid Libraries** for database-backed cache, queue, and cable
+
+### Frontend
+- **Hotwire** (Turbo + Stimulus) for interactive features with minimal JavaScript
 - **Tailwind CSS** via CDN for GitHub-style UI
 - **ViewComponent** for reusable GitHub UI components
-- **Solid Libraries** for database-backed cache, queue, and cable
+- **ImportMap** for JavaScript (no Node.js bundling required)
+- **Custom markdown.css** for GitHub-inspired styling with dark mode
+
+### Testing & Quality
+- **Minitest** with Mocha for comprehensive testing
+- **SimpleCov** for code coverage analysis (98.18% line, 91.84% branch)
+- **RuboCop** (Rails Omakase configuration)
+- **Brakeman** for security scanning
+- **Capybara + Selenium** for system tests
+- **Axe-core** for accessibility testing
 
 ## Getting Started
 
@@ -133,27 +159,54 @@ Multi-database configuration with separate SQLite databases:
 ### GitHub Service Layer
 
 Located in `app/services/github/`:
-- **ApiClient**: GitHub REST API client with rate limiting, retries, and exponential backoff
-- **GraphqlClient**: GitHub GraphQL client for efficient batch queries
+- **ApiClient**: GitHub REST API client with rate limiting, retries, exponential backoff, and search API support
 - **ApiConfiguration**: Centralized configuration for rate limits, retries, and pagination
 - **RepositorySyncService**: Syncs repository metadata from GitHub
-- **IssueSyncService**: Syncs issues with full metadata (labels, assignees, comments)
-- **IssueSearchService**: Handles both local SQLite search and GitHub API search
+- **IssueSyncService**: Syncs issues with full metadata (labels, assignees, comments); supports single issue or full repo sync
+- **IssueSearchService**: Dual-mode search (local SQLite + GitHub API) with GitHub query syntax parser
 
 ### Component System
 
 The application uses ViewComponent for UI components:
-- **Auth Components**: `Auth::*` for authentication flows
-- **GitHub Components**: Issue cards, labels, assignees, state badges, comments
-- **Common Components**: `AvatarComponent`, `AlertComponent`, `UserPageComponent`
-- **Layout Components**: Repository cards, issue lists, search forms
+- **Auth Components**: `Auth::*` for authentication forms and flows
+- **Issue Components**: `IssueCardComponent`, `IssueLabelComponent`, `IssueStateComponent`, `IssueCommentComponent`
+- **Filter Components**: `FilterDropdown::*` namespace for reusable dropdown filters with search and keyboard navigation
+- **Common Components**: `AvatarComponent` (with Gravatar fallback), `AlertComponent`, `UserPageComponent`
+
+### Stimulus Controllers
+
+Client-side JavaScript controllers for enhanced interactivity:
+- **TimeController**: Relative time formatting with hover tooltips
+- **FilterDropdownController**: Keyboard navigation, search, and intelligent positioning for filter dropdowns
+- **AccordionController**: Collapsible sections for UI elements
+
+## Search Syntax
+
+The application supports GitHub's search syntax for powerful filtering:
+
+- **State filters**: `is:open`, `is:closed`, `state:open`, `state:closed`
+- **Label filters**: `label:bug`, `label:"needs review"` (use quotes for labels with spaces)
+- **Assignee filters**: `assignee:username`
+- **Sorting**: `sort:created`, `sort:updated`, `sort:comments` (add `-desc` for descending, e.g., `sort:updated-desc`)
+
+Examples:
+```
+is:open label:bug memory leak
+assignee:alice label:"high priority" sort:updated-desc
+state:closed sort:comments-desc
+```
+
+The search automatically switches to GitHub API mode when qualifiers are detected, otherwise it uses fast local SQLite search.
 
 ## Contributing
 
-1. Follow the existing code style and conventions
+1. Follow the existing code style and conventions (Rails Omakase)
 2. Ensure tests pass: `bin/ci`
-3. Maintain test coverage above 95%
-4. Use conventional commit messages
+3. Maintain test coverage above 95% line, 90% branch
+4. Use conventional commit messages (see CLAUDE.md)
+5. Add tests for all new features
+
+For detailed development guidelines, see `CLAUDE.md` and `docs/` directory.
 
 ## License
 

@@ -61,7 +61,9 @@ The application uses a session-based authentication system built with Rails 8.1.
 class User < ApplicationRecord
   has_secure_password
   has_many :sessions, dependent: :destroy
-  
+  has_many :github_tokens, dependent: :destroy
+  has_many :repositories, dependent: :destroy
+
   validates :email_address, presence: true, uniqueness: true
   normalizes :email_address, with: ->(email) { email.strip.downcase }
 end
@@ -72,6 +74,8 @@ end
 - Email normalization (strip whitespace, lowercase)
 - Unique email validation
 - Session management
+- GitHub token association (encrypted personal access tokens)
+- Repository tracking per user
 
 ### Session Model
 
@@ -221,9 +225,13 @@ Authentication routes in `config/routes.rb`:
 
 ```ruby
 # Authentication routes
-resource :session, only: [:new, :create, :destroy]
-resource :password, only: [:new, :create, :edit, :update]
-resource :user, only: [:new, :create, :show, :edit, :update]
+resource :session
+resources :passwords, param: :token
+resources :users, only: [:new, :create]
+resource :user, only: [:show, :edit, :update]
+
+# GitHub token management (part of user profile)
+resources :github_tokens, only: [:create, :destroy]
 ```
 
 ## Testing
