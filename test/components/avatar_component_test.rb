@@ -37,8 +37,8 @@ class AvatarComponentTest < ViewComponent::TestCase
   test "renders with external src and no user" do
     render_inline(AvatarComponent.new(src: "https://example.com/avatar.png", alt: "Test User"))
 
-    # External URLs are proxied through the avatars controller
-    assert_selector "img[src*='/avatars/proxy?url=']"
+    # External URLs are used directly
+    assert_selector "img[src='https://example.com/avatar.png']"
     assert_selector "img[alt='Test User']"
   end
 

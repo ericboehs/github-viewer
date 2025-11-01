@@ -97,8 +97,13 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should return 404 when issue not found" do
+    # Mock the sync service to fail when fetching non-existent issue
+    mock_result = { success: false, error: "Issue not found", cache_preserved: true }
+    Github::IssueSyncService.any_instance.stubs(:call).returns(mock_result)
+
     get repository_issue_url(@repository, 999)
-    assert_response :not_found
+    assert_redirected_to repository_issues_path(@repository)
+    assert_equal "Issue not found: Issue not found", flash[:alert]
   end
 
   test "should display issue comments" do
@@ -435,17 +440,26 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
+    # Main query (open issues)
     mock_service = mock("IssueSearchService")
     mock_service.expects(:call).returns({
       success: true,
       issues: @repository.issues.to_a,
       mode: :github,
+      count: 1,
       rate_limit: {
         search: { remaining: 5, limit: 30, resets_at: 1.hour.from_now }
       }
     })
 
-    Github::IssueSearchService.expects(:new).returns(mock_service)
+    # Count query for closed issues
+    mock_count_service = mock("IssueSearchServiceCount")
+    mock_count_service.expects(:call).returns({
+      success: true,
+      count: 0
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_count_service)
 
     get repository_issues_url(@repository)
     assert_response :success
@@ -700,17 +714,26 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
+    # Main query (open issues)
     mock_service = mock("IssueSearchService")
     mock_service.expects(:call).returns({
       success: true,
       issues: @repository.issues.to_a,
       mode: :github,
+      count: 1,
       rate_limit: {
         core: { remaining: 4500, limit: 5000, resets_at: 1.hour.from_now }
       }
     })
 
-    Github::IssueSearchService.expects(:new).returns(mock_service)
+    # Count query for closed issues
+    mock_count_service = mock("IssueSearchServiceCount")
+    mock_count_service.expects(:call).returns({
+      success: true,
+      count: 0
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_count_service)
 
     get repository_issues_url(@repository), params: { debug: "true" }
     assert_response :success
@@ -726,17 +749,26 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
+    # Main query (open issues)
     mock_service = mock("IssueSearchService")
     mock_service.expects(:call).returns({
       success: true,
       issues: @repository.issues.to_a,
       mode: :github,
+      count: 1,
       rate_limit: {
         core: { remaining: 4500, limit: 5000, resets_at: 1.hour.from_now }
       }
     })
 
-    Github::IssueSearchService.expects(:new).returns(mock_service)
+    # Count query for closed issues
+    mock_count_service = mock("IssueSearchServiceCount")
+    mock_count_service.expects(:call).returns({
+      success: true,
+      count: 0
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_count_service)
 
     get repository_issues_url(@repository)
     assert_response :success
@@ -756,6 +788,205 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     get repository_issue_url(@repository, issue.number), params: { debug: "true" }
     assert_response :success
+  end
+
+  test "should display sort by dropdown" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository, q: "sort:updated-asc")
+    assert_response :success
+    assert_select "button", text: "Sort"
+  end
+
+  test "should display order in sort dropdown" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository, q: "sort:created-asc")
+    assert_response :success
+    # Sort dropdown button text
+    assert_select "button", text: "Sort"
+    # Dropdown menu should contain both sort options and order options
+    assert_select "a", text: /Oldest/
+    assert_select "a", text: /Newest/
+  end
+
+  test "should change sort parameter when clicking sort option" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      comments_count: 5
+    )
+
+    get repository_issues_url(@repository, q: "sort:comments-desc")
+    assert_response :success
+    assert_select "button", text: "Sort"
+  end
+
+  test "should show Most/Least when sorting by comments" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      comments_count: 5
+    )
+
+    get repository_issues_url(@repository, q: "sort:comments-desc")
+    assert_response :success
+    # When sorting by comments, order options should be Most/Least
+    assert_select "a", text: /Most/
+    assert_select "a", text: /Least/
+  end
+
+  test "should show Newest/Oldest when sorting by created or updated" do
+    @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    get repository_issues_url(@repository, q: "sort:created-desc")
+    assert_response :success
+    # When sorting by created/updated, order options should be Newest/Oldest
+    assert_select "a", text: /Newest/
+    assert_select "a", text: /Oldest/
+  end
+
+  test "should fall back to cached data on non-rate-limit API error" do
+    cached_issue = @repository.issues.create!(
+      number: 1,
+      title: "Cached Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 10.minutes.ago
+    )
+
+    # First call - GitHub API fails
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({
+      success: false,
+      error: "Connection timeout"
+    })
+
+    # Second call - fall back to local cache
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: true,
+      issues: [ cached_issue ]
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_local_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_match /Connection timeout/, flash[:alert]
+    assert_match /Cached Issue/, response.body
+  end
+
+  test "should show specific message for rate limit error with cached data" do
+    cached_issue = @repository.issues.create!(
+      number: 1,
+      title: "Cached Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 10.minutes.ago
+    )
+
+    # First call - API rate limited
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({
+      success: false,
+      error: "API rate limit exceeded. Resets at 2025-11-01 12:00:00 UTC"
+    })
+
+    # Second call - fall back to local cache
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: true,
+      issues: [ cached_issue ]
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_local_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_match /rate limit/, flash[:alert]
+  end
+
+  test "should show rate limit info when API error includes rate limit data" do
+    cached_issue = @repository.issues.create!(
+      number: 1,
+      title: "Cached Issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 10.minutes.ago
+    )
+
+    # First call - API rate limited with rate limit data
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({
+      success: false,
+      error: "API rate limit exceeded",
+      rate_limit: {
+        core: { remaining: 0, limit: 5000, resets_at: 1.hour.from_now }
+      }
+    })
+
+    # Second call - fall back to local cache
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: true,
+      issues: [ cached_issue ]
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_local_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert flash[:warning] # Rate limit warning should be shown
+  end
+
+  test "should show generic error when no cached data available" do
+    # First call - API fails
+    mock_service = mock("IssueSearchService")
+    mock_service.expects(:call).returns({
+      success: false,
+      error: "Connection refused"
+    })
+
+    # Second call - fall back to local cache (but no data)
+    mock_local_service = mock("LocalIssueSearchService")
+    mock_local_service.expects(:call).returns({
+      success: true,
+      issues: []
+    })
+
+    Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_local_service)
+
+    get repository_issues_url(@repository)
+    assert_response :success
+    assert_equal "Connection refused", flash[:alert]
   end
 
   private

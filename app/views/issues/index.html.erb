@@ -17,7 +17,7 @@
           <% if @search_mode == :local && @repository.stale? && @repository.cached_at.present? %>
             <div class="flex items-center gap-2">
               <div class="relative group">
-                <%= button_to refresh_repository_issues_path(@repository), method: :post, params: (params[:q].present? ? { q: params[:q] } : {}), class: "inline-flex items-center p-2 text-yellow-600 dark:text-yellow-500 hover:text-blue-600 dark:hover:text-blue-500 transition-colors cursor-pointer" do %>
+                <%= button_to refresh_repository_issues_path(@repository), method: :post, params: (params[:q].present? ? { q: params[:q] } : {}), class: "inline-flex items-center p-2 text-yellow-600 dark:text-yellow-500 hover:text-emerald-600 dark:hover:text-emerald-500 transition-colors cursor-pointer" do %>
                   <!-- Warning icon - shown by default -->
                   <svg class="h-5 w-5 group-hover:hidden" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
@@ -72,234 +72,50 @@
 
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
           <!-- Filters Header Bar -->
-          <div class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700">
-            <!-- Left: State Filter Buttons with Counts -->
-            <div class="flex items-center gap-4">
-              <%
-                query_text = @query || ""
-                has_state_open = query_text.match?(/\bstate:open\b|\bis:open\b/i)
-                has_state_closed = query_text.match?(/\bstate:closed\b|\bis:closed\b/i)
+          <div class="px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700" data-controller="filters-toggle">
+            <!-- Container uses flexbox wrapping to control layout -->
+            <div class="flex flex-wrap items-center gap-3">
+              <!-- State Filter Buttons (always first, flex-shrink-0 prevents wrapping) -->
+              <div class="flex items-center gap-4 whitespace-nowrap">
+                <%
+                  query_text = @query || ""
+                  has_state_open = query_text.match?(/\bstate:open\b|\bis:open\b/i)
+                  has_state_closed = query_text.match?(/\bstate:closed\b|\bis:closed\b/i)
 
-                # Build query for open state
-                query_without_state = query_text.gsub(/\b(state|is):(open|closed)\b/i, '').gsub(/\s+/, ' ').strip
-                query_open = query_without_state.present? ? "state:open #{query_without_state}" : "state:open"
-                query_closed = query_without_state.present? ? "state:closed #{query_without_state}" : "state:closed"
-              %>
-              <%= link_to repository_issues_path(@repository, q: query_open), class: "text-sm font-medium #{has_state_open ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}" do %>
-                <%= "#{@open_count} " if @open_count %><%= t('issues.index.state_filter.open') %>
-              <% end %>
-              <%= link_to repository_issues_path(@repository, q: query_closed), class: "text-sm font-medium #{has_state_closed ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}" do %>
-                <%= "#{@closed_count} " if @closed_count %><%= t('issues.index.state_filter.closed') %>
-              <% end %>
+                  # Build query for open state
+                  query_without_state = query_text.gsub(/\b(state|is):(open|closed)\b/i, '').gsub(/\s+/, ' ').strip
+                  query_open = query_without_state.present? ? "state:open #{query_without_state}" : "state:open"
+                  query_closed = query_without_state.present? ? "state:closed #{query_without_state}" : "state:closed"
+                %>
+                <%= link_to repository_issues_path(@repository, q: query_open), class: "text-sm font-medium whitespace-nowrap #{has_state_open ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}" do %>
+                  <%= "#{@open_count} " if @open_count %><%= t('issues.index.state_filter.open') %>
+                <% end %>
+                <%= link_to repository_issues_path(@repository, q: query_closed), class: "text-sm font-medium whitespace-nowrap #{has_state_closed ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}" do %>
+                  <%= "#{@closed_count} " if @closed_count %><%= t('issues.index.state_filter.closed') %>
+                <% end %>
+              </div>
+
+              <!-- Mobile: Filters Toggle Button (on same row, right side) -->
+              <div class="md:hidden ml-auto">
+                <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap" data-action="click->filters-toggle#toggle">
+                  Filters
+                  <svg class="-mr-1 h-5 w-5 text-gray-400 transition-transform duration-200" viewBox="0 0 20 20" fill="currentColor" data-filters-toggle-target="icon">
+                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Desktop: Filter Dropdowns inline (on same row, right side) -->
+              <div class="hidden md:flex md:flex-wrap md:items-center md:gap-2 md:ml-auto">
+                <%= render partial: "filter_dropdowns", locals: { query_text: query_text } %>
+              </div>
             </div>
 
-            <!-- Right: Filter Dropdowns -->
-            <div class="flex items-center gap-2">
-              <!-- Author Filter -->
-              <% if @available_authors.any? %>
-                <%
-                  # Build query without author qualifier
-                  query_without_author = query_text.gsub(/\bauthor:("[^"]*"|\S+)/i, '').gsub(/\s+/, ' ').strip
-
-                  # Detect current author filter
-                  current_author = nil
-                  author_match = query_text.match(/\bauthor:("[^"]*"|(\S+))/i)
-                  if author_match
-                    current_author = author_match[1].gsub(/^["']|["']$/, '')
-                  end
-                %>
-                <div class="relative inline-block text-left" data-controller="filter-dropdown">
-                  <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle">
-                    Author
-                    <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                    </svg>
-                  </button>
-                  <div class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none opacity-0 scale-95 pointer-events-none transition-all duration-100" inert data-filter-dropdown-target="menu" role="menu">
-                    <!-- Search input -->
-                    <div class="p-2 border-b border-gray-200 dark:border-gray-700">
-                      <input type="text"
-                              placeholder="Filter authors"
-                              class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              data-filter-dropdown-target="search"
-                              data-action="input->filter-dropdown#search">
-                    </div>
-                    <div class="py-1" role="none">
-                      <% @available_authors.each do |author| %>
-                        <%
-                          login = author["login"] || author[:login]
-                          avatar_url = author["avatar_url"] || author[:avatar_url]
-                          is_selected = current_author == login
-                          # If this author is selected, clicking removes it; otherwise add it
-                          if is_selected
-                            query_author_link = query_without_author.present? ? query_without_author : ""
-                          else
-                            query_author_link = query_without_author.present? ? "#{query_without_author} author:#{login}" : "author:#{login}"
-                          end
-                        %>
-                        <%= link_to repository_issues_path(@repository, q: query_author_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 #{is_selected ? 'bg-gray-100 dark:bg-gray-700' : ''}", role: "menuitem", data: { filter_dropdown_target: "item" } do %>
-                          <% if is_selected %>
-                            <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                            </svg>
-                          <% else %>
-                            <div class="h-5 w-5 flex-shrink-0"></div>
-                          <% end %>
-                          <% if avatar_url %>
-                            <%= render AvatarComponent.new(src: avatar_url, alt: login, size: :small) %>
-                          <% end %>
-                          <span><%= login %></span>
-                        <% end %>
-                      <% end %>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
-
-              <!-- Labels Filter -->
-              <% if @available_labels.any? %>
-                <%
-                  # Build query without label qualifiers
-                  query_without_labels = query_text.gsub(/\blabel:("[^"]*"|\S+)/i, '').gsub(/\s+/, ' ').strip
-
-                  # Detect current label filters
-                  current_labels = query_text.scan(/\blabel:("[^"]*"|(\S+))/i).flatten.compact.map { |l| l.gsub(/^["']|["']$/, '') }
-                %>
-                <div class="relative inline-block text-left" data-controller="filter-dropdown">
-                  <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle">
-                    Labels
-                    <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                    </svg>
-                  </button>
-                  <div class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none opacity-0 scale-95 pointer-events-none transition-all duration-100" inert data-filter-dropdown-target="menu" role="menu">
-                    <!-- Search input -->
-                    <div class="p-2 border-b border-gray-200 dark:border-gray-700">
-                      <input type="text"
-                              placeholder="Filter labels"
-                              class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              data-filter-dropdown-target="search"
-                              data-action="input->filter-dropdown#search">
-                    </div>
-                    <div class="py-1 max-h-64 overflow-y-auto" role="none">
-                      <% @available_labels.each do |label| %>
-                        <%
-                          label_name = label["name"] || label[:name]
-                          label_color = label["color"] || label[:color]
-                          is_selected = current_labels.include?(label_name)
-                          # Build query: if selected, remove it; if not selected, add it
-                          if is_selected
-                            # Remove this label
-                            new_labels = current_labels - [label_name]
-                          else
-                            # Add this label
-                            new_labels = current_labels + [label_name]
-                          end
-                          # Build query with all labels
-                          label_parts = new_labels.map { |l| "label:#{l.include?(' ') ? "\"#{l}\"" : l}" }
-                          query_label_link = [query_without_labels, *label_parts].reject(&:blank?).join(" ")
-                        %>
-                        <%= link_to repository_issues_path(@repository, q: query_label_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 #{is_selected ? 'bg-gray-100 dark:bg-gray-700' : ''}", role: "menuitem", data: { filter_dropdown_target: "item" } do %>
-                          <% if is_selected %>
-                            <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                            </svg>
-                          <% else %>
-                            <div class="h-5 w-5 flex-shrink-0"></div>
-                          <% end %>
-                          <% if label_color.present? %>
-                            <div class="h-3 w-3 rounded-full flex-shrink-0" style="background-color: #<%= label_color %>;"></div>
-                          <% end %>
-                          <span class="flex-1"><%= label_name %></span>
-                        <% end %>
-                      <% end %>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
-
-              <!-- Assignee Filter -->
-              <% if @available_assignees.any? %>
-                <%
-                  # Build query without assignee qualifier
-                  query_without_assignee = query_text.gsub(/\bassignee:("[^"]*"|\S+)/i, '').gsub(/\bno:assignee\b/i, '').gsub(/\s+/, ' ').strip
-
-                  # Detect current assignee filter
-                  current_assignee = nil
-                  has_no_assignee = query_text.match?(/\bno:assignee\b/i)
-                  assignee_match = query_text.match(/\bassignee:("[^"]*"|(\S+))/i)
-                  if assignee_match
-                    current_assignee = assignee_match[1].gsub(/^["']|["']$/, '')
-                  end
-                %>
-                <div class="relative inline-block text-left" data-controller="filter-dropdown">
-                  <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle">
-                    <%= t('issues.index.assignee_filter.button') %>
-                    <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                    </svg>
-                  </button>
-                  <div class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none opacity-0 scale-95 pointer-events-none transition-all duration-100" inert data-filter-dropdown-target="menu" role="menu">
-                    <!-- Search input -->
-                    <div class="p-2 border-b border-gray-200 dark:border-gray-700">
-                      <input type="text"
-                              placeholder="<%= t('issues.index.assignee_filter.search_placeholder') %>"
-                              class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              data-filter-dropdown-target="search"
-                              data-action="input->filter-dropdown#search">
-                    </div>
-                    <div class="py-1" role="none">
-                      <%
-                        # "No assignees" - add no:assignee or remove if already selected
-                        if has_no_assignee
-                          query_no_assignee_link = query_without_assignee.present? ? query_without_assignee : ""
-                        else
-                          query_no_assignee_link = query_without_assignee.present? ? "#{query_without_assignee} no:assignee" : "no:assignee"
-                        end
-                      %>
-                      <%= link_to repository_issues_path(@repository, q: query_no_assignee_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 #{has_no_assignee ? 'bg-gray-100 dark:bg-gray-700' : ''}", role: "menuitem", data: { filter_dropdown_target: "item" } do %>
-                        <% if has_no_assignee %>
-                          <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                          </svg>
-                        <% else %>
-                          <div class="h-5 w-5 flex-shrink-0"></div>
-                        <% end %>
-                        <svg class="h-5 w-5 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 16 16">
-                          <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12.5 14c0-1.381-1.119-2.5-2.5-2.5H6c-1.381 0-2.5 1.119-2.5 2.5v.5h9v-.5Z"/>
-                        </svg>
-                        <span><%= t('issues.index.assignee_filter.no_assignees') %></span>
-                      <% end %>
-                      <% @available_assignees.each do |assignee| %>
-                        <%
-                          login = assignee["login"] || assignee[:login]
-                          avatar_url = assignee["avatar_url"] || assignee[:avatar_url]
-                          is_selected = current_assignee == login
-                          # If this assignee is selected, clicking removes it; otherwise add it
-                          if is_selected
-                            query_assignee_link = query_without_assignee.present? ? query_without_assignee : ""
-                          else
-                            query_assignee_link = query_without_assignee.present? ? "#{query_without_assignee} assignee:#{login}" : "assignee:#{login}"
-                          end
-                        %>
-                        <%= link_to repository_issues_path(@repository, q: query_assignee_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 #{is_selected ? 'bg-gray-100 dark:bg-gray-700' : ''}", role: "menuitem", data: { filter_dropdown_target: "item" } do %>
-                          <% if is_selected %>
-                            <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                            </svg>
-                          <% else %>
-                            <div class="h-5 w-5 flex-shrink-0"></div>
-                          <% end %>
-                          <% if avatar_url %>
-                            <%= render AvatarComponent.new(src: avatar_url, alt: login, size: :small) %>
-                          <% end %>
-                          <span><%= login %></span>
-                        <% end %>
-                      <% end %>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
+            <!-- Mobile: Collapsible Filter Dropdowns (below top row, hidden by default) -->
+            <div class="md:hidden mt-3 hidden" data-filters-toggle-target="mobileFilters">
+              <div class="flex flex-wrap items-center gap-2">
+                <%= render partial: "filter_dropdowns", locals: { query_text: query_text } %>
+              </div>
             </div>
           </div>
 
@@ -366,7 +182,7 @@
                           <% if item.is_a?(Integer) || item.is_a?(String) %>
                             <% page_num = item.to_i %>
                             <% if page_num == @pagy.page %>
-                              <span aria-current="page" class="relative z-10 inline-flex items-center bg-blue-600 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><%= page_num %></span>
+                              <span aria-current="page" class="relative z-10 inline-flex items-center bg-emerald-600 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"><%= page_num %></span>
                             <% else %>
                               <%= link_to page_num, repository_issues_path(@repository, q: params[:q], page: (page_num == 1 ? nil : page_num)), class: "relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0" %>
                             <% end %>

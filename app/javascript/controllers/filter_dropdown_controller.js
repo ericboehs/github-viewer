@@ -94,7 +94,8 @@ export default class extends Controller {
 
   closeOtherDropdowns() {
     // Find all other filter dropdown controllers and close them
-    document.querySelectorAll('[data-controller="filter-dropdown"]').forEach(element => {
+    // Use attribute contains selector to match elements with multiple controllers
+    document.querySelectorAll('[data-controller*="filter-dropdown"]').forEach(element => {
       if (element !== this.element) {
         const controller = this.application.getControllerForElementAndIdentifier(element, "filter-dropdown")
         if (controller && controller.isOpen()) {
@@ -126,25 +127,39 @@ export default class extends Controller {
     const value = button.dataset.value
     const qualifierType = this.element.dataset.qualifierType
 
-    // Get the search field
-    const form = this.element.closest("form")
-    const searchField = form ? form.querySelector('input[name="q"]') : null
+    // Get the search field - look in the entire document since the dropdown may be outside the form
+    const searchField = document.querySelector('input[name="q"]')
+    const form = searchField ? searchField.closest("form") : null
 
     if (searchField && qualifierType) {
       let query = searchField.value || ''
 
-      // Create regex to match the qualifier type (e.g., assignee:, label:)
-      const qualifierRegex = new RegExp(`\\b${qualifierType}:("[^"]*"|\\S+)`, 'gi')
+      if (qualifierType === 'label') {
+        // Labels support multiple selections - toggle the clicked label
+        const labelRegex = new RegExp(`\\blabel:(${value.includes(' ') ? `"${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"` : value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i')
 
-      // Remove existing qualifier of this type
-      query = query.replace(qualifierRegex, '').trim()
+        if (labelRegex.test(query)) {
+          // Label is already selected, remove it
+          query = query.replace(labelRegex, '').trim()
+        } else {
+          // Label not selected, add it
+          const quotedValue = value.includes(' ') ? `"${value}"` : value
+          query = query ? `${query} label:${quotedValue}` : `label:${quotedValue}`
+        }
+      } else {
+        // Author/Assignee: single-select, replace existing value
+        const qualifierRegex = new RegExp(`\\b${qualifierType}:("[^"]*"|\\S+)`, 'gi')
 
-      // Add new qualifier if value is not empty
-      if (value) {
-        // Quote the value if it contains spaces
-        const quotedValue = value.includes(' ') ? `"${value}"` : value
-        // Add qualifier at the end of the query
-        query = query ? `${query} ${qualifierType}:${quotedValue}` : `${qualifierType}:${quotedValue}`
+        // Remove existing qualifier of this type
+        query = query.replace(qualifierRegex, '').trim()
+
+        // Add new qualifier if value is not empty
+        if (value) {
+          // Quote the value if it contains spaces
+          const quotedValue = value.includes(' ') ? `"${value}"` : value
+          // Add qualifier at the end of the query
+          query = query ? `${query} ${qualifierType}:${quotedValue}` : `${qualifierType}:${quotedValue}`
+        }
       }
 
       // Normalize whitespace

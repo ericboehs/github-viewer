@@ -99,4 +99,30 @@ class IssueLabelComponentTest < ViewComponent::TestCase
     assert_includes link[:href], "label%3A"  # URL encoded "label:"
     assert_text "help wanted"
   end
+
+  test "renders label URL when query only contains label qualifier" do
+    user = User.create!(
+      email_address: "test@example.com",
+      password: "password123",
+      github_token: "test_token",
+      github_domain: "github.com"
+    )
+    repository = user.repositories.create!(
+      owner: "testuser",
+      name: "testrepo",
+      full_name: "testuser/testrepo",
+      url: "https://github.com/testuser/testrepo",
+      github_domain: "github.com"
+    )
+    label = { "name" => "bug", "color" => "d73a4a" }
+
+    # Query contains only a label qualifier
+    render_inline(IssueLabelComponent.new(label: label, repository: repository, query: "label:enhancement"))
+
+    # After removing existing label, query should be empty, so URL should be just label:bug
+    assert_selector "a"
+    link = page.find("a")
+    assert_includes link[:href], "label%3Abug"
+    assert_text "bug"
+  end
 end

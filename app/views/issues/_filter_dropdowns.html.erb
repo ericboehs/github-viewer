@@ -1,0 +1,209 @@
+<!-- Author Filter -->
+<%
+  # Detect current author filter
+  current_author = query_text.match(/\bauthor:("[^"]*"|(\S+))/i)
+  current_author = current_author ? current_author[1].gsub(/^["']|["']$/, '') : nil
+%>
+<div class="relative inline-block text-left" data-controller="filter-dropdown contributor-search" data-contributor-search-url-value="<%= assignable_users_repository_path(@repository) %>" data-contributor-search-selected-value="<%= current_author %>" data-qualifier-type="author">
+  <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle">
+    Author
+    <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+    </svg>
+  </button>
+  <div class="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none opacity-0 scale-95 pointer-events-none transition-all duration-100" inert data-filter-dropdown-target="menu" role="menu">
+    <!-- Search input -->
+    <div class="p-2 border-b border-gray-200 dark:border-gray-700">
+      <input type="text"
+              placeholder="Search authors..."
+              class="w-full px-3 py-2 text-base border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              data-filter-dropdown-target="search"
+              data-contributor-search-target="search"
+              data-action="input->contributor-search#search">
+    </div>
+    <!-- Loading indicator -->
+    <div class="hidden px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center" data-contributor-search-target="loading">
+      Loading...
+    </div>
+    <!-- Results container -->
+    <div class="py-1 max-h-64 overflow-y-auto" role="none" data-contributor-search-target="results">
+      <!-- Results will be inserted here by Stimulus controller -->
+    </div>
+  </div>
+</div>
+
+<!-- Labels Filter -->
+<% if @available_labels.any? %>
+  <%
+    # Build query without label qualifiers
+    query_without_labels = query_text.gsub(/\blabel:("[^"]*"|\S+)/i, '').gsub(/\s+/, ' ').strip
+
+    # Detect current label filters
+    current_labels = query_text.scan(/\blabel:("[^"]*"|(\S+))/i).flatten.compact.map { |l| l.gsub(/^["']|["']$/, '') }
+  %>
+  <div class="relative inline-block text-left" data-controller="filter-dropdown" data-qualifier-type="label">
+    <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle">
+      Labels
+      <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+      </svg>
+    </button>
+    <div class="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none opacity-0 scale-95 pointer-events-none transition-all duration-100" inert data-filter-dropdown-target="menu" role="menu">
+      <!-- Search input -->
+      <div class="p-2 border-b border-gray-200 dark:border-gray-700">
+        <input type="text"
+                placeholder="Filter labels"
+                class="w-full px-3 py-2 text-base border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                data-filter-dropdown-target="search"
+                data-action="input->filter-dropdown#search">
+      </div>
+      <div class="py-1 max-h-64 overflow-y-auto" role="none">
+        <%
+          # Sort labels: selected first, then alphabetically
+          sorted_labels = @available_labels.sort_by do |label|
+            label_name = label["name"] || label[:name]
+            is_selected = current_labels.include?(label_name)
+            [is_selected ? 0 : 1, label_name.downcase]
+          end
+        %>
+        <% sorted_labels.each do |label| %>
+          <%
+            label_name = label["name"] || label[:name]
+            label_color = label["color"] || label[:color]
+            is_selected = current_labels.include?(label_name)
+          %>
+          <button type="button" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none w-full text-left <%= is_selected ? 'bg-gray-100 dark:bg-gray-700' : '' %>" data-action="click->filter-dropdown#selectItem" data-value="<%= label_name %>" data-filter-dropdown-target="item" tabindex="-1">
+            <% if is_selected %>
+              <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+              </svg>
+            <% else %>
+              <div class="h-5 w-5 flex-shrink-0"></div>
+            <% end %>
+            <% if label_color.present? %>
+              <div class="h-3 w-3 rounded-full flex-shrink-0" style="background-color: #<%= label_color %>;"></div>
+            <% end %>
+            <span class="flex-1"><%= label_name %></span>
+          </button>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>
+
+<!-- Assignee Filter -->
+<%
+  # Detect current assignee filter
+  current_assignee = query_text.match(/\bassignee:("[^"]*"|(\S+))/i)
+  current_assignee = current_assignee ? current_assignee[1].gsub(/^["']|["']$/, '') : nil
+%>
+<div class="relative inline-block text-left" data-controller="filter-dropdown contributor-search" data-contributor-search-url-value="<%= assignable_users_repository_path(@repository) %>" data-contributor-search-selected-value="<%= current_assignee %>" data-qualifier-type="assignee">
+  <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle">
+    Assignees
+    <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+    </svg>
+  </button>
+  <div class="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none opacity-0 scale-95 pointer-events-none transition-all duration-100" inert data-filter-dropdown-target="menu" role="menu">
+    <!-- Search input -->
+    <div class="p-2 border-b border-gray-200 dark:border-gray-700">
+      <input type="text"
+              placeholder="Search assignees..."
+              class="w-full px-3 py-2 text-base border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              data-filter-dropdown-target="search"
+              data-contributor-search-target="search"
+              data-action="input->contributor-search#search">
+    </div>
+    <!-- Loading indicator -->
+    <div class="hidden px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center" data-contributor-search-target="loading">
+      Loading...
+    </div>
+    <!-- Results container -->
+    <div class="py-1 max-h-64 overflow-y-auto" role="none" data-contributor-search-target="results">
+      <!-- Results will be inserted here by Stimulus controller -->
+    </div>
+  </div>
+</div>
+
+<!-- Sort Filter -->
+<%
+  # Parse current sort and order from query
+  sort_match = query_text.match(/\bsort:(created|updated|comments)(?:-(asc|desc))?\b/i)
+  current_sort = sort_match ? sort_match[1].downcase : "created"
+  current_order = sort_match && sort_match[2] ? sort_match[2].downcase : "desc"
+
+  # Build query without sort qualifier
+  query_without_sort = query_text.gsub(/\bsort:(created|updated|comments)(?:-(asc|desc))?\b/i, '').gsub(/\s+/, ' ').strip
+
+  sort_options = [
+    { value: "created", label: "Created" },
+    { value: "updated", label: "Updated" },
+    { value: "comments", label: "Comments" }
+  ]
+%>
+<div class="relative inline-block text-left" data-controller="filter-dropdown">
+  <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle">
+    Sort
+    <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+    </svg>
+  </button>
+  <div class="absolute left-0 z-10 mt-2 w-40 origin-top-left rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-gray-200 dark:ring-gray-700 focus:outline-none opacity-0 scale-95 pointer-events-none transition-all duration-100" inert data-filter-dropdown-target="menu" role="menu">
+    <!-- Sort By Options -->
+    <div class="py-1" role="none">
+      <% sort_options.each do |option| %>
+        <%
+          is_selected = current_sort == option[:value]
+          new_sort = "sort:#{option[:value]}-#{current_order}"
+          query_sort_link = query_without_sort.present? ? "#{query_without_sort} #{new_sort}" : new_sort
+        %>
+        <%= link_to repository_issues_path(@repository, q: query_sort_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 #{is_selected ? 'bg-gray-100 dark:bg-gray-700' : ''}", role: "menuitem" do %>
+          <% if is_selected %>
+            <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+            </svg>
+          <% else %>
+            <div class="h-5 w-5 flex-shrink-0"></div>
+          <% end %>
+          <span><%= option[:label] %></span>
+        <% end %>
+      <% end %>
+    </div>
+    <!-- Divider -->
+    <div class="border-t border-gray-200 dark:border-gray-700"></div>
+    <!-- Order Options -->
+    <div class="py-1" role="none">
+      <%
+        # Context-aware order labels based on sort field
+        order_options = if current_sort == "comments"
+          [
+            { value: "desc", label: "Most" },
+            { value: "asc", label: "Least" }
+          ]
+        else
+          [
+            { value: "desc", label: "Newest" },
+            { value: "asc", label: "Oldest" }
+          ]
+        end
+      %>
+      <% order_options.each do |option| %>
+        <%
+          is_selected = current_order == option[:value]
+          new_sort = "sort:#{current_sort}-#{option[:value]}"
+          query_order_link = query_without_sort.present? ? "#{query_without_sort} #{new_sort}" : new_sort
+        %>
+        <%= link_to repository_issues_path(@repository, q: query_order_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 #{is_selected ? 'bg-gray-100 dark:bg-gray-700' : ''}", role: "menuitem" do %>
+          <% if is_selected %>
+            <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+            </svg>
+          <% else %>
+            <div class="h-5 w-5 flex-shrink-0"></div>
+          <% end %>
+          <span><%= option[:label] %></span>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</div>

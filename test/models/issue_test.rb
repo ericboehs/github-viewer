@@ -161,4 +161,14 @@ class IssueTest < ActiveSupport::TestCase
     issues = Issue.assigned_to("")
     assert_equal Issue.count, issues.count
   end
+
+  test "should filter authored_by when login is present" do
+    issues = Issue.authored_by("dhh")
+    assert_includes issues, @issue
+  end
+
+  test "should not filter authored_by when login is blank" do
+    issues = Issue.authored_by("")
+    assert_equal Issue.count, issues.count
+  end
 end

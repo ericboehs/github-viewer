@@ -5,10 +5,10 @@ Rails.application.routes.draw do
   resources :passwords, param: :token
   resources :users, only: [ :new, :create ]
   resources :github_tokens, only: [ :create, :destroy ]
-  get "avatars/proxy", to: "avatars#show", as: :avatar_proxy
   resources :repositories, only: [ :index, :new, :create, :destroy ] do
     member do
       post :refresh
+      get :assignable_users
     end
     resources :issues, only: [ :index, :show ] do
       collection do

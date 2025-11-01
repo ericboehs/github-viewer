@@ -16,7 +16,8 @@ class IssuesController < ApplicationController
     flash_now = flash.now
 
     # Sync issues if cache is cold (no issues cached yet)
-    if issues.empty?
+    # Skip initial sync for large repositories (>200 issues) - rely on on-demand fetching instead
+    if issues.empty? && @repository.open_issue_count <= 200
       sync_result = Github::IssueSyncService.new(
         user: current_user,
         repository: @repository
@@ -48,12 +49,24 @@ class IssuesController < ApplicationController
       query: parsed_query[:query],
       filters: parsed_query[:filters],
       sort_by: parsed_query[:sort] || params[:sort] || "created",
-      search_mode: search_mode
+      search_mode: search_mode,
+      per_page: 30,
+      page: params[:page] || 1
     ).call
 
     if search_result[:success]
       all_results = search_result[:issues]
-      @pagy, @issues = pagy_array(all_results, limit: 10)
+      @total_count = search_result[:count]  # Total count from API (for pagination)
+
+      # For GitHub API mode, results are already paginated, so create Pagy object manually
+      # For local mode, all results are returned and we paginate them
+      if search_result[:mode] == :github && @total_count.present?
+        @pagy = Pagy.new(count: @total_count, page: params[:page] || 1, limit: 30)
+        @issues = all_results
+      else
+        @pagy, @issues = pagy_array(all_results, limit: 30)
+      end
+
       @search_mode = search_result[:mode]
 
       # Show rate limit warning if approaching limit or if debug mode
@@ -75,12 +88,13 @@ class IssuesController < ApplicationController
         query: parsed_query[:query],
         filters: parsed_query[:filters],
         sort_by: parsed_query[:sort] || params[:sort] || "created",
-        search_mode: :local
+        search_mode: :local,
+        per_page: 10
       ).call
 
       if local_result[:success] && local_result[:issues].any?
         all_results = local_result[:issues]
-        @pagy, @issues = pagy_array(all_results, limit: 10)
+        @pagy, @issues = pagy_array(all_results, limit: 30)
         @search_mode = :local
 
         # Customize error message based on error type
@@ -100,44 +114,121 @@ class IssuesController < ApplicationController
         end
       else
         all_results = issues.order(github_updated_at: :desc).to_a
-        @pagy, @issues = pagy_array(all_results, limit: 10)
+        @pagy, @issues = pagy_array(all_results, limit: 30)
         flash_now[:alert] = search_result[:error]
       end
     end
 
-    # Calculate state counts only if no state filter is present to avoid extra API calls
+    # Calculate state counts
     if parsed_query[:filters][:state].present?
-      # If state filter is present, don't show counts for the other state
-      @open_count = parsed_query[:filters][:state] == "open" ? all_results.count : nil
-      @closed_count = parsed_query[:filters][:state] == "closed" ? all_results.count : nil
+      # If state filter is present, use total count from API for that state
+      # and fetch the opposite state's count
+      current_state = parsed_query[:filters][:state]
+
+      if current_state == "open"
+        @open_count = @total_count
+        # Get closed count
+        if search_result[:mode] == :github
+          closed_filters = parsed_query[:filters].merge(state: "closed")
+          closed_result = Github::IssueSearchService.new(
+            user: current_user,
+            repository: @repository,
+            query: parsed_query[:query],
+            filters: closed_filters,
+            sort_by: parsed_query[:sort] || params[:sort] || "created",
+            search_mode: :github,
+            per_page: 1,
+            page: 1
+          ).call
+          @closed_count = closed_result[:success] ? closed_result[:count] : nil
+        else
+          @closed_count = @repository.issues.by_state("closed").count
+        end
+      else # closed
+        @closed_count = @total_count
+        # Get open count
+        if search_result[:mode] == :github
+          open_filters = parsed_query[:filters].merge(state: "open")
+          open_result = Github::IssueSearchService.new(
+            user: current_user,
+            repository: @repository,
+            query: parsed_query[:query],
+            filters: open_filters,
+            sort_by: parsed_query[:sort] || params[:sort] || "created",
+            search_mode: :github,
+            per_page: 1,
+            page: 1
+          ).call
+          @open_count = open_result[:success] ? open_result[:count] : nil
+        else
+          @open_count = @repository.issues.by_state("open").count
+        end
+      end
     else
-      # No state filter, count from current results
-      @open_count = all_results.count { |issue| issue.state == "open" }
-      @closed_count = all_results.count { |issue| issue.state == "closed" }
+      # No state filter - make two quick API queries to get accurate counts
+      if search_result[:mode] == :github
+        # Get open count
+        open_filters = parsed_query[:filters].merge(state: "open")
+        open_result = Github::IssueSearchService.new(
+          user: current_user,
+          repository: @repository,
+          query: parsed_query[:query],
+          filters: open_filters,
+          sort_by: parsed_query[:sort] || params[:sort] || "created",
+          search_mode: :github,
+          per_page: 1,  # We only need the count, not the results
+          page: 1
+        ).call
+        @open_count = open_result[:success] ? open_result[:count] : nil
+
+        # Get closed count
+        closed_filters = parsed_query[:filters].merge(state: "closed")
+        closed_result = Github::IssueSearchService.new(
+          user: current_user,
+          repository: @repository,
+          query: parsed_query[:query],
+          filters: closed_filters,
+          sort_by: parsed_query[:sort] || params[:sort] || "created",
+          search_mode: :github,
+          per_page: 1,  # We only need the count, not the results
+          page: 1
+        ).call
+        @closed_count = closed_result[:success] ? closed_result[:count] : nil
+      else
+        # Local mode - count from all results
+        @open_count = all_results.count { |issue| issue.state == "open" }
+        @closed_count = all_results.count { |issue| issue.state == "closed" }
+      end
     end
 
-    # Extract unique labels, assignees, and authors for filter dropdowns
-    @available_labels = extract_unique_labels(issues)
-    @available_assignees = extract_unique_assignees(issues)
-    @available_authors = extract_unique_authors(issues)
+    # Extract unique labels from search results to show only relevant labels
+    @available_labels = extract_unique_labels(all_results)
   end
 
   # :reek:TooManyStatements - Controller action orchestrates auto-refresh logic
   # :reek:NilCheck - Explicit nil check required to detect uncached issues
   def show
-    @issue = @repository.issues.find_by!(number: params[:id])
+    @issue = @repository.issues.find_by(number: params[:id])
 
-    # Auto-refresh if issue is stale (older than 5 minutes)
+    # Fetch from API if issue doesn't exist in database yet (beyond initial 200)
+    # Or auto-refresh if issue is stale (older than 5 minutes)
     sync_result = nil
-    if @issue.cached_at.nil? || @issue.cached_at < 5.minutes.ago
+    if @issue.nil? || @issue.cached_at.nil? || @issue.cached_at < 5.minutes.ago
+      issue_number = @issue&.number || params[:id].to_i
       sync_result = Github::IssueSyncService.new(
         user: Current.user,
         repository: @repository,
-        issue_number: @issue.number
+        issue_number: issue_number
       ).call
 
-      # Reload issue after sync
-      @issue.reload if sync_result[:success]
+      if sync_result[:success]
+        # Load or reload issue after sync
+        @issue = @repository.issues.find_by!(number: issue_number)
+      elsif @issue.nil?
+        # Issue doesn't exist and sync failed - show error
+        flash[:alert] = t("issues.errors.issue_not_found", error: sync_result[:error])
+        redirect_to repository_issues_path(@repository) and return
+      end
     end
 
     # Show rate limit info if debug mode
@@ -204,36 +295,6 @@ class IssuesController < ApplicationController
     labels_hash.values.sort_by { |label| label["name"] || label[:name] }
   end
 
-  # :reek:NestedIterators - Extracting assignees from issues requires nested iteration
-  # :reek:TooManyStatements - Building assignees list requires multiple operations
-  # :reek:UtilityFunction - Pure data transformation for filter dropdowns
-  # :reek:DuplicateMethodCall - Accessing assignee hash keys for readability
-  def extract_unique_assignees(issues)
-    assignees_hash = {}
-    issues.each do |issue|
-      next unless issue.assignees.present?
-      issue.assignees.each do |assignee|
-        login = assignee["login"] || assignee[:login]
-        assignees_hash[login] ||= assignee
-      end
-    end
-    assignees_hash.values.sort_by { |assignee| assignee["login"] || assignee[:login] }
-  end
-
-  # :reek:TooManyStatements - Building authors list requires multiple operations
-  # :reek:UtilityFunction - Pure data transformation for filter dropdowns
-  def extract_unique_authors(issues)
-    authors_hash = {}
-    issues.each do |issue|
-      next unless issue.author_login.present?
-      login = issue.author_login
-      authors_hash[login] ||= {
-        "login" => login,
-        "avatar_url" => issue.author_avatar_url
-      }
-    end
-    authors_hash.values.sort_by { |author| author["login"] }
-  end
 
   # Parse GitHub search qualifiers from query string
   # Supports: is:open, is:closed, label:name (multiple), assignee:username, author:username, sort:field-direction

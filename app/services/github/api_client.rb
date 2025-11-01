@@ -42,9 +42,29 @@ module Github
     end
 
     # :reek:TooManyStatements - Includes API call and error handling
-    def fetch_issues(owner, repo_name, state: "all")
+    # :reek:LongParameterList - GitHub API requires owner, repo_name, state, max_issues
+    # :reek:ControlParameter - max_issues controls pagination behavior for large repos
+    # Fetches issues from GitHub API
+    # max_issues: Limit the number of issues to fetch (for initial sync of large repos)
+    #             If nil, fetches all issues with auto-pagination
+    def fetch_issues(owner, repo_name, state: "all", max_issues: nil)
       with_rate_limiting do
-        issues = @client.issues("#{owner}/#{repo_name}", state: state, per_page: ApiConfiguration::DEFAULT_PAGE_SIZE)
+        options = {
+          state: state,
+          sort: "updated",  # Sort by last updated to get most recent activity
+          direction: "desc",
+          per_page: max_issues || ApiConfiguration::DEFAULT_PAGE_SIZE
+        }
+
+        # Temporarily disable auto-pagination when fetching limited issues
+        original_auto_paginate = @client.auto_paginate
+        @client.auto_paginate = false if max_issues
+
+        issues = @client.issues("#{owner}/#{repo_name}", options)
+
+        # Restore auto-pagination setting
+        @client.auto_paginate = original_auto_paginate if max_issues
+
         issues.map { |issue| normalize_issue_data(issue) }
       end
     rescue Octokit::NotFound
@@ -71,21 +91,85 @@ module Github
       []
     end
 
+    # Fetch assignable users via GraphQL
+    # Returns users who can be assigned to issues in the repository
+    def fetch_assignable_users(owner, repo_name)
+      query = <<~GRAPHQL
+        query($owner: String!, $name: String!, $first: Int!, $after: String) {
+          repository(owner: $owner, name: $name) {
+            assignableUsers(first: $first, after: $after) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                login
+                avatarUrl
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      all_users = []
+      has_next_page = true
+      after_cursor = nil
+
+      while has_next_page
+        variables = {
+          owner: owner,
+          name: repo_name,
+          first: 100,
+          after: after_cursor
+        }
+
+        result = graphql_query(query, variables)
+
+        if result[:error]
+          return result
+        end
+
+        users = result.dig("data", "repository", "assignableUsers", "nodes") || []
+        page_info = result.dig("data", "repository", "assignableUsers", "pageInfo") || {}
+
+        all_users.concat(users.map { |user| normalize_assignable_user_data(user) })
+
+        has_next_page = page_info["hasNextPage"]
+        after_cursor = page_info["endCursor"]
+      end
+
+      all_users
+    rescue => error
+      { error: error.message }
+    end
+
     # Search issues using GitHub's search API
     # Query syntax: https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests
     # :reek:LongParameterList - GitHub API requires these parameters
-    def search_issues(query, sort: nil, order: nil)
+    def search_issues(query, sort: nil, order: nil, per_page: 30, page: 1)
       with_rate_limiting do
-        search_options = { per_page: ApiConfiguration::DEFAULT_PAGE_SIZE }
+        search_options = { per_page: per_page, page: page }
         search_options[:sort] = sort if sort.present?
         search_options[:order] = order if order.present?
 
+        # Disable auto-pagination for search to avoid fetching 500+ issues when we only need 10-30
+        # This dramatically improves performance for large result sets
+        original_auto_paginate = @client.auto_paginate
+        @client.auto_paginate = false
+
         results = @client.search_issues(query, search_options)
+
+        # Restore auto-pagination setting
+        @client.auto_paginate = original_auto_paginate
 
         # Capture rate limit info from response headers
         @last_rate_limit = extract_rate_limit_from_headers
 
-        results.items.map { |issue| normalize_issue_data(issue) }
+        # Return both the normalized items and the total count from the search API
+        {
+          items: results.items.map { |issue| normalize_issue_data(issue) },
+          total_count: results.total_count
+        }
       end
     rescue Octokit::NotFound
       { error: "No results found" }
@@ -112,6 +196,25 @@ module Github
     end
 
     private
+
+    # Execute a GraphQL query
+    # :reek:UtilityFunction - Wrapper for GraphQL API calls
+    def graphql_query(query, variables = {})
+      with_rate_limiting do
+        response = @client.post("/graphql", { query: query, variables: variables }.to_json)
+
+        # Check for GraphQL errors
+        if response[:errors]
+          return { error: response[:errors].map { |err| err[:message] }.join(", ") }
+        end
+
+        response
+      end
+    rescue Octokit::Unauthorized
+      { error: "Unauthorized - check your GitHub token" }
+    rescue => error
+      { error: error.message }
+    end
 
     def validate_config!
       raise ConfigurationError, "Token is required" if @token.blank?
@@ -141,7 +244,8 @@ module Github
     def with_rate_limiting(&block)
       retries = 0
       begin
-        check_rate_limit
+        # Don't pre-check rate limit - it makes an extra API call to /rate_limit
+        # Instead, rely on response headers (extracted after each call) and fail-fast on rate limit errors
         yield
       rescue Octokit::TooManyRequests => e
         # Don't retry on rate limit - fail fast and let controller fall back to cache
@@ -157,26 +261,6 @@ module Github
         else
           raise
         end
-      end
-    end
-
-    # :reek:TooManyStatements - Rate limit logic requires multiple checks
-    # :reek:DuplicateMethodCall - Repeated calls are part of rate limit inspection
-    def check_rate_limit
-      rate_limit = @client.rate_limit
-      return unless rate_limit
-
-      remaining = rate_limit.remaining
-      limit = rate_limit.limit || 5000
-
-      Rails.logger.debug "Rate limit: #{remaining}/#{limit} remaining, resets at #{rate_limit.resets_at}"
-
-      # Don't sleep on warnings - just log and let request proceed
-      # This allows fast fallback to cache when rate limited
-      if remaining < ApiConfiguration::CRITICAL_RATE_LIMIT_THRESHOLD
-        Rails.logger.warn "Rate limit critical (#{remaining}/#{limit}). Request may be rate limited."
-      elsif remaining < ApiConfiguration::WARNING_RATE_LIMIT_THRESHOLD
-        Rails.logger.debug "Rate limit warning (#{remaining}/#{limit})."
       end
     end
 
@@ -250,6 +334,14 @@ module Github
         body: comment.body,
         created_at: comment.created_at,
         updated_at: comment.updated_at
+      }
+    end
+
+    # :reek:UtilityFunction - Data transformation helper
+    def normalize_assignable_user_data(user)
+      {
+        login: user["login"],
+        avatar_url: user["avatarUrl"]
       }
     end
   end

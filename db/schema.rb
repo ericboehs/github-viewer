@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_10_29_230544) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_01_042847) do
   create_table "github_tokens", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "domain", default: "github.com", null: false
@@ -74,6 +74,17 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_29_230544) do
     t.index ["user_id"], name: "index_repositories_on_user_id"
   end
 
+  create_table "repository_assignable_users", force: :cascade do |t|
+    t.string "avatar_url"
+    t.datetime "created_at", null: false
+    t.string "login", null: false
+    t.integer "repository_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["login"], name: "index_repository_assignable_users_on_login"
+    t.index ["repository_id", "login"], name: "index_repository_assignable_users_on_repository_id_and_login", unique: true
+    t.index ["repository_id"], name: "index_repository_assignable_users_on_repository_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "ip_address"
@@ -98,5 +109,6 @@ ActiveRecord::Schema[8.1].define(version: 2025_10_29_230544) do
   add_foreign_key "issue_comments", "issues"
   add_foreign_key "issues", "repositories"
   add_foreign_key "repositories", "users"
+  add_foreign_key "repository_assignable_users", "repositories"
   add_foreign_key "sessions", "users"
 end
