@@ -5,8 +5,8 @@ en:
     validation_errors_header: 'Please correct the following errors:'
   app:
     description: GitHub Issues Viewer with smart caching
-    logo_alt: GithubViewer
-    title: GithubViewer
+    logo_alt: Github Viewer
+    title: Github Viewer
   auth:
     forgot_password:
       page_title: Forgot Password
@@ -33,8 +33,8 @@ en:
     recently_updated_heading: Recently Updated Repositories
     section_title: Dashboard
     updated_prefix: Updated
-    welcome_message: Welcome to GithubViewer! Features will be available here soon.
-    welcome_title: Welcome to GithubViewer
+    welcome_message: Welcome to Github Viewer! Features will be available here soon.
+    welcome_title: Welcome to Github Viewer
   errors:
     form_submission_errors: There were errors with your submission
   github_tokens:
@@ -46,6 +46,7 @@ en:
   issues:
     errors:
       cannot_reach_showing_cached: 'Cannot reach %{domain}. Showing cached data. Error: %{error}'
+      issue_not_found: 'Issue not found: %{error}'
       rate_limit_unavailable: Rate limit info unavailable
       rate_limited_showing_cached: '%{error}. Showing all cached issues.'
     index:

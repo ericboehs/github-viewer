@@ -29,8 +29,9 @@ module Github
         single_issue = client.fetch_issue(repository.owner, repository.name, issue_number)
         single_issue.is_a?(Hash) && single_issue[:error] ? single_issue : [ single_issue ]
       else
-        # Fetch all issues
-        client.fetch_issues(repository.owner, repository.name, state: "all")
+        # Fetch most recent 200 issues for large repos
+        # Additional issues will be fetched on-demand when viewed or searched
+        client.fetch_issues(repository.owner, repository.name, state: "all", max_issues: 200)
       end
 
       # Handle API errors

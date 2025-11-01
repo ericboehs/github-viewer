@@ -51,7 +51,7 @@ class IssueCardComponent < ViewComponent::Base
 
   def issue_title
     link_to repository_issue_path(@repository, @issue.number),
-            class: "text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400" do
+            class: "text-base font-semibold text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-400" do
       @issue.title
     end
   end
@@ -156,7 +156,7 @@ class IssueCardComponent < ViewComponent::Base
     new_query = query_without_author.present? ? "#{query_without_author} author:#{author_login}" : "author:#{author_login}"
 
     tag.span do
-      concat link_to(author_login, helpers.repository_issues_path(@repository, q: new_query), class: "font-medium hover:text-blue-600 dark:hover:text-blue-400")
+      concat link_to(author_login, helpers.repository_issues_path(@repository, q: new_query), class: "font-medium hover:text-gray-700 dark:hover:text-gray-300")
       concat " opened "
       concat helpers.time_ago_tag(created_at)
     end

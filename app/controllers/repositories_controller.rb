@@ -77,6 +77,41 @@ class RepositoriesController < ApplicationController
     end
   end
 
+  # Search assignable users for filter dropdowns (JSON endpoint)
+  # Returns assignable users matching the query
+  # Used for both Author and Assignee dropdowns
+  def assignable_users
+    repository = Current.user.repositories.find(params[:id])
+    query = params[:q]
+    selected = params[:selected]
+
+    # Query assignable users from database
+    users = repository.repository_assignable_users.ordered
+
+    # Filter by search query if provided
+    users = users.search(query) if query.present?
+
+    # Limit to 20 results for dropdown
+    users = users.limit(20).to_a
+
+    # If a selected user is specified and not in results, add them at the beginning
+    if selected.present?
+      selected_user = repository.repository_assignable_users.find_by(login: selected)
+      if selected_user && !users.any? { |user| user.login == selected }
+        users.unshift(selected_user)
+        users = users.first(20) # Keep limit at 20
+      end
+    end
+
+    # Return JSON
+    render json: users.map { |user|
+      {
+        login: user.login,
+        avatar_url: user.avatar_url
+      }
+    }
+  end
+
   private
 
   def repository_params

@@ -2,6 +2,7 @@
 class Repository < ApplicationRecord
   belongs_to :user
   has_many :issues, dependent: :destroy
+  has_many :repository_assignable_users, dependent: :destroy
 
   validates :owner, presence: true
   validates :name, presence: true

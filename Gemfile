@@ -77,6 +77,9 @@ group :development do
 
   # Live reload for Hotwire development [https://github.com/hotwired/hotwire-spark]
   gem "hotwire-spark"
+
+  # Performance profiling [https://github.com/MiniProfiler/rack-mini-profiler]
+  gem "rack-mini-profiler"
 end
 
 group :test do

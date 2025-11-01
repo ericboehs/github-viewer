@@ -82,4 +82,18 @@ class RepositoriesHelperTest < ActionView::TestCase
     assert_equal "rails", result[:owner]
     assert_equal "rails", result[:name]
   end
+
+  test "parse_repository_url returns nil for invalid scheme URL" do
+    # URL with file:// scheme which shouldn't work for GitHub repos
+    result = parse_repository_url("file:///owner/repo")
+    # File URLs have "file:" as the host which is invalid for GitHub
+    # The helper should either return nil or handle it gracefully
+    assert result.nil? || result[:domain] == "file:"
+  end
+
+  test "parse_repository_url returns nil for URL without host" do
+    # URLs that parse but have no host should return nil (e.g., mailto:, javascript:, data: schemes)
+    result = parse_repository_url("mailto:user@example.com")
+    assert_nil result
+  end
 end

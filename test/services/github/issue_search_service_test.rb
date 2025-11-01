@@ -250,21 +250,24 @@ module Github
       )
 
       mock_client = mock("ApiClient")
-      mock_client.expects(:search_issues).with("repo:octocat/hello-world bug", sort: "created", order: "desc").returns([
-        {
-          number: 4,
-          title: "New bug found",
-          state: "open",
-          body: "Description of bug",
-          author_login: "user4",
-          author_avatar_url: "https://github.com/user4.png",
-          labels: [ { "name" => "bug", "color" => "d73a4a" } ],
-          assignees: [],
-          comments_count: 0,
-          created_at: 1.day.ago,
-          updated_at: 1.day.ago
-        }
-      ])
+      mock_client.expects(:search_issues).with("repo:octocat/hello-world bug", sort: "created", order: "desc", per_page: 30, page: 1).returns({
+        items: [
+          {
+            number: 4,
+            title: "New bug found",
+            state: "open",
+            body: "Description of bug",
+            author_login: "user4",
+            author_avatar_url: "https://github.com/user4.png",
+            labels: [ { "name" => "bug", "color" => "d73a4a" } ],
+            assignees: [],
+            comments_count: 0,
+            created_at: 1.day.ago,
+            updated_at: 1.day.ago
+          }
+        ],
+        total_count: 42
+      })
       mock_client.expects(:rate_limit_info).returns(nil)
 
       Github::ApiClient.expects(:new).with(
@@ -282,12 +285,14 @@ module Github
 
       assert result[:success]
       assert_equal :github, result[:mode]
-      assert_equal 1, result[:count]
+      assert_equal 42, result[:count]  # Total count from API, not just returned items
 
-      # Verify issue was synced to database
-      synced_issue = @repository.issues.find_by(number: 4)
-      assert_not_nil synced_issue
-      assert_equal "New bug found", synced_issue.title
+      # Verify issue was returned (not synced to database - just ephemeral objects)
+      returned_issue = result[:issues].first
+      assert_not_nil returned_issue
+      assert_equal 4, returned_issue.number
+      assert_equal "New bug found", returned_issue.title
+      assert_nil returned_issue.cached_at  # Not cached in database
     end
 
     test "github search builds query with filters" do
@@ -298,7 +303,7 @@ module Github
 
       mock_client = mock("ApiClient")
       expected_query = "repo:octocat/hello-world search term state:open label:\"bug\" assignee:dev1"
-      mock_client.expects(:search_issues).with(expected_query, sort: "created", order: "desc").returns([])
+      mock_client.expects(:search_issues).with(expected_query, sort: "created", order: "desc", per_page: 30, page: 1).returns({ items: [], total_count: 0 })
       mock_client.expects(:rate_limit_info).returns(nil)
 
       Github::ApiClient.expects(:new).returns(mock_client)

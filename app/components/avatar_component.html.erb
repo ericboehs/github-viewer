@@ -1,4 +1,4 @@
 <div class="<%= size_classes %> bg-emerald-600 flex items-center justify-center overflow-hidden">
-  <%= image_tag avatar_url, class: size_classes, alt: avatar_alt, onerror: "this.style.display='none'; this.nextElementSibling.style.display='flex';" if avatar_url %>
+  <%= image_tag avatar_url, class: size_classes, alt: avatar_alt, loading: loading, onerror: "this.style.display='none'; this.nextElementSibling.style.display='flex';" if avatar_url %>
   <span class="<%= text_classes %>"><%= initials %></span>
 </div>

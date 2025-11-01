@@ -1,25 +1,23 @@
 # Renders a user avatar image from Gravatar or external URL with fallback to initials
-# :reek:TooManyInstanceVariables { max_instance_variables: 5 }
+# :reek:TooManyInstanceVariables { max_instance_variables: 6 }
 # :reek:RepeatedConditional
 class AvatarComponent < ViewComponent::Base
-  def initialize(user: nil, src: nil, alt: nil, size: 8, text_size: "sm")
+  def initialize(user: nil, src: nil, alt: nil, size: 8, text_size: "sm", loading: "eager")
     @user = user
     @src = src
     @alt = alt
     @size = normalize_size(size)
     @text_size = text_size
+    @loading = loading
   end
 
   private
 
-  attr_reader :user, :src, :alt, :size, :text_size
+  attr_reader :user, :src, :alt, :size, :text_size, :loading
 
   def avatar_url
     return user.avatar_url(size: 256) if using_user_avatar?
-    return nil if src.blank?
-
-    # Proxy external avatar URLs through our controller for caching
-    helpers.avatar_proxy_path(url: src)
+    src
   end
 
   def avatar_alt

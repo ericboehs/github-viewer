@@ -43,56 +43,66 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
   test "should pass sort parameter to search" do
     mock_octokit_client = mock("OctokitClient")
-    mock_results = OpenStruct.new(items: [
-      OpenStruct.new(
-        number: 1,
-        title: "Test",
-        state: "open",
-        user: OpenStruct.new(login: "user"),
-        created_at: Time.current,
-        updated_at: Time.current,
-        labels: [],
-        assignees: []
-      )
-    ])
-    mock_rate_limit = OpenStruct.new(remaining: 5000)
+    mock_results = OpenStruct.new(
+      items: [
+        OpenStruct.new(
+          number: 1,
+          title: "Test",
+          state: "open",
+          user: OpenStruct.new(login: "user"),
+          created_at: Time.current,
+          updated_at: Time.current,
+          labels: [],
+          assignees: []
+        )
+      ],
+      total_count: 1
+    )
     mock_response = OpenStruct.new(headers: {})
 
-    # Mock all Octokit calls
-    mock_octokit_client.expects(:rate_limit).returns(mock_rate_limit)
+    # Mock all Octokit calls including auto_paginate
+    mock_octokit_client.expects(:auto_paginate).returns(true)
+    mock_octokit_client.expects(:auto_paginate=).with(false)
     mock_octokit_client.expects(:search_issues).with("test query", has_entry(:sort, "created")).returns(mock_results)
+    mock_octokit_client.expects(:auto_paginate=).with(true)
     mock_octokit_client.stubs(:last_response).returns(mock_response)
     @client.instance_variable_set(:@client, mock_octokit_client)
 
     results = @client.search_issues("test query", sort: "created")
-    assert_equal 1, results.length
+    assert_equal 1, results[:items].length
+    assert_equal 1, results[:total_count]
   end
 
   test "should pass order parameter to search" do
     mock_octokit_client = mock("OctokitClient")
-    mock_results = OpenStruct.new(items: [
-      OpenStruct.new(
-        number: 1,
-        title: "Test",
-        state: "open",
-        user: OpenStruct.new(login: "user"),
-        created_at: Time.current,
-        updated_at: Time.current,
-        labels: [],
-        assignees: []
-      )
-    ])
-    mock_rate_limit = OpenStruct.new(remaining: 5000)
+    mock_results = OpenStruct.new(
+      items: [
+        OpenStruct.new(
+          number: 1,
+          title: "Test",
+          state: "open",
+          user: OpenStruct.new(login: "user"),
+          created_at: Time.current,
+          updated_at: Time.current,
+          labels: [],
+          assignees: []
+        )
+      ],
+      total_count: 1
+    )
     mock_response = OpenStruct.new(headers: {})
 
-    # Mock all Octokit calls
-    mock_octokit_client.expects(:rate_limit).returns(mock_rate_limit)
+    # Mock all Octokit calls including auto_paginate
+    mock_octokit_client.expects(:auto_paginate).returns(true)
+    mock_octokit_client.expects(:auto_paginate=).with(false)
     mock_octokit_client.expects(:search_issues).with("test query", has_entry(:order, "asc")).returns(mock_results)
+    mock_octokit_client.expects(:auto_paginate=).with(true)
     mock_octokit_client.stubs(:last_response).returns(mock_response)
     @client.instance_variable_set(:@client, mock_octokit_client)
 
     results = @client.search_issues("test query", order: "asc")
-    assert_equal 1, results.length
+    assert_equal 1, results[:items].length
+    assert_equal 1, results[:total_count]
   end
 
   # Repository fetch tests
@@ -312,61 +322,8 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "Invalid GitHub token", result[:error]
   end
 
-  # Rate limiting tests
-
-  test "should not sleep when rate limit is high" do
-    mock_rate_limit = OpenStruct.new(remaining: 500, limit: 5000, resets_at: Time.now + 300)
-    mock_client = OpenStruct.new(rate_limit: mock_rate_limit)
-
-    @client.instance_variable_set(:@client, mock_client)
-
-    # Override sleep to verify it's NOT called
-    sleep_called = false
-    @client.define_singleton_method(:sleep) { |duration| sleep_called = true }
-
-    @client.send(:check_rate_limit)
-
-    assert_not sleep_called
-  end
-
-  test "should not sleep for warning threshold to allow fast fallback" do
-    mock_rate_limit = OpenStruct.new(remaining: 150, limit: 5000, resets_at: Time.now + 300)
-    mock_client = OpenStruct.new(rate_limit: mock_rate_limit)
-
-    @client.instance_variable_set(:@client, mock_client)
-
-    sleep_duration = nil
-    @client.define_singleton_method(:sleep) { |duration| sleep_duration = duration }
-
-    @client.send(:check_rate_limit)
-
-    # Changed behavior: no longer sleep on warnings to allow fast cache fallback
-    assert_nil sleep_duration
-  end
-
-  test "should not sleep for critical rate limit to allow fast fallback" do
-    mock_rate_limit = OpenStruct.new(remaining: 40, limit: 5000, resets_at: Time.now + 2)
-    mock_client = OpenStruct.new(rate_limit: mock_rate_limit)
-
-    @client.instance_variable_set(:@client, mock_client)
-
-    sleep_duration = nil
-    @client.define_singleton_method(:sleep) { |duration| sleep_duration = duration }
-
-    @client.send(:check_rate_limit)
-
-    # Changed behavior: no longer sleep on critical to allow fast cache fallback
-    assert_nil sleep_duration
-  end
-
-  test "should handle nil rate limit gracefully" do
-    mock_client = OpenStruct.new(rate_limit: nil)
-    @client.instance_variable_set(:@client, mock_client)
-
-    assert_nothing_raised do
-      @client.send(:check_rate_limit)
-    end
-  end
+  # Rate limiting tests have been removed because check_rate_limit method was removed
+  # Rate limit checking now happens only via response headers after each API call
 
   # Retry logic tests
 
@@ -611,7 +568,8 @@ class Github::ApiClientTest < ActiveSupport::TestCase
             created_at: 1.day.ago,
             updated_at: 1.hour.ago
           )
-        ]
+        ],
+        total_count: 42
       )
     end
     def mock_client.rate_limit
@@ -622,10 +580,11 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
     result = @client.search_issues("repo:rails/rails bug")
 
-    assert_equal 1, result.length
-    assert_equal 1, result.first[:number]
-    assert_equal "Bug in search", result.first[:title]
-    assert_equal "user1", result.first[:author_login]
+    assert_equal 1, result[:items].length
+    assert_equal 42, result[:total_count]
+    assert_equal 1, result[:items].first[:number]
+    assert_equal "Bug in search", result[:items].first[:title]
+    assert_equal "user1", result[:items].first[:author_login]
   end
 
   test "should handle search issues not found" do
@@ -695,24 +654,6 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_empty sleep_calls
   end
 
-  test "should not sleep when critical rate limit detected" do
-    # Mock a rate limit where reset time is in the past
-    mock_rate_limit = OpenStruct.new(
-      remaining: 40,
-      limit: 5000,
-      resets_at: Time.now - 10  # In the past
-    )
-    mock_client = OpenStruct.new(rate_limit: mock_rate_limit)
-
-    @client.instance_variable_set(:@client, mock_client)
-
-    # Track sleep calls
-    sleep_calls = []
-    @client.define_singleton_method(:sleep) { |duration| sleep_calls << duration }
-
-    @client.send(:check_rate_limit)
-
-    # Changed behavior: no longer sleep on critical to allow fast cache fallback
-    assert_empty sleep_calls
-  end
+  # Removed: test "should not sleep when critical rate limit detected"
+  # check_rate_limit method was removed in favor of header-only rate limit tracking
 end

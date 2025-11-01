@@ -28,7 +28,8 @@ class IssueLabelComponent < ViewComponent::Base
 
   # :reek:TooManyStatements - Building label filter URL requires multiple transformations
   def label_url
-    query_text = @query || ""
+    # Use default query if none provided (matches controller default)
+    query_text = @query.presence || "is:issue state:open"
     # Remove any existing label: qualifier
     query_without_label = query_text.gsub(/\blabel:("[^"]*"|\S+)/i, "").gsub(/\s+/, " ").strip
     # Add this label to the query

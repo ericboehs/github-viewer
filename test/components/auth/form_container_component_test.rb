@@ -29,7 +29,9 @@ class Auth::FormContainerComponentTest < ViewComponent::TestCase
     component = Auth::FormContainerComponent.new(title_key: "auth.sign_in.title")
     render_inline(component) { "Form content" }
 
-    assert_selector "img[alt='GithubViewer']"
+    # GitHub logo SVG should be present
+    assert_selector "svg"
+    assert_selector "svg path[d*='M8 0C3.58']" # Check for GitHub logo path
   end
 
   def test_renders_with_title_key_only
@@ -60,5 +62,29 @@ class Auth::FormContainerComponentTest < ViewComponent::TestCase
 
     assert_selector "h1", text: "Custom Title"
     assert_text "Form content"
+  end
+
+  def test_renders_without_title_when_both_nil
+    component = Auth::FormContainerComponent.new(
+      title_key: nil,
+      title: nil
+    )
+    render_inline(component) { "Form content" }
+
+    # Should still render the form content even without a title
+    assert_text "Form content"
+  end
+
+  def test_renders_without_subtitle_when_both_nil
+    component = Auth::FormContainerComponent.new(
+      title_key: "auth.sign_in.title",
+      subtitle_key: nil,
+      subtitle: nil
+    )
+    render_inline(component) { "Form content" }
+
+    # Should render title but not subtitle
+    assert_selector "h1", text: "Sign in to your account"
+    assert_no_selector "p.mt-2"
   end
 end
