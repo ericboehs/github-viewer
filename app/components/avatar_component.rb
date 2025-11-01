@@ -1,6 +1,7 @@
 # Renders a user avatar image from Gravatar or external URL with fallback to initials
 # :reek:TooManyInstanceVariables { max_instance_variables: 6 }
 # :reek:RepeatedConditional
+# :reek:LongParameterList - Component needs flexibility for user/src, alt, size, text_size, and loading
 class AvatarComponent < ViewComponent::Base
   def initialize(user: nil, src: nil, alt: nil, size: 8, text_size: "sm", loading: "eager")
     @user = user

@@ -199,6 +199,23 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     assert result[:cache_preserved]
   end
 
+  test "should handle Hash response without error key" do
+    mock_client = Object.new
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
+      # Return a Hash without :error key (or with error: nil)
+      { some_other_key: "value" }
+    end
+
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    result = @service.call
+
+    # Should continue past the error check since error is nil
+    # and attempt to sync (which will fail because it's not an array)
+    assert_not result[:success]
+    assert_includes result[:error], "Failed to sync issues"
+  end
+
   test "should handle rate limit error and preserve cache" do
     mock_client = Object.new
     mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|

@@ -80,6 +80,9 @@ class RepositoriesController < ApplicationController
   # Search assignable users for filter dropdowns (JSON endpoint)
   # Returns assignable users matching the query
   # Used for both Author and Assignee dropdowns
+  # :reek:TooManyStatements - JSON endpoint needs query building, filtering, and response
+  # :reek:DuplicateMethodCall - Repeated calls are part of query chain logic
+  # :reek:FeatureEnvy - Manipulating users collection is the purpose of this endpoint
   def assignable_users
     repository = Current.user.repositories.find(params[:id])
     query = params[:q]

@@ -3,7 +3,7 @@
 module Github
   # Dual-mode issue search service supporting both local SQLite and GitHub API search
   # Provides fast local filtering and sorting with optional full-text GitHub search
-  # :reek:TooManyInstanceVariables { max_instance_variables: 7 }
+  # :reek:TooManyInstanceVariables { max_instance_variables: 8 }
   # :reek:LongParameterList - Service requires configuration parameters
   # :reek:ControlParameter - filters and sort_by are configuration, not control flow
   # :reek:DuplicateMethodCall - Headers and rate limit accessed for readability

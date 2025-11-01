@@ -96,4 +96,10 @@ class RepositoriesHelperTest < ActionView::TestCase
     result = parse_repository_url("mailto:user@example.com")
     assert_nil result
   end
+
+  test "parse_repository_url returns nil for http URL with nil host" do
+    # Malformed http:// URLs with missing host have nil host
+    result = parse_repository_url("https:")
+    assert_nil result
+  end
 end

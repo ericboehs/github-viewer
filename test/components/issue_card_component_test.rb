@@ -232,7 +232,7 @@ class IssueCardComponentTest < ViewComponent::TestCase
   end
 
   test "author link works when no query parameter is present" do
-    issue = @repository.issues.build(
+    issue = @repository.issues.create!(
       number: 1,
       title: "Test Issue",
       state: "open",
@@ -240,14 +240,18 @@ class IssueCardComponentTest < ViewComponent::TestCase
       github_created_at: 1.day.ago,
       github_updated_at: 1.day.ago
     )
-    issue.save!(validate: false)
 
     # Simulate no query parameter at all
     with_request_url "/repositories/#{@repository.id}/issues" do
       render_inline(IssueCardComponent.new(issue: issue, repository: @repository))
 
+      # Should show author link
+      assert_selector "a", text: "testuser"
       # Link should just contain author:testuser (not prepended with anything)
       assert_selector "a[href*='q=author%3Atestuser']"
+      # Verify the query doesn't have extra content before the author filter
+      link = page.find("a", text: "testuser")
+      refute_includes link[:href], "%20author%3A"  # No space before author:
     end
   end
 end

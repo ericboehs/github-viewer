@@ -3,6 +3,10 @@
 # Background job to sync assignable users for a repository
 # Fetches assignable users from GitHub GraphQL API and stores them locally for fast search
 # These users can be used for both Author and Assignee filter dropdowns
+# :reek:TooManyStatements - Background job orchestrates API call, error handling, and data sync
+# :reek:DuplicateMethodCall - Repository attributes accessed multiple times for logging and sync
+# :reek:FeatureEnvy - Job works with repository model which is appropriate
+# :reek:NestedIterators - Iterating over API results and upserting each user is necessary
 class SyncRepositoryAssignableUsersJob < ApplicationJob
   queue_as :default
 

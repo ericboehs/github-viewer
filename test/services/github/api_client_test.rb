@@ -656,4 +656,133 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
   # Removed: test "should not sleep when critical rate limit detected"
   # check_rate_limit method was removed in favor of header-only rate limit tracking
+
+  # Tests for fetch_assignable_users
+
+  test "should fetch assignable users successfully" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        "data" => {
+          "repository" => {
+            "assignableUsers" => {
+              "nodes" => [
+                { "login" => "user1", "avatarUrl" => "https://example.com/user1.png" },
+                { "login" => "user2", "avatarUrl" => "https://example.com/user2.png" }
+              ],
+              "pageInfo" => {
+                "hasNextPage" => false,
+                "endCursor" => nil
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_assignable_users("rails", "rails")
+
+    assert result.is_a?(Array)
+    assert_equal 2, result.length
+    assert_equal "user1", result[0][:login]
+    assert_equal "user2", result[1][:login]
+  end
+
+  test "should handle pagination in fetch_assignable_users" do
+    mock_client = OpenStruct.new
+    call_count = 0
+    def mock_client.post(path, body)
+      @call_count ||= 0
+      @call_count += 1
+
+      if @call_count == 1
+        {
+          "data" => {
+            "repository" => {
+              "assignableUsers" => {
+                "nodes" => [ { "login" => "user1", "avatarUrl" => "url1" } ],
+                "pageInfo" => { "hasNextPage" => true, "endCursor" => "cursor1" }
+              }
+            }
+          }
+        }
+      else
+        {
+          "data" => {
+            "repository" => {
+              "assignableUsers" => {
+                "nodes" => [ { "login" => "user2", "avatarUrl" => "url2" } ],
+                "pageInfo" => { "hasNextPage" => false, "endCursor" => nil }
+              }
+            }
+          }
+        }
+      end
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_assignable_users("rails", "rails")
+
+    assert_equal 2, result.length
+  end
+
+  test "should handle GraphQL errors in fetch_assignable_users" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      { errors: [ { message: "GraphQL error" } ] }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_assignable_users("rails", "rails")
+
+    assert result.is_a?(Hash)
+    assert_equal "GraphQL error", result[:error]
+  end
+
+  test "should handle exceptions in fetch_assignable_users" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      raise StandardError.new("Network error")
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_assignable_users("rails", "rails")
+
+    assert result.is_a?(Hash)
+    assert_equal "Network error", result[:error]
+  end
+
+  test "should handle unauthorized error in fetch_assignable_users" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      raise Octokit::Unauthorized.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_assignable_users("rails", "rails")
+
+    assert result.is_a?(Hash)
+    assert_equal "Unauthorized - check your GitHub token", result[:error]
+  end
 end
