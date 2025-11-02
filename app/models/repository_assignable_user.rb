@@ -9,7 +9,12 @@ class RepositoryAssignableUser < ApplicationRecord
   validates :login, presence: true, uniqueness: { scope: :repository_id }
 
   # Search by login (case-insensitive)
-  scope :search, ->(query) { where("login LIKE ?", "%#{sanitize_sql_like(query)}%") if query.present? }
+  # sanitize_sql_like escapes LIKE wildcards (%, _) to prevent LIKE injection
+  # The ? placeholder ensures proper SQL escaping by ActiveRecord
+  scope :search, ->(query) {
+    return all if query.blank?
+    where("login LIKE ?", "%#{sanitize_sql_like(query)}%")
+  }
 
   # Sort by login alphabetically
   scope :ordered, -> { order(login: :asc) }
