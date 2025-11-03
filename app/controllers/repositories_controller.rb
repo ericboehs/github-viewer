@@ -106,18 +106,46 @@ class RepositoriesController < ApplicationController
       end
     end
 
-    # Return JSON
-    render json: users.map { |user|
+    # Fetch fresh avatar URLs from GitHub API for GHE to avoid expired tokens
+    users_with_fresh_avatars = users.map do |user|
       {
         login: user.login,
-        avatar_url: user.avatar_url
+        avatar_url: fetch_fresh_avatar_url(user.login, repository)
       }
-    }
+    end
+
+    render json: users_with_fresh_avatars
   end
 
   private
 
   def repository_params
     params.require(:repository).permit(:url)
+  end
+
+  # Fetch fresh avatar URL from GitHub API to avoid expired GHE tokens
+  def fetch_fresh_avatar_url(login, repository)
+    # For github.com, use cached URL (no token expiration)
+    if repository.github_domain == "github.com"
+      assignable_user = repository.repository_assignable_users.find_by(login: login)
+      return assignable_user&.avatar_url if assignable_user
+    end
+
+    # For GHE, fetch fresh URL from API
+    github_token = Current.user.github_tokens.find_by(domain: repository.github_domain)
+    return nil unless github_token
+
+    api_client = Github::ApiClient.new(
+      token: github_token.token,
+      domain: repository.github_domain
+    )
+
+    begin
+      user_data = api_client.client.user(login)
+      user_data.avatar_url
+    rescue Octokit::Error => e
+      Rails.logger.error("Error fetching avatar for #{login}: #{e.message}")
+      nil
+    end
   end
 end
