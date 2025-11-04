@@ -4,7 +4,7 @@
 
 # Create admin user for development
 if Rails.env.development?
-  admin_user = User.find_or_create_by!(email_address: "admin@example.com") do |user|
+  admin_user = User.find_or_create_by!(email_address: "eric@boehs.com") do |user|
     user.password = "password"
     user.admin = true
   end

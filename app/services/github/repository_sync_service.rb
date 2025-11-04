@@ -23,6 +23,10 @@ class Github::RepositorySyncService
     return { success: false, error: error } if error
 
     repository = upsert_repository(repo_data)
+
+    # Trigger background sync of assignable users for filter dropdowns
+    SyncRepositoryAssignableUsersJob.perform_later(repository.id)
+
     { success: true, repository: repository }
   end
 

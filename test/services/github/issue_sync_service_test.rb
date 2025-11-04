@@ -186,7 +186,7 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
 
   test "should handle API error and preserve cache" do
     mock_client = Object.new
-    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:|
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
       { error: "Repository not found" }
     end
 
@@ -199,9 +199,26 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     assert result[:cache_preserved]
   end
 
+  test "should handle Hash response without error key" do
+    mock_client = Object.new
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
+      # Return a Hash without :error key (or with error: nil)
+      { some_other_key: "value" }
+    end
+
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    result = @service.call
+
+    # Should continue past the error check since error is nil
+    # and attempt to sync (which will fail because it's not an array)
+    assert_not result[:success]
+    assert_includes result[:error], "Failed to sync issues"
+  end
+
   test "should handle rate limit error and preserve cache" do
     mock_client = Object.new
-    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:|
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
       error = Octokit::TooManyRequests.new
       def error.response_headers
         { "x-ratelimit-reset" => (Time.now + 3600).to_i.to_s }
@@ -220,7 +237,7 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
 
   test "should handle unauthorized error and preserve cache" do
     mock_client = Object.new
-    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:|
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
       raise Octokit::Unauthorized.new
     end
 
@@ -235,7 +252,7 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
 
   test "should handle general errors and preserve cache" do
     mock_client = Object.new
-    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:|
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
       raise StandardError.new("Unexpected error")
     end
 
@@ -254,7 +271,7 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     test_context = self
     mock_client = Object.new
     call_count = 0
-    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:|
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
       [ test_context.sample_issue_data(1), test_context.sample_issue_data(2) ]
     end
     mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, issue_number|
@@ -282,7 +299,7 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
   def create_mock_client_with_issues_and_comments
     test_context = self
     mock_client = Object.new
-    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:|
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
       [ test_context.sample_issue_data(1), test_context.sample_issue_data(2) ]
     end
     mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, issue_number|
@@ -297,7 +314,7 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
   def create_mock_client_with_issues_no_comments
     test_context = self
     mock_client = Object.new
-    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:|
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
       [ test_context.sample_issue_data(1) ]
     end
     mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|

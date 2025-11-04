@@ -227,6 +227,101 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert flash[:alert].include?("Invalid token")
   end
 
+  test "should return assignable users as JSON" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
+
+    # Create some assignable users
+    repository.repository_assignable_users.create!(login: "alice", avatar_url: "https://example.com/alice.png")
+    repository.repository_assignable_users.create!(login: "bob", avatar_url: "https://example.com/bob.png")
+    repository.repository_assignable_users.create!(login: "charlie", avatar_url: "https://example.com/charlie.png")
+
+    get assignable_users_repository_url(repository), as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal 3, json.length
+    assert_equal [ "alice", "bob", "charlie" ], json.map { |u| u["login"] }.sort
+  end
+
+  test "should search assignable users by query" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
+
+    repository.repository_assignable_users.create!(login: "alice", avatar_url: "https://example.com/alice.png")
+    repository.repository_assignable_users.create!(login: "bob", avatar_url: "https://example.com/bob.png")
+    repository.repository_assignable_users.create!(login: "charlie", avatar_url: "https://example.com/charlie.png")
+
+    get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal 1, json.length
+    assert_equal "alice", json.first["login"]
+  end
+
+  test "should include selected user in results even if not in top results" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
+
+    # Create 21 users (more than limit of 20)
+    21.times do |i|
+      repository.repository_assignable_users.create!(
+        login: "user#{i.to_s.rjust(2, '0')}",
+        avatar_url: "https://example.com/user#{i}.png"
+      )
+    end
+
+    # Create a selected user that would normally be outside the first 20
+    repository.repository_assignable_users.create!(login: "zzz_selected", avatar_url: "https://example.com/zzz.png")
+
+    get assignable_users_repository_url(repository), params: { selected: "zzz_selected" }, as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal 20, json.length
+    # Selected user should be first
+    assert_equal "zzz_selected", json.first["login"]
+  end
+
+  test "should not duplicate selected user if already in top results" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
+
+    # Create a few users including alice
+    repository.repository_assignable_users.create!(login: "alice", avatar_url: "https://example.com/alice.png")
+    repository.repository_assignable_users.create!(login: "bob", avatar_url: "https://example.com/bob.png")
+
+    # Request with alice selected (who is already in the first 20)
+    get assignable_users_repository_url(repository), params: { selected: "alice" }, as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal 2, json.length
+    # Alice should not be duplicated
+    assert_equal 1, json.count { |u| u["login"] == "alice" }
+  end
+
   private
 
   def sign_in_as(user)

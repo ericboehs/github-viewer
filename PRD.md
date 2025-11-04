@@ -215,6 +215,15 @@ GitHub Issues Viewer is a modern Rails 8.1.0 application that provides a GitHub.
 - `created_at`, `updated_at` (timestamps)
 - **Index**: `[issue_id, github_id]` (unique per issue)
 
+#### RepositoryAssignableUsers Table
+- `id` (primary key)
+- `repository_id` (foreign key)
+- `login` (string) - GitHub username
+- `avatar_url` (string) - User avatar URL
+- `created_at`, `updated_at` (timestamps)
+- **Index**: `[repository_id, login]` (unique per repository)
+- **Purpose**: Cache assignable users from GitHub GraphQL API for fast author/assignee filtering
+
 ### Service Layer Architecture
 
 Located in `app/services/github/`:
@@ -227,20 +236,14 @@ Centralized configuration constants:
 - Pagination sizes (100 items per page)
 
 #### ApiClient
-GitHub REST API client:
+GitHub REST and GraphQL API client:
 - Per-user Octokit client initialization (token + domain)
 - Rate limit tracking and enforcement
 - Automatic retries with exponential backoff
 - Graceful error handling (return errors, don't raise)
 - Request logging and monitoring
-
-#### GraphqlClient
-GitHub GraphQL client:
-- Per-user GraphQL endpoint configuration
-- Batch query support (up to 5 queries per request)
-- Issue and repository queries
-- Pagination handling for large result sets
-- Rate limit awareness from GraphQL responses
+- GraphQL query support for assignable users with pagination
+- Unified error handling for both REST and GraphQL endpoints
 
 #### RepositorySyncService
 Repository metadata sync:
@@ -470,11 +473,13 @@ All core features specified in this PRD have been successfully implemented with 
   - `assignee:` for filtering by assignees
   - `sort:` with direction (e.g., `sort:updated-desc`)
 - ✅ Automatic mode switching when GitHub qualifiers detected
-- ✅ Filter dropdowns for labels and assignees with:
-  - Search/filtering within dropdowns
+- ✅ Filter dropdowns for labels, assignees, and authors with:
+  - Live search/filtering within dropdowns powered by local database
+  - Assignable users synced from GitHub GraphQL API for fast autocomplete
   - Keyboard navigation (arrow keys, Home/End, Escape)
   - Intelligent viewport positioning to prevent cutoff
   - Color-coded label indicators
+  - Avatar display for users in dropdowns
 - ✅ State filter buttons that manipulate search query
 - ✅ Sort dropdown with 6 options (newest, oldest, recently/least recently updated, most/least commented)
 - ✅ Active filters display with removable chips
@@ -484,11 +489,14 @@ All core features specified in this PRD have been successfully implemented with 
 ### ✅ Technical Implementation Delivered
 
 #### Service Layer
-- ✅ **ApiClient**: GitHub REST API client with rate limiting, retries, exponential backoff
+- ✅ **ApiClient**: GitHub REST API client with rate limiting, retries, exponential backoff, GraphQL support
 - ✅ **ApiConfiguration**: Centralized constants for rate limits and retry settings
 - ✅ **RepositorySyncService**: Repository metadata sync from GitHub
 - ✅ **IssueSyncService**: Issues and comments sync with batch upserts and transactions
 - ✅ **IssueSearchService**: Dual-mode search (local SQLite + GitHub API)
+
+#### Background Jobs
+- ✅ **SyncRepositoryAssignableUsersJob**: Background sync of assignable users via GitHub GraphQL API
 
 #### UI Components (ViewComponent)
 - ✅ **IssueCardComponent**: GitHub-style issue list items with full metadata
@@ -502,6 +510,7 @@ All core features specified in this PRD have been successfully implemented with 
 #### Stimulus Controllers
 - ✅ **TimeController**: Client-side relative time formatting with hover tooltips
 - ✅ **FilterDropdownController**: Full keyboard navigation and search for filter dropdowns
+- ✅ **FiltersToggleController**: Mobile-friendly filter panel toggle
 - ✅ **AccordionController**: Collapsible sections for UI
 
 #### Markdown & Styling
@@ -512,13 +521,13 @@ All core features specified in this PRD have been successfully implemented with 
 
 ### ✅ Quality Assurance Metrics
 
-- **Test Coverage**: 98.18% line coverage, 91.84% branch coverage
-- **Test Count**: 341 tests, 897 assertions, 0 failures
-- **Test Types**: Model, controller, service, component, helper, and system tests
+- **Test Coverage**: 97.55% line coverage, 91.75% branch coverage (exceeds 95%/90% targets)
+- **Test Count**: 386 tests, 1062 assertions, 0 failures
+- **Test Types**: Model, controller, service, job, component, helper, and system tests
 - **Code Quality**: 0 RuboCop offenses (Rails Omakase config)
 - **Security**: 0 Brakeman warnings, 0 vulnerable gem dependencies
-- **Code Smells**: All Reek warnings addressed or documented
-- **CI Pipeline**: Full automated pipeline with pre-commit hooks
+- **Code Smells**: All Reek warnings addressed with documented justifications
+- **CI Pipeline**: Full automated pipeline with pre-commit hooks enforcing quality gates
 
 ### 🔮 Future Enhancements (Phase 2)
 
