@@ -201,8 +201,9 @@ class IssuesController < ApplicationController
       end
     end
 
-    # Extract unique labels from search results to show only relevant labels
-    @available_labels = extract_unique_labels(all_results)
+    # Extract unique labels from ALL repository issues (not just search results)
+    # This ensures labels dropdown is always available regardless of filters
+    @available_labels = extract_unique_labels(@repository.issues)
   end
 
   # :reek:TooManyStatements - Controller action orchestrates auto-refresh logic
@@ -294,7 +295,6 @@ class IssuesController < ApplicationController
     end
     labels_hash.values.sort_by { |label| label["name"] || label[:name] }
   end
-
 
   # Parse GitHub search qualifiers from query string
   # Supports: is:open, is:closed, label:name (multiple), assignee:username, author:username, sort:field-direction

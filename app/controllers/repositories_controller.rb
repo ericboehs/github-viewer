@@ -78,74 +78,82 @@ class RepositoriesController < ApplicationController
   end
 
   # Search assignable users for filter dropdowns (JSON endpoint)
-  # Returns assignable users matching the query
+  # Fetches repository assignees from GitHub REST API
   # Used for both Author and Assignee dropdowns
-  # :reek:TooManyStatements - JSON endpoint needs query building, filtering, and response
-  # :reek:DuplicateMethodCall - Repeated calls are part of query chain logic
-  # :reek:FeatureEnvy - Manipulating users collection is the purpose of this endpoint
+  # :reek:TooManyStatements - JSON endpoint needs API call, filtering, and response
+  # :reek:DuplicateMethodCall - Repeated calls are part of filtering logic
   def assignable_users
     repository = Current.user.repositories.find(params[:id])
     query = params[:q]
     selected = params[:selected]
 
-    # Query assignable users from database
-    users = repository.repository_assignable_users.ordered
+    # Fetch collaborators from GitHub REST API
+    github_token = Current.user.github_tokens.find_by(domain: repository.github_domain)
+    unless github_token
+      render json: { error: "No GitHub token found for #{repository.github_domain}" }, status: :unauthorized
+      return
+    end
 
-    # Filter by search query if provided
-    users = users.search(query) if query.present?
+    begin
+      client = Github::ApiClient.new(token: github_token.token, domain: repository.github_domain)
 
-    # Limit to 20 results for dropdown
-    users = users.limit(20).to_a
+      # Fetch assignable users from GitHub REST API
+      assignees = client.client.repository_assignees(repository.full_name, per_page: 100)
 
-    # If a selected user is specified and not in results, add them at the beginning
-    if selected.present?
-      selected_user = repository.repository_assignable_users.find_by(login: selected)
-      if selected_user && !users.any? { |user| user.login == selected }
-        users.unshift(selected_user)
-        users = users.first(20) # Keep limit at 20
+      # Convert to hash format expected by frontend
+      users = assignees.map do |user|
+        {
+          login: user.login,
+          avatar_url: user.avatar_url  # Keep token - it's required for GHE and fresh from API
+        }
       end
-    end
 
-    # Fetch fresh avatar URLs from GitHub API for GHE to avoid expired tokens
-    users_with_fresh_avatars = users.map do |user|
-      {
-        login: user.login,
-        avatar_url: fetch_fresh_avatar_url(user.login, repository)
-      }
-    end
+      # If there's a selected user, try to find or fetch them
+      selected_user_data = nil
+      if selected.present?
+        selected_user_data = users.find { |user| user[:login] == selected }
+        unless selected_user_data
+          # Selected user not in first 100 results - try to fetch them directly from GitHub
+          begin
+            user_info = client.client.user(selected)
+            selected_user_data = {
+              login: user_info.login,
+              avatar_url: user_info.avatar_url
+            }
+          rescue Octokit::NotFound
+            # User doesn't exist or isn't accessible - skip adding them
+            Rails.logger.warn "Selected user #{selected} not found on GitHub"
+          end
+        end
+      end
 
-    render json: users_with_fresh_avatars
+      # Filter by search query if provided
+      if query.present?
+        lowerQuery = query.downcase
+        users = users.select { |user| user[:login].downcase.include?(lowerQuery) }
+      end
+
+      # Ensure selected user is always at the front of results (even if not in search results)
+      if selected_user_data
+        # Remove selected user if they're already in the list
+        users.reject! { |user| user[:login] == selected }
+        # Add selected user to the front
+        users.unshift(selected_user_data)
+      end
+
+      # Limit to 20 results for dropdown
+      users = users.first(20)
+
+      render json: users
+    rescue => e
+      Rails.logger.error "Error fetching assignable users: #{e.message}"
+      render json: { error: "Failed to fetch assignable users" }, status: :internal_server_error
+    end
   end
 
   private
 
   def repository_params
     params.require(:repository).permit(:url)
-  end
-
-  # Fetch fresh avatar URL from GitHub API to avoid expired GHE tokens
-  def fetch_fresh_avatar_url(login, repository)
-    # For github.com, use cached URL (no token expiration)
-    if repository.github_domain == "github.com"
-      assignable_user = repository.repository_assignable_users.find_by(login: login)
-      return assignable_user&.avatar_url if assignable_user
-    end
-
-    # For GHE, fetch fresh URL from API
-    github_token = Current.user.github_tokens.find_by(domain: repository.github_domain)
-    return nil unless github_token
-
-    api_client = Github::ApiClient.new(
-      token: github_token.token,
-      domain: repository.github_domain
-    )
-
-    begin
-      user_data = api_client.client.user(login)
-      user_data.avatar_url
-    rescue Octokit::Error => e
-      Rails.logger.error("Error fetching avatar for #{login}: #{e.message}")
-      nil
-    end
   end
 end

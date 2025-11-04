@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Stimulus controller for remote contributor search in filter dropdowns
-// Debounces search input and fetches matching contributors from the API
+// Stimulus controller for contributor search in filter dropdowns
+// Fetches repository assignees from GitHub REST API once and caches client-side
 export default class extends Controller {
   static targets = ["search", "results", "loading"]
   static values = {
@@ -12,50 +12,23 @@ export default class extends Controller {
   connect() {
     this.debounceTimer = null
     this.abortController = null
+    this.searchAbortController = null  // Separate abort controller for search requests
+    this.cachedContributors = null  // Cache full list client-side
 
-    // Load initial top contributors when controller connects
-    this.loadTopContributors()
+    // Fetch and cache contributors on page load
+    this.loadContributors()
   }
 
-  // Load top contributors (no search query)
-  async loadTopContributors() {
-    await this.performSearch('')
-  }
-
-  // Handle search input with debouncing
-  search(event) {
-    const query = event.target.value
-
-    // Clear existing timer
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer)
-    }
-
-    // Abort any pending request
-    if (this.abortController) {
-      this.abortController.abort()
-    }
-
+  // Fetch contributors from API once and cache
+  async loadContributors() {
     // Show loading state
     this.showLoading()
 
-    // Debounce search (wait 300ms after user stops typing)
-    this.debounceTimer = setTimeout(() => {
-      this.performSearch(query.trim())
-    }, 300)
-  }
-
-  // Perform the actual API search
-  async performSearch(query) {
-    // Create new abort controller for this request
+    // Create abort controller for this request
     this.abortController = new AbortController()
 
     try {
       const url = new URL(this.urlValue, window.location.origin)
-      // Only add 'q' parameter if query is not empty
-      if (query) {
-        url.searchParams.set('q', query)
-      }
       // Pass selected value to ensure it's included in results
       if (this.selectedValue) {
         url.searchParams.set('selected', this.selectedValue)
@@ -73,10 +46,81 @@ export default class extends Controller {
       }
 
       const contributors = await response.json()
-      this.displayResults(contributors)
+
+      // Cache the full list for client-side filtering
+      this.cachedContributors = contributors
+
+      // Display initial list
+      this.displayResults(this.cachedContributors)
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error fetching contributors:', error)
+        this.showError()
+      }
+    } finally {
+      this.hideLoading()
+    }
+  }
+
+  // Handle search input with debouncing
+  search(event) {
+    const query = event.target.value
+
+    // Clear existing timer
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+    }
+
+    // Debounce search (wait 300ms after user stops typing)
+    this.debounceTimer = setTimeout(() => {
+      this.performSearch(query.trim())
+    }, 300)
+  }
+
+  // Perform search - use API for queries, cached data when empty
+  async performSearch(query) {
+    // If no query, restore cached initial list
+    if (!query) {
+      if (this.cachedContributors) {
+        this.displayResults(this.cachedContributors)
+      }
+      return
+    }
+
+    // Make API call with search query
+    this.showLoading()
+
+    // Abort any pending request
+    if (this.searchAbortController) {
+      this.searchAbortController.abort()
+    }
+    this.searchAbortController = new AbortController()
+
+    try {
+      const url = new URL(this.urlValue, window.location.origin)
+      url.searchParams.set('q', query)
+
+      // Pass selected value to ensure it's included in results
+      if (this.selectedValue) {
+        url.searchParams.set('selected', this.selectedValue)
+      }
+
+      const response = await fetch(url, {
+        signal: this.searchAbortController.signal,
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const contributors = await response.json()
+      this.displayResults(contributors)
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Error searching contributors:', error)
         this.showError()
       }
     } finally {
@@ -199,5 +243,10 @@ export default class extends Controller {
     if (this.abortController) {
       this.abortController.abort()
     }
+    if (this.searchAbortController) {
+      this.searchAbortController.abort()
+    }
+    // Clear cache
+    this.cachedContributors = null
   }
 }

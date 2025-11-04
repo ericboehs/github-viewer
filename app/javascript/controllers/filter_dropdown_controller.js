@@ -147,17 +147,21 @@ export default class extends Controller {
           query = query ? `${query} label:${quotedValue}` : `label:${quotedValue}`
         }
       } else {
-        // Author/Assignee: single-select, replace existing value
-        const qualifierRegex = new RegExp(`\\b${qualifierType}:("[^"]*"|\\S+)`, 'gi')
+        // Author/Assignee: toggle on/off (click to unselect if already selected)
+        const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const quotedPattern = value.includes(' ') ? `"${escapedValue}"` : escapedValue
+        const qualifierRegex = new RegExp(`\\b${qualifierType}:(${quotedPattern}|${escapedValue})\\b`, 'i')
 
-        // Remove existing qualifier of this type
-        query = query.replace(qualifierRegex, '').trim()
+        if (qualifierRegex.test(query)) {
+          // User is already selected, remove the qualifier (unselect)
+          query = query.replace(qualifierRegex, '').trim()
+        } else {
+          // User not selected, replace any existing qualifier with this one
+          const existingQualifierRegex = new RegExp(`\\b${qualifierType}:("[^"]*"|\\S+)`, 'gi')
+          query = query.replace(existingQualifierRegex, '').trim()
 
-        // Add new qualifier if value is not empty
-        if (value) {
-          // Quote the value if it contains spaces
+          // Add new qualifier
           const quotedValue = value.includes(' ') ? `"${value}"` : value
-          // Add qualifier at the end of the query
           query = query ? `${query} ${qualifierType}:${quotedValue}` : `${qualifierType}:${quotedValue}`
         }
       }
