@@ -17,6 +17,14 @@ module Github
     # Error raised when GitHub authentication fails
     class AuthenticationError < StandardError; end
 
+    # Error message constants
+    ERROR_REPOSITORY_NOT_FOUND = "Repository not found"
+    ERROR_ISSUE_NOT_FOUND = "Issue not found"
+    ERROR_NO_RESULTS_FOUND = "No results found"
+    ERROR_UNAUTHORIZED = "Unauthorized - check your GitHub token"
+    ERROR_SAML_PROTECTED = "This repository requires SAML SSO authorization. Please authorize your personal access token with the organization. See: https://docs.github.com/en/enterprise-cloud@latest/authentication/authenticating-with-single-sign-on/authorizing-a-personal-access-token-for-use-with-single-sign-on"
+    ERROR_INVALID_TOKEN = "Invalid GitHub token"
+
     config_accessor :default_rate_limit_delay, default: ApiConfiguration::DEFAULT_RATE_LIMIT_DELAY
     config_accessor :max_retries, default: ApiConfiguration::MAX_RETRIES
 
@@ -36,9 +44,11 @@ module Github
         normalize_repository_data(repo)
       end
     rescue Octokit::NotFound
-      { error: "Repository not found" }
+      { error: ERROR_REPOSITORY_NOT_FOUND }
     rescue Octokit::Unauthorized
-      { error: "Unauthorized - check your GitHub token" }
+      { error: ERROR_UNAUTHORIZED }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
     end
 
     # :reek:TooManyStatements - Includes API call and error handling
@@ -68,9 +78,11 @@ module Github
         issues.map { |issue| normalize_issue_data(issue) }
       end
     rescue Octokit::NotFound
-      { error: "Repository not found" }
+      { error: ERROR_REPOSITORY_NOT_FOUND }
     rescue Octokit::Unauthorized
-      { error: "Unauthorized - check your GitHub token" }
+      { error: ERROR_UNAUTHORIZED }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
     end
 
     def fetch_issue(owner, repo_name, issue_number)
@@ -79,7 +91,9 @@ module Github
         normalize_issue_data(issue)
       end
     rescue Octokit::NotFound
-      { error: "Issue not found" }
+      { error: ERROR_ISSUE_NOT_FOUND }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
     end
 
     def fetch_issue_comments(owner, repo_name, issue_number)
@@ -89,6 +103,8 @@ module Github
       end
     rescue Octokit::NotFound
       []
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
     end
 
     # Fetch assignable users via GraphQL
@@ -172,9 +188,11 @@ module Github
         }
       end
     rescue Octokit::NotFound
-      { error: "No results found" }
+      { error: ERROR_NO_RESULTS_FOUND }
     rescue Octokit::Unauthorized
-      { error: "Unauthorized - check your GitHub token" }
+      { error: ERROR_UNAUTHORIZED }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
     end
 
     # :reek:TooManyStatements - Includes API call and multiple rescue clauses
@@ -185,7 +203,7 @@ module Github
         { success: true }
       end
     rescue Octokit::Unauthorized
-      { success: false, error: "Invalid GitHub token" }
+      { success: false, error: ERROR_INVALID_TOKEN }
     rescue => e
       { success: false, error: e.message }
     end
@@ -211,7 +229,7 @@ module Github
         response
       end
     rescue Octokit::Unauthorized
-      { error: "Unauthorized - check your GitHub token" }
+      { error: ERROR_UNAUTHORIZED }
     rescue => error
       { error: error.message }
     end

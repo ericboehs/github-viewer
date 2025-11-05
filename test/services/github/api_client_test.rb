@@ -178,6 +178,24 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "Unauthorized - check your GitHub token", result[:error]
   end
 
+  test "should handle SAML protected error" do
+    mock_client = OpenStruct.new
+    def mock_client.repository(full_name)
+      raise Octokit::SAMLProtected.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_repository("rails", "rails")
+
+    assert result.is_a?(Hash)
+    assert_includes result[:error], "SAML SSO authorization"
+    assert_includes result[:error], "https://docs.github.com"
+  end
+
   # Issue fetch tests
 
   test "should fetch issues successfully" do
@@ -228,6 +246,24 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "user1", result.first[:author_login]
     assert_equal 1, result.first[:labels].length
     assert_equal "bug", result.first[:labels].first[:name]
+  end
+
+  test "should handle SAML protected error in fetch_issues" do
+    mock_client = OpenStruct.new
+    def mock_client.issues(repo, options)
+      raise Octokit::SAMLProtected.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issues("rails", "rails", state: "all")
+
+    assert result.is_a?(Hash)
+    assert_includes result[:error], "SAML SSO authorization"
+    assert_includes result[:error], "https://docs.github.com"
   end
 
   # Comment fetch tests
@@ -283,6 +319,24 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     result = @client.fetch_issue_comments("rails", "rails", 999)
 
     assert_equal [], result
+  end
+
+  test "should handle SAML protected error in fetch_issue_comments" do
+    mock_client = OpenStruct.new
+    def mock_client.issue_comments(repo, issue_number)
+      raise Octokit::SAMLProtected.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_comments("rails", "rails", 1)
+
+    assert result.is_a?(Hash)
+    assert_includes result[:error], "SAML SSO authorization"
+    assert_includes result[:error], "https://docs.github.com"
   end
 
   # Test connection tests
@@ -619,6 +673,24 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
     assert result.is_a?(Hash)
     assert_equal "Unauthorized - check your GitHub token", result[:error]
+  end
+
+  test "should handle SAML protected error in search_issues" do
+    mock_client = OpenStruct.new
+    def mock_client.search_issues(query, options)
+      raise Octokit::SAMLProtected.new
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.search_issues("repo:rails/rails bug")
+
+    assert result.is_a?(Hash)
+    assert_includes result[:error], "SAML SSO authorization"
+    assert_includes result[:error], "https://docs.github.com"
   end
 
   # Tests for sleep_time <= 0 branches
