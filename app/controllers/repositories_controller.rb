@@ -97,6 +97,10 @@ class RepositoriesController < ApplicationController
     begin
       client = Github::ApiClient.new(token: github_token.token, domain: repository.github_domain)
 
+      # Fetch current authenticated user
+      current_github_user = client.client.user
+      current_user_login = current_github_user.login
+
       # Fetch assignable users from GitHub REST API
       assignees = client.client.repository_assignees(repository.full_name, per_page: 100)
 
@@ -133,13 +137,24 @@ class RepositoriesController < ApplicationController
         users = users.select { |user| user[:login].downcase.include?(lowerQuery) }
       end
 
-      # Ensure selected user is always at the front of results (even if not in search results)
-      if selected_user_data
-        # Remove selected user if they're already in the list
-        users.reject! { |user| user[:login] == selected }
-        # Add selected user to the front
-        users.unshift(selected_user_data)
+      # Find current user in the list
+      current_user_data = users.find { |user| user[:login] == current_user_login }
+      unless current_user_data
+        # Current user not in results - add them
+        current_user_data = {
+          login: current_github_user.login,
+          avatar_url: current_github_user.avatar_url
+        }
       end
+
+      # Remove selected and current users from the list
+      users.reject! { |user| user[:login] == selected || user[:login] == current_user_login }
+
+      # Add users in priority order: selected first (if present), then current user, then everyone else
+      prioritized_users = []
+      prioritized_users << selected_user_data if selected_user_data
+      prioritized_users << current_user_data if current_user_data && current_user_data[:login] != selected
+      users = prioritized_users + users
 
       # Limit to 20 results for dropdown
       users = users.first(20)

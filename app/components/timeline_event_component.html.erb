@@ -1,0 +1,72 @@
+<% if is_comment? %>
+  <!-- Full comment card -->
+  <div class="bg-white dark:bg-black rounded-lg border border-blue-200 dark:border-gray-700 overflow-hidden">
+    <!-- Header -->
+    <div class="bg-blue-50 dark:bg-gray-900 px-4 py-3 border-b border-blue-200 dark:border-gray-700">
+      <div class="flex items-center gap-2">
+        <% if @item[:avatar_url] %>
+          <%= render AvatarComponent.new(
+            src: @item[:avatar_url],
+            alt: @item[:actor] || "Author",
+            size: :small
+          ) %>
+        <% end %>
+        <span class="font-semibold text-gray-900 dark:text-white"><%= @item[:actor] || "Unknown" %></span>
+        <span class="text-gray-500 dark:text-gray-400 text-sm">
+          commented <%= helpers.time_ago_tag(@item[:created_at]) %>
+        </span>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="px-4 sm:px-6 py-4 sm:py-5">
+      <% if @item[:body].present? %>
+        <div class="markdown text-gray-900 dark:text-gray-200">
+          <%= helpers.render_markdown(@item[:body]) %>
+        </div>
+      <% else %>
+        <p class="text-gray-500 dark:text-gray-400 italic">No description provided.</p>
+      <% end %>
+    </div>
+  </div>
+<% else %>
+  <!-- Compact event -->
+  <div class="flex items-start gap-2 py-2">
+    <div class="flex-shrink-0 mt-1 text-gray-400 dark:text-gray-500">
+      <%= event_icon_svg %>
+    </div>
+
+    <div class="flex-1 text-sm text-gray-600 dark:text-gray-400">
+      <span class="font-semibold text-gray-900 dark:text-white"><%= @item[:actor] %></span>
+      <%= event_text %>
+
+      <% if @type.in?(["labeled", "unlabeled"]) %>
+        <%= render IssueLabelComponent.new(label: @item[:label], repository: @repository) %>
+      <% elsif @type.in?(["milestoned", "demilestoned"]) %>
+        <span class="font-medium text-gray-900 dark:text-white"><%= @item[:milestone_title] %></span>
+        milestone
+      <% elsif @type.in?(["added_to_project", "removed_from_project"]) %>
+        <span class="font-medium text-gray-900 dark:text-white"><%= @item[:project_title] %></span>
+      <% elsif @type == "status_changed" %>
+        <span class="font-medium text-gray-900 dark:text-white"><%= @item[:project_title] %></span>
+        from
+        <% if @item[:previous_status].present? %>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+            <%= @item[:previous_status] %>
+          </span>
+        <% else %>
+          <span class="text-gray-500 dark:text-gray-400 italic">none</span>
+        <% end %>
+        to
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+          <%= @item[:status] %>
+        </span>
+        <% if @item[:was_automated] %>
+          <span class="text-xs text-gray-500 dark:text-gray-400">(automated)</span>
+        <% end %>
+      <% end %>
+
+      <%= helpers.time_ago_tag(@item[:created_at]) %>
+    </div>
+  </div>
+<% end %>

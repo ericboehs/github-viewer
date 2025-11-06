@@ -147,15 +147,15 @@
 .markdown li:has(> input[type="checkbox"]) {
   list-style-type: none;
   margin-left: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  position: relative;
+  padding-left: 1.75rem;
 }
 
-/* Force nested lists to appear on new line */
-.markdown li:has(> input[type="checkbox"]) > ul {
-  flex-basis: 100%;
+/* Position checkbox absolutely to the left */
+.markdown li:has(> input[type="checkbox"]) > input[type="checkbox"] {
+  position: absolute;
+  left: 0;
+  top: 0.25rem;
 }
 
 /* Tighter spacing for nested task list items */
