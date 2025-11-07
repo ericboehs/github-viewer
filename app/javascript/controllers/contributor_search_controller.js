@@ -137,17 +137,11 @@ export default class extends Controller {
       return
     }
 
-    // Sort contributors: selected first, then alphabetically
+    // Trust server-side ordering (selected first, then current user, then everyone else)
+    // Don't re-sort client-side
     const selected = this.selectedValue
-    const sortedContributors = [...contributors].sort((a, b) => {
-      if (selected) {
-        if (a.login === selected) return -1
-        if (b.login === selected) return 1
-      }
-      return a.login.localeCompare(b.login)
-    })
 
-    sortedContributors.forEach(contributor => {
+    contributors.forEach(contributor => {
       const isSelected = selected && contributor.login === selected
       const item = this.createResultItem(contributor, isSelected)
       this.resultsTarget.appendChild(item)
@@ -159,20 +153,25 @@ export default class extends Controller {
     const button = document.createElement('button')
     button.type = 'button'
     const baseClasses = 'flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none'
-    const selectedClasses = isSelected ? ' bg-gray-100 dark:bg-gray-700' : ''
-    button.className = baseClasses + selectedClasses
+    button.className = baseClasses
     button.dataset.action = 'click->filter-dropdown#selectItem'
     button.dataset.value = contributor.login
     button.dataset.filterDropdownTarget = 'item'
     button.tabIndex = -1
 
-    // Checkmark for selected item
+    // Checkmark for selected item (no background highlight, just checkmark)
     if (isSelected) {
-      const checkmark = document.createElement('svg')
-      checkmark.className = 'h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0'
+      const checkmark = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      checkmark.setAttribute('class', 'h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0')
       checkmark.setAttribute('viewBox', '0 0 20 20')
       checkmark.setAttribute('fill', 'currentColor')
-      checkmark.innerHTML = '<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />'
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      path.setAttribute('fill-rule', 'evenodd')
+      path.setAttribute('d', 'M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z')
+      path.setAttribute('clip-rule', 'evenodd')
+
+      checkmark.appendChild(path)
       button.appendChild(checkmark)
     } else {
       const spacer = document.createElement('div')

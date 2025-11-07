@@ -1,6 +1,6 @@
 <% content_for :title, "#{t('issues.page_title')} - #{@repository.full_name}" %>
 
-<div class="min-h-full bg-gray-50 dark:bg-gray-900">
+<div class="min-h-full bg-gray-50" style="background-color: #0E1116;">
   <%= render 'shared/navbar' %>
 
   <div class="py-5">
@@ -52,7 +52,7 @@
             <div class="flex-1 relative">
               <div class="grid grid-cols-1">
                 <%= f.text_field :q,
-                    value: @query,
+                    value: @query.present? ? "#{@query} " : @query,
                     placeholder: t('issues.index.search_placeholder'),
                     autocomplete: "off",
                     class: "col-start-1 row-start-1 block w-full rounded-md bg-white px-3 py-1.5 pr-10 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-emerald-600 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:outline-white/10 dark:focus:outline-emerald-500 sm:text-sm/6" %>
@@ -70,7 +70,7 @@
 
         <% end %>
 
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+        <div class="bg-white shadow rounded-lg border border-gray-700" style="background-color: #0E1116;">
           <!-- Filters Header Bar -->
           <div class="px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700" data-controller="filters-toggle">
             <!-- Container uses flexbox wrapping to control layout -->
@@ -119,7 +119,7 @@
             </div>
           </div>
 
-          <div class="px-4 sm:px-6">
+          <div>
             <% if @issues.any? %>
               <div class="divide-y divide-gray-200 dark:divide-gray-700">
                 <% @issues.each do |issue| %>

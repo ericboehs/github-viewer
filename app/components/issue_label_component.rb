@@ -32,43 +32,81 @@ class IssueLabelComponent < ViewComponent::Base
     query_text = @query.presence || "is:issue state:open"
     # Remove any existing label: qualifier
     query_without_label = query_text.gsub(/\blabel:("[^"]*"|\S+)/i, "").gsub(/\s+/, " ").strip
-    # Add this label to the query
+    # Add this label to the query with trailing space
     label_name = @name.include?(" ") ? "\"#{@name}\"" : @name
-    new_query = query_without_label.present? ? "#{query_without_label} label:#{label_name}" : "label:#{label_name}"
+    new_query = query_without_label.present? ? "#{query_without_label} label:#{label_name} " : "label:#{label_name} "
 
     helpers.repository_issues_path(@repository, q: new_query)
   end
 
   def label_classes
-    "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition-opacity"
+    "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition-opacity border"
   end
 
+  # Generates inline styles for label colors using GitHub's algorithm
+  # :reek:TooManyStatements - Color calculation requires multiple steps for WCAG compliance
+  # :reek:UncommunicativeVariableName { accept: ['r', 'g', 'b', 'h', 's', 'l'] } - Standard color abbreviations
+  # :reek:DuplicateMethodCall - HSL calculations repeated for text and border, intentional for clarity
   def label_styles
     return "" unless @color
 
-    bg_color = "##{@color}"
-    text_color = text_color_for_background(@color)
+    # Convert hex to RGB
+    r = @color[0..1].to_i(16)
+    g = @color[2..3].to_i(16)
+    b = @color[4..5].to_i(16)
 
-    "background-color: #{bg_color}; color: #{text_color};"
+    # Convert to HSL for text/border color
+    h, s, l = rgb_to_hsl(r / 255.0, g / 255.0, b / 255.0)
+
+    # Calculate perceived lightness using WCAG formula (same as GitHub)
+    perceived_lightness = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255.0
+    lightness_threshold = 0.6
+
+    # Lightness switch: 1 if we need to lighten, 0 otherwise
+    lightness_switch = perceived_lightness < lightness_threshold ? 1 : 0
+
+    # Calculate how much to lighten
+    lighten_by = ((lightness_threshold - perceived_lightness) * 100 * lightness_switch).round(1)
+
+    # Adjust HSL lightness
+    adjusted_l = l * 100 + lighten_by
+
+    # Background: original RGB at 18% opacity
+    bg_color = "rgba(#{r}, #{g}, #{b}, 0.18)"
+
+    # Text: HSL with adjusted lightness
+    text_color = "hsl(#{(h * 360).round}, #{(s * 100).round}%, #{adjusted_l.round(1)}%)"
+
+    # Border: same HSL at 30% opacity
+    border_color = "hsla(#{(h * 360).round}, #{(s * 100).round}%, #{adjusted_l.round(1)}%, 0.3)"
+
+    "background-color: #{bg_color}; color: #{text_color}; border-color: #{border_color};"
   end
 
-  # Calculate contrasting text color based on background color
-  # Uses relative luminance formula from WCAG
-  # :reek:TooManyStatements - Color calculation algorithm requires multiple steps
+  # Convert RGB (0-1) to HSL
   # :reek:UtilityFunction - Pure calculation method, appropriate as private helper
-  # :reek:UncommunicativeVariableName { accept: ['r', 'g', 'b'] } - Standard RGB abbreviations
-  def text_color_for_background(hex_color)
-    return "#000000" unless hex_color
+  # :reek:TooManyStatements - Color conversion algorithm requires multiple calculations
+  # :reek:UncommunicativeParameterName { accept: ['r', 'g', 'b'] } - Standard color abbreviations
+  # :reek:UncommunicativeVariableName { accept: ['r', 'g', 'b', 'h', 's', 'l', 'd'] } - Standard color abbreviations
+  # :reek:DuplicateMethodCall - Standard RGB to HSL algorithm
+  def rgb_to_hsl(r, g, b)
+    max = [ r, g, b ].max
+    min = [ r, g, b ].min
+    l = (max + min) / 2.0
 
-    # Convert hex to RGB
-    r = hex_color[0..1].to_i(16)
-    g = hex_color[2..3].to_i(16)
-    b = hex_color[4..5].to_i(16)
+    if max == min
+      h = s = 0 # achromatic
+    else
+      d = max - min
+      s = l > 0.5 ? d / (2.0 - max - min) : d / (max + min)
 
-    # Calculate relative luminance
-    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+      h = case max
+      when r then ((g - b) / d + (g < b ? 6 : 0)) / 6.0
+      when g then ((b - r) / d + 2) / 6.0
+      when b then ((r - g) / d + 4) / 6.0
+      end
+    end
 
-    # Return black for light backgrounds, white for dark backgrounds
-    luminance > 0.5 ? "#000000" : "#FFFFFF"
+    [ h, s, l ]
   end
 end

@@ -161,6 +161,23 @@ class IssueCardComponentTest < ViewComponent::TestCase
     assert_text "3"
   end
 
+  test "renders comment count even when issue has no comments" do
+    issue = @repository.issues.create!(
+      number: 1,
+      title: "Test Issue",
+      state: "open",
+      author_login: "author",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    render_inline(IssueCardComponent.new(issue: issue, repository: @repository))
+
+    # Comment count should be displayed with icon and "0"
+    assert_selector "svg"
+    assert_text "0"
+  end
+
   test "renders time tag with Stimulus controller" do
     issue = @repository.issues.create!(
       number: 1,

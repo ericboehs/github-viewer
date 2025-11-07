@@ -35,3 +35,6 @@
 
 # Ignore SimpleCov coverage reports
 /coverage
+
+# Ignore CI log file
+ci.log

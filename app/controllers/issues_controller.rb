@@ -232,6 +232,32 @@ class IssuesController < ApplicationController
       end
     end
 
+    # Fetch project fields and timeline (API-only, no caching)
+    github_token = Current.user.github_tokens.find_by(domain: @repository.github_domain)
+    if github_token
+      client = Github::ApiClient.new(token: github_token.token, domain: @repository.github_domain)
+
+      # Fetch project fields for sidebar
+      @project_items = client.fetch_issue_project_fields(
+        @repository.owner,
+        @repository.name,
+        @issue.number
+      )
+
+      # Fetch timeline events
+      timeline_events = client.fetch_issue_timeline(
+        @repository.owner,
+        @repository.name,
+        @issue.number
+      )
+
+      # Merge timeline events with cached comments and sort chronologically
+      @timeline_items = merge_timeline_with_comments(timeline_events)
+    else
+      @project_items = []
+      @timeline_items = comments_to_timeline_items(@issue.issue_comments)
+    end
+
     # Show rate limit info if debug mode
     if params[:debug] == "true"
       rate_limit = sync_result&.[](:rate_limit)
@@ -400,6 +426,36 @@ class IssuesController < ApplicationController
       flash.now[:warning] = t("issues.rate_limits.warning", messages: messages.join(" | "))
     else
       flash.now[:notice] = t("issues.rate_limits.notice", messages: messages.join(" | "))
+    end
+  end
+
+  # Merge timeline events from API with cached comments from database
+  # Returns array sorted chronologically by created_at
+  # :reek:UtilityFunction - Pure data transformation helper
+  def merge_timeline_with_comments(timeline_events)
+    # Convert cached comments to timeline items (those not in API response)
+    comment_items = comments_to_timeline_items(@issue.issue_comments)
+
+    # Merge API timeline events with cached comments
+    all_items = timeline_events + comment_items
+
+    # Sort chronologically and remove nil values
+    all_items.compact.sort_by { |item| item[:created_at] }
+  end
+
+  # Convert cached comments to timeline item format
+  # :reek:UtilityFunction - Pure data transformation helper
+  # :reek:FeatureEnvy - Accesses comment attributes extensively
+  def comments_to_timeline_items(comments)
+    comments.map do |comment|
+      {
+        type: "comment",
+        id: "cached_#{comment.id}",
+        created_at: comment.github_created_at,
+        actor: comment.author_login,
+        body: comment.body,
+        avatar_url: comment.author_avatar_url
+      }
     end
   end
 end

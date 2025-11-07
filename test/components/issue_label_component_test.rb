@@ -8,25 +8,38 @@ class IssueLabelComponentTest < ViewComponent::TestCase
     render_inline(IssueLabelComponent.new(label: label))
 
     assert_text "bug"
-    assert_selector "span[style*='background-color: #d73a4a']"
+    # Background is original RGB at 18% opacity
+    assert_selector "span[style*='background-color: rgba(215, 58, 74, 0.18)']"
+    # Text uses HSL with adjusted lightness (GitHub's approach)
+    assert_selector "span[style*='color: hsl(']"
+    # Border uses same HSL at 30% opacity
+    assert_selector "span[style*='border-color: hsla(']"
   end
 
   test "renders label with light background and dark text" do
-    label = { "name" => "documentation", "color" => "ffffff" }  # White background
+    label = { "name" => "documentation", "color" => "ffffff" }  # White API color
     render_inline(IssueLabelComponent.new(label: label))
 
     assert_text "documentation"
-    # White background should get black text
-    assert_selector "span[style*='color: #000000']"
+    # Background is white at 18% opacity
+    assert_selector "span[style*='background-color: rgba(255, 255, 255, 0.18)']"
+    # Text uses HSL (no lightening needed since already bright)
+    assert_selector "span[style*='color: hsl(']"
+    # Border uses HSL at 30% opacity
+    assert_selector "span[style*='border-color: hsla(']"
   end
 
   test "renders label with dark background and light text" do
-    label = { "name" => "bug", "color" => "000000" }  # Black background
+    label = { "name" => "bug", "color" => "000000" }  # Black API color
     render_inline(IssueLabelComponent.new(label: label))
 
     assert_text "bug"
-    # Black background should get white text
-    assert_selector "span[style*='color: #FFFFFF']"
+    # Background is API color (black) at 18% opacity
+    assert_selector "span[style*='background-color: rgba(0, 0, 0, 0.18)']"
+    # Text uses HSL with significant lightening (60% to reach threshold)
+    assert_selector "span[style*='color: hsl(']"
+    # Border uses same HSL at 30% opacity
+    assert_selector "span[style*='border-color: hsla(']"
   end
 
   test "renders label without color" do
@@ -41,7 +54,12 @@ class IssueLabelComponentTest < ViewComponent::TestCase
     render_inline(IssueLabelComponent.new(label: label))
 
     assert_text "enhancement"
-    assert_selector "span[style*='background-color: #a2eeef']"
+    # Text uses HSL with adjusted lightness (GitHub's approach)
+    assert_selector "span[style*='color: hsl(']"
+    # Background is API color at 18% opacity
+    assert_selector "span[style*='background-color: rgba(162, 238, 239, 0.18)']"
+    # Border uses HSL at 30% opacity
+    assert_selector "span[style*='border-color: hsla(']"
   end
 
   test "handles label with nil color in text color calculation" do

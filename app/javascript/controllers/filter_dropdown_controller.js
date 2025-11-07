@@ -21,6 +21,25 @@ export default class extends Controller {
     }
   }
 
+  handleButtonKeydown(event) {
+    // Open dropdown when pressing down arrow on button
+    if (event.key === "ArrowDown" && !this.isOpen()) {
+      event.preventDefault()
+      this.closeOtherDropdowns()
+      this.openMenu()
+
+      // Focus first item after opening if there's no search input
+      if (!this.hasSearchTarget) {
+        setTimeout(() => {
+          const menuItems = this.getVisibleMenuItems()
+          if (menuItems.length > 0) {
+            menuItems[0].focus()
+          }
+        }, 100)
+      }
+    }
+  }
+
   openMenu() {
     this.menuTarget.classList.remove("opacity-0", "scale-95", "pointer-events-none")
     this.menuTarget.classList.add("opacity-100", "scale-100")
@@ -136,11 +155,15 @@ export default class extends Controller {
 
       if (qualifierType === 'label') {
         // Labels support multiple selections - toggle the clicked label
-        const labelRegex = new RegExp(`\\blabel:(${value.includes(' ') ? `"${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"` : value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i')
+        // Escape special regex characters in the value
+        const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        // Build pattern that matches label with or without quotes, followed by space or end of string
+        const quotedPattern = `"${escapedValue}"`
+        const labelRegex = new RegExp(`\\blabel:(?:${quotedPattern}|${escapedValue})(?=\\s|$)`, 'i')
 
         if (labelRegex.test(query)) {
           // Label is already selected, remove it
-          query = query.replace(labelRegex, '').trim()
+          query = query.replace(labelRegex, '').replace(/\s+/g, ' ').trim()
         } else {
           // Label not selected, add it
           const quotedValue = value.includes(' ') ? `"${value}"` : value
@@ -149,16 +172,16 @@ export default class extends Controller {
       } else {
         // Author/Assignee: toggle on/off (click to unselect if already selected)
         const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const quotedPattern = value.includes(' ') ? `"${escapedValue}"` : escapedValue
-        const qualifierRegex = new RegExp(`\\b${qualifierType}:(${quotedPattern}|${escapedValue})\\b`, 'i')
+        const quotedPattern = `"${escapedValue}"`
+        const qualifierRegex = new RegExp(`\\b${qualifierType}:(?:${quotedPattern}|${escapedValue})(?=\\s|$)`, 'i')
 
         if (qualifierRegex.test(query)) {
           // User is already selected, remove the qualifier (unselect)
-          query = query.replace(qualifierRegex, '').trim()
+          query = query.replace(qualifierRegex, '').replace(/\s+/g, ' ').trim()
         } else {
           // User not selected, replace any existing qualifier with this one
-          const existingQualifierRegex = new RegExp(`\\b${qualifierType}:("[^"]*"|\\S+)`, 'gi')
-          query = query.replace(existingQualifierRegex, '').trim()
+          const existingQualifierRegex = new RegExp(`\\b${qualifierType}:(?:"[^"]*"|\\S+)`, 'gi')
+          query = query.replace(existingQualifierRegex, '').replace(/\s+/g, ' ').trim()
 
           // Add new qualifier
           const quotedValue = value.includes(' ') ? `"${value}"` : value
@@ -166,8 +189,9 @@ export default class extends Controller {
         }
       }
 
-      // Normalize whitespace
-      searchField.value = query.replace(/\s+/g, ' ').trim()
+      // Normalize whitespace and add trailing space (unless empty)
+      const normalizedQuery = query.replace(/\s+/g, ' ').trim()
+      searchField.value = normalizedQuery ? normalizedQuery + ' ' : normalizedQuery
     }
 
     // Automatically close and submit the form
@@ -186,9 +210,13 @@ export default class extends Controller {
         event.preventDefault()
         this.closeMenu()
         break
+      case "Tab":
+        // Close dropdown when tabbing out
+        this.closeMenu()
+        break
       case "Enter":
         // If search input is focused, select the first visible item
-        if (document.activeElement === this.searchTarget) {
+        if (this.hasSearchTarget && document.activeElement === this.searchTarget) {
           event.preventDefault()
           const menuItems = this.getVisibleMenuItems()
           if (menuItems.length > 0) {
@@ -233,7 +261,7 @@ export default class extends Controller {
     const menuItems = this.getVisibleMenuItems()
     const currentIndex = this.getCurrentMenuItemIndex(menuItems)
 
-    if (currentIndex === -1 || document.activeElement === this.searchTarget) {
+    if (currentIndex === -1 || (this.hasSearchTarget && document.activeElement === this.searchTarget)) {
       // No item focused or search focused, focus first item
       if (menuItems.length > 0) {
         menuItems[0].focus()

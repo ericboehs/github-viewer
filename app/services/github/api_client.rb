@@ -9,6 +9,8 @@ module Github
   # :reek:InstanceVariableAssumption - Client caches rate limit data
   # :reek:DuplicateMethodCall - Client response accessed for readability
   # :reek:FeatureEnvy - Methods delegate to rate_limit and headers objects
+  # :reek:TooManyConstants - Error message constants grouped for clarity
+  # :reek:RepeatedConditional - result[:error] checked in different GraphQL handlers
   class ApiClient
     include ActiveSupport::Configurable
 
@@ -107,6 +109,207 @@ module Github
       { error: ERROR_SAML_PROTECTED }
     end
 
+    # Fetch project memberships and field values for an issue via GraphQL
+    # Returns array of project items with fields like Status, Sprint, Priority, Estimate, etc.
+    # Returns empty array on error (graceful degradation)
+    def fetch_issue_project_fields(owner, repo_name, issue_number)
+      query = <<~GRAPHQL
+        query($owner: String!, $name: String!, $number: Int!) {
+          repository(owner: $owner, name: $name) {
+            issue(number: $number) {
+              projectItems(first: 10) {
+                nodes {
+                  id
+                  project {
+                    title
+                    number
+                    url
+                  }
+                  fieldValues(first: 20) {
+                    nodes {
+                      __typename
+                      ... on ProjectV2ItemFieldSingleSelectValue {
+                        name
+                        field {
+                          ... on ProjectV2SingleSelectField {
+                            name
+                          }
+                        }
+                      }
+                      ... on ProjectV2ItemFieldTextValue {
+                        text
+                        field {
+                          ... on ProjectV2Field {
+                            name
+                          }
+                        }
+                      }
+                      ... on ProjectV2ItemFieldNumberValue {
+                        number
+                        field {
+                          ... on ProjectV2Field {
+                            name
+                          }
+                        }
+                      }
+                      ... on ProjectV2ItemFieldDateValue {
+                        date
+                        field {
+                          ... on ProjectV2Field {
+                            name
+                          }
+                        }
+                      }
+                      ... on ProjectV2ItemFieldIterationValue {
+                        title
+                        field {
+                          ... on ProjectV2IterationField {
+                            name
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      variables = { owner: owner, name: repo_name, number: issue_number }
+      result = graphql_query(query, variables)
+
+      return [] if result[:error]
+
+      project_items = result.dig(:data, :repository, :issue, :projectItems, :nodes) || []
+      project_items.map { |item| normalize_project_item_data(item) }
+    rescue => error
+      Rails.logger.debug "Failed to fetch project fields: #{error.message}"
+      []
+    end
+
+    # Fetch timeline items (events + comments) for an issue via GraphQL
+    # Returns array of timeline items including labels, milestones, project events, status changes, and comments
+    # Returns empty array on error (graceful degradation)
+    # :reek:TooManyStatements - Complex GraphQL query with multiple event types
+    def fetch_issue_timeline(owner, repo_name, issue_number)
+      query = <<~GRAPHQL
+        query($owner: String!, $name: String!, $number: Int!) {
+          repository(owner: $owner, name: $name) {
+            issue(number: $number) {
+              timelineItems(first: 100, itemTypes: [
+                LABELED_EVENT,
+                UNLABELED_EVENT,
+                MILESTONED_EVENT,
+                DEMILESTONED_EVENT,
+                ADDED_TO_PROJECT_V2_EVENT,
+                REMOVED_FROM_PROJECT_V2_EVENT,
+                PROJECT_V2_ITEM_STATUS_CHANGED_EVENT,
+                ISSUE_COMMENT
+              ]) {
+                nodes {
+                  __typename
+                  ... on LabeledEvent {
+                    id
+                    createdAt
+                    actor {
+                      login
+                    }
+                    label {
+                      name
+                      color
+                    }
+                  }
+                  ... on UnlabeledEvent {
+                    id
+                    createdAt
+                    actor {
+                      login
+                    }
+                    label {
+                      name
+                      color
+                    }
+                  }
+                  ... on MilestonedEvent {
+                    id
+                    createdAt
+                    actor {
+                      login
+                    }
+                    milestoneTitle
+                  }
+                  ... on DemilestonedEvent {
+                    id
+                    createdAt
+                    actor {
+                      login
+                    }
+                    milestoneTitle
+                  }
+                  ... on AddedToProjectV2Event {
+                    id
+                    createdAt
+                    actor {
+                      login
+                    }
+                    project {
+                      title
+                      number
+                    }
+                  }
+                  ... on RemovedFromProjectV2Event {
+                    id
+                    createdAt
+                    actor {
+                      login
+                    }
+                    project {
+                      title
+                    }
+                  }
+                  ... on ProjectV2ItemStatusChangedEvent {
+                    id
+                    createdAt
+                    actor {
+                      login
+                    }
+                    previousStatus
+                    status
+                    wasAutomated
+                    project {
+                      title
+                    }
+                  }
+                  ... on IssueComment {
+                    id
+                    createdAt
+                    author {
+                      login
+                    }
+                    bodyText
+                    authorAssociation
+                  }
+                }
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      variables = { owner: owner, name: repo_name, number: issue_number }
+      result = graphql_query(query, variables)
+
+      return [] if result[:error]
+
+      timeline_items = result.dig(:data, :repository, :issue, :timelineItems, :nodes) || []
+      timeline_items.map { |item| normalize_timeline_item_data(item) }.compact
+    rescue => error
+      Rails.logger.debug "Failed to fetch timeline: #{error.message}"
+      []
+    end
+
     # Fetch assignable users via GraphQL
     # Returns users who can be assigned to issues in the repository
     def fetch_assignable_users(owner, repo_name)
@@ -145,13 +348,13 @@ module Github
           return result
         end
 
-        users = result.dig("data", "repository", "assignableUsers", "nodes") || []
-        page_info = result.dig("data", "repository", "assignableUsers", "pageInfo") || {}
+        users = result.dig(:data, :repository, :assignableUsers, :nodes) || []
+        page_info = result.dig(:data, :repository, :assignableUsers, :pageInfo) || {}
 
         all_users.concat(users.map { |user| normalize_assignable_user_data(user) })
 
-        has_next_page = page_info["hasNextPage"]
-        after_cursor = page_info["endCursor"]
+        has_next_page = page_info[:hasNextPage]
+        after_cursor = page_info[:endCursor]
       end
 
       all_users
@@ -219,7 +422,9 @@ module Github
     # :reek:UtilityFunction - Wrapper for GraphQL API calls
     def graphql_query(query, variables = {})
       with_rate_limiting do
-        response = @client.post("/graphql", { query: query, variables: variables }.to_json)
+        # GHE uses /api/graphql, GitHub.com uses /graphql
+        graphql_path = @domain == "github.com" ? "/graphql" : "/api/graphql"
+        response = @client.post(graphql_path, { query: query, variables: variables }.to_json)
 
         # Check for GraphQL errors
         if response[:errors]
@@ -358,9 +563,136 @@ module Github
     # :reek:UtilityFunction - Data transformation helper
     def normalize_assignable_user_data(user)
       {
-        login: user["login"],
-        avatar_url: user["avatarUrl"]
+        login: user[:login],
+        avatar_url: user[:avatarUrl]
       }
+    end
+
+    # :reek:UtilityFunction - Data transformation helper
+    # :reek:TooManyStatements - Processes multiple field types
+    # :reek:NilCheck - Explicit nil check for field_name filtering
+    def normalize_project_item_data(item)
+      fields = {}
+
+      item.dig(:fieldValues, :nodes)&.each do |field_value|
+        field_name = field_value.dig(:field, :name)
+        # Skip Title field since it's already shown at the top of the page
+        next if field_name.nil? || field_name == "Title"
+
+        field_type = field_value[:__typename]
+        value = case field_type
+        when "ProjectV2ItemFieldSingleSelectValue"
+          field_value[:name]
+        when "ProjectV2ItemFieldTextValue"
+          field_value[:text]
+        when "ProjectV2ItemFieldNumberValue"
+          field_value[:number]
+        when "ProjectV2ItemFieldDateValue"
+          # Include date fields even if empty to show structure
+          field_value[:date] || ""
+        when "ProjectV2ItemFieldIterationValue"
+          field_value[:title]
+        else
+          nil
+        end
+
+        # Include date fields even if empty, skip others that are nil
+        fields[field_name] = value if value || field_type == "ProjectV2ItemFieldDateValue"
+      end
+
+      {
+        project_title: item.dig(:project, :title),
+        project_number: item.dig(:project, :number),
+        project_url: item.dig(:project, :url),
+        fields: fields
+      }
+    end
+
+    # :reek:UtilityFunction - Data transformation helper
+    # :reek:TooManyStatements - Processes multiple event types
+    # :reek:FeatureEnvy - Accesses item hash extensively
+    def normalize_timeline_item_data(item)
+      type_name = item[:__typename]
+
+      case type_name
+      when "LabeledEvent"
+        {
+          type: "labeled",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          label: {
+            name: item.dig(:label, :name),
+            color: item.dig(:label, :color)
+          }
+        }
+      when "UnlabeledEvent"
+        {
+          type: "unlabeled",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          label: {
+            name: item.dig(:label, :name),
+            color: item.dig(:label, :color)
+          }
+        }
+      when "MilestonedEvent"
+        {
+          type: "milestoned",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          milestone_title: item[:milestoneTitle]
+        }
+      when "DemilestonedEvent"
+        {
+          type: "demilestoned",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          milestone_title: item[:milestoneTitle]
+        }
+      when "AddedToProjectV2Event"
+        {
+          type: "added_to_project",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          project_title: item.dig(:project, :title),
+          project_number: item.dig(:project, :number)
+        }
+      when "RemovedFromProjectV2Event"
+        {
+          type: "removed_from_project",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          project_title: item.dig(:project, :title)
+        }
+      when "ProjectV2ItemStatusChangedEvent"
+        {
+          type: "status_changed",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          previous_status: item[:previousStatus],
+          status: item[:status],
+          was_automated: item[:wasAutomated],
+          project_title: item.dig(:project, :title)
+        }
+      when "IssueComment"
+        {
+          type: "comment",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:author, :login),
+          body: item[:bodyText],
+          author_association: item[:authorAssociation]
+        }
+      else
+        nil
+      end
     end
   end
 end

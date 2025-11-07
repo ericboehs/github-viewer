@@ -82,6 +82,7 @@ class RepositoriesController < ApplicationController
   # Used for both Author and Assignee dropdowns
   # :reek:TooManyStatements - JSON endpoint needs API call, filtering, and response
   # :reek:DuplicateMethodCall - Repeated calls are part of filtering logic
+  # :reek:FeatureEnvy - Data transformation method working with user hashes
   def assignable_users
     repository = Current.user.repositories.find(params[:id])
     query = params[:q]
@@ -96,6 +97,10 @@ class RepositoriesController < ApplicationController
 
     begin
       client = Github::ApiClient.new(token: github_token.token, domain: repository.github_domain)
+
+      # Fetch current authenticated user
+      current_github_user = client.client.user
+      current_user_login = current_github_user.login
 
       # Fetch assignable users from GitHub REST API
       assignees = client.client.repository_assignees(repository.full_name, per_page: 100)
@@ -129,24 +134,40 @@ class RepositoriesController < ApplicationController
 
       # Filter by search query if provided
       if query.present?
-        lowerQuery = query.downcase
-        users = users.select { |user| user[:login].downcase.include?(lowerQuery) }
+        lower_query = query.downcase
+        users = users.select { |user| user[:login].downcase.include?(lower_query) }
       end
 
-      # Ensure selected user is always at the front of results (even if not in search results)
-      if selected_user_data
-        # Remove selected user if they're already in the list
-        users.reject! { |user| user[:login] == selected }
-        # Add selected user to the front
-        users.unshift(selected_user_data)
+      # Find current user in the list
+      current_user_data = users.find { |user| user[:login] == current_user_login }
+
+      # Only add current user if they match the search query (or no query)
+      unless current_user_data
+        # Check if current user matches the query (if there is one)
+        if query.blank? || current_user_login.downcase.include?(query.downcase)
+          # Current user not in results but matches query - add them
+          current_user_data = {
+            login: current_github_user.login,
+            avatar_url: current_github_user.avatar_url
+          }
+        end
       end
+
+      # Remove selected and current users from the list
+      users.reject! { |user| user[:login] == selected || user[:login] == current_user_login }
+
+      # Add users in priority order: selected first (if present), then current user (if matches query), then everyone else
+      prioritized_users = []
+      prioritized_users << selected_user_data if selected_user_data
+      prioritized_users << current_user_data if current_user_data && current_user_data[:login] != selected
+      users = prioritized_users + users
 
       # Limit to 20 results for dropdown
       users = users.first(20)
 
       render json: users
-    rescue => e
-      Rails.logger.error "Error fetching assignable users: #{e.message}"
+    rescue => error
+      Rails.logger.error "Error fetching assignable users: #{error.message}"
       render json: { error: "Failed to fetch assignable users" }, status: :internal_server_error
     end
   end

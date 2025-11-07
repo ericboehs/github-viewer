@@ -735,16 +735,16 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     mock_client = OpenStruct.new
     def mock_client.post(path, body)
       {
-        "data" => {
-          "repository" => {
-            "assignableUsers" => {
-              "nodes" => [
-                { "login" => "user1", "avatarUrl" => "https://example.com/user1.png" },
-                { "login" => "user2", "avatarUrl" => "https://example.com/user2.png" }
+        data: {
+          repository: {
+            assignableUsers: {
+              nodes: [
+                { login: "user1", avatarUrl: "https://example.com/user1.png" },
+                { login: "user2", avatarUrl: "https://example.com/user2.png" }
               ],
-              "pageInfo" => {
-                "hasNextPage" => false,
-                "endCursor" => nil
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: nil
               }
             }
           }
@@ -774,22 +774,22 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
       if @call_count == 1
         {
-          "data" => {
-            "repository" => {
-              "assignableUsers" => {
-                "nodes" => [ { "login" => "user1", "avatarUrl" => "url1" } ],
-                "pageInfo" => { "hasNextPage" => true, "endCursor" => "cursor1" }
+          data: {
+            repository: {
+              assignableUsers: {
+                nodes: [ { login: "user1", avatarUrl: "url1" } ],
+                pageInfo: { hasNextPage: true, endCursor: "cursor1" }
               }
             }
           }
         }
       else
         {
-          "data" => {
-            "repository" => {
-              "assignableUsers" => {
-                "nodes" => [ { "login" => "user2", "avatarUrl" => "url2" } ],
-                "pageInfo" => { "hasNextPage" => false, "endCursor" => nil }
+          data: {
+            repository: {
+              assignableUsers: {
+                nodes: [ { login: "user2", avatarUrl: "url2" } ],
+                pageInfo: { hasNextPage: false, endCursor: nil }
               }
             }
           }
@@ -856,5 +856,716 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
     assert result.is_a?(Hash)
     assert_equal "Unauthorized - check your GitHub token", result[:error]
+  end
+
+  # Tests for fetch_issue_project_fields
+
+  test "should fetch project fields successfully" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              projectItems: {
+                nodes: [
+                  {
+                    project: {
+                      title: "Sprint Board",
+                      number: 1,
+                      url: "https://github.com/orgs/test/projects/1"
+                    },
+                    fieldValues: {
+                      nodes: [
+                        {
+                          __typename: "ProjectV2ItemFieldSingleSelectValue",
+                          name: "In Progress",
+                          field: { name: "Status" }
+                        },
+                        {
+                          __typename: "ProjectV2ItemFieldNumberValue",
+                          number: 5,
+                          field: { name: "Estimate" }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_project_fields("rails", "rails", 123)
+
+    assert result.is_a?(Array)
+    assert_equal 1, result.length
+    assert_equal "Sprint Board", result[0][:project_title]
+    assert_equal "In Progress", result[0][:fields]["Status"]
+    assert_equal 5, result[0][:fields]["Estimate"]
+  end
+
+  test "should return empty array on error in fetch_issue_project_fields" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      { errors: [ { message: "GraphQL error" } ] }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_project_fields("rails", "rails", 123)
+
+    assert result.is_a?(Array)
+    assert_empty result
+  end
+
+  test "should handle exception in fetch_issue_project_fields" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      raise StandardError.new("Network error")
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_project_fields("rails", "rails", 123)
+
+    assert result.is_a?(Array)
+    assert_empty result
+  end
+
+  # Tests for fetch_issue_timeline
+
+  test "should fetch timeline successfully" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "LabeledEvent",
+                    id: "LE_123",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    actor: { login: "user1" },
+                    label: { name: "bug", color: "ff0000" }
+                  },
+                  {
+                    __typename: "ProjectV2ItemStatusChangedEvent",
+                    id: "PVTE_456",
+                    createdAt: "2025-11-06T13:00:00Z",
+                    actor: { login: "user2" },
+                    previousStatus: "To Do",
+                    status: "In Progress",
+                    wasAutomated: false,
+                    project: { title: "Sprint Board" }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert result.is_a?(Array)
+    assert_equal 2, result.length
+    assert_equal "labeled", result[0][:type]
+    assert_equal "user1", result[0][:actor]
+    assert_equal "status_changed", result[1][:type]
+    assert_equal "In Progress", result[1][:status]
+  end
+
+  test "should return empty array on error in fetch_issue_timeline" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      { errors: [ { message: "GraphQL error" } ] }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert result.is_a?(Array)
+    assert_empty result
+  end
+
+  test "should handle exception in fetch_issue_timeline" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      raise StandardError.new("Network error")
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert result.is_a?(Array)
+    assert_empty result
+  end
+
+  # Tests for different project field types
+
+  test "should handle all project field types" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              projectItems: {
+                nodes: [
+                  {
+                    project: {
+                      title: "Test Project",
+                      number: 1,
+                      url: "https://github.com/orgs/test/projects/1"
+                    },
+                    fieldValues: {
+                      nodes: [
+                        {
+                          __typename: "ProjectV2ItemFieldTextValue",
+                          text: "Some text",
+                          field: { name: "Description" }
+                        },
+                        {
+                          __typename: "ProjectV2ItemFieldDateValue",
+                          date: "2025-11-15",
+                          field: { name: "Due Date" }
+                        },
+                        {
+                          __typename: "ProjectV2ItemFieldIterationValue",
+                          title: "Sprint 5",
+                          field: { name: "Sprint" }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_project_fields("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_equal "Some text", result[0][:fields]["Description"]
+    assert_equal "2025-11-15", result[0][:fields]["Due Date"]
+    assert_equal "Sprint 5", result[0][:fields]["Sprint"]
+  end
+
+  test "should handle empty date field" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              projectItems: {
+                nodes: [
+                  {
+                    project: {
+                      title: "Test Project",
+                      number: 1,
+                      url: "https://github.com/orgs/test/projects/1"
+                    },
+                    fieldValues: {
+                      nodes: [
+                        {
+                          __typename: "ProjectV2ItemFieldDateValue",
+                          date: nil,
+                          field: { name: "Due Date" }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_project_fields("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_equal "", result[0][:fields]["Due Date"]
+  end
+
+  test "should skip Title field in project fields" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              projectItems: {
+                nodes: [
+                  {
+                    project: {
+                      title: "Test Project",
+                      number: 1,
+                      url: "https://github.com/orgs/test/projects/1"
+                    },
+                    fieldValues: {
+                      nodes: [
+                        {
+                          __typename: "ProjectV2ItemFieldTextValue",
+                          text: "Issue title",
+                          field: { name: "Title" }
+                        },
+                        {
+                          __typename: "ProjectV2ItemFieldTextValue",
+                          text: "Other value",
+                          field: { name: "Other" }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_project_fields("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_nil result[0][:fields]["Title"]
+    assert_equal "Other value", result[0][:fields]["Other"]
+  end
+
+  test "should handle unknown field type" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              projectItems: {
+                nodes: [
+                  {
+                    project: {
+                      title: "Test Project",
+                      number: 1,
+                      url: "https://github.com/orgs/test/projects/1"
+                    },
+                    fieldValues: {
+                      nodes: [
+                        {
+                          __typename: "UnknownFieldType",
+                          someValue: "test",
+                          field: { name: "Unknown" }
+                        },
+                        {
+                          __typename: "ProjectV2ItemFieldTextValue",
+                          text: "Known value",
+                          field: { name: "Known" }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_project_fields("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    # Unknown field should be skipped
+    assert_nil result[0][:fields]["Unknown"]
+    # Known field should be included
+    assert_equal "Known value", result[0][:fields]["Known"]
+  end
+
+  # Tests for different timeline event types
+
+  test "should handle unlabeled event" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "UnlabeledEvent",
+                    id: "ULE_123",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    actor: { login: "user1" },
+                    label: { name: "bug", color: "ff0000" }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_equal "unlabeled", result[0][:type]
+    assert_equal "user1", result[0][:actor]
+    assert_equal "bug", result[0][:label][:name]
+  end
+
+  test "should handle milestoned event" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "MilestonedEvent",
+                    id: "ME_123",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    actor: { login: "user1" },
+                    milestoneTitle: "v1.0"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_equal "milestoned", result[0][:type]
+    assert_equal "user1", result[0][:actor]
+    assert_equal "v1.0", result[0][:milestone_title]
+  end
+
+  test "should handle demilestoned event" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "DemilestonedEvent",
+                    id: "DME_123",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    actor: { login: "user1" },
+                    milestoneTitle: "v0.9"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_equal "demilestoned", result[0][:type]
+    assert_equal "user1", result[0][:actor]
+    assert_equal "v0.9", result[0][:milestone_title]
+  end
+
+  test "should handle added to project event" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "AddedToProjectV2Event",
+                    id: "APE_123",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    actor: { login: "user1" },
+                    project: { title: "Sprint Board", number: 1 }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_equal "added_to_project", result[0][:type]
+    assert_equal "user1", result[0][:actor]
+    assert_equal "Sprint Board", result[0][:project_title]
+    assert_equal 1, result[0][:project_number]
+  end
+
+  test "should handle removed from project event" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "RemovedFromProjectV2Event",
+                    id: "RPE_123",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    actor: { login: "user1" },
+                    project: { title: "Old Project" }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_equal "removed_from_project", result[0][:type]
+    assert_equal "user1", result[0][:actor]
+    assert_equal "Old Project", result[0][:project_title]
+  end
+
+  test "should handle issue comment in timeline" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "IssueComment",
+                    id: "IC_123",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    author: { login: "commenter1" },
+                    bodyText: "This is a comment",
+                    authorAssociation: "MEMBER"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_equal 1, result.length
+    assert_equal "comment", result[0][:type]
+    assert_equal "commenter1", result[0][:actor]
+    assert_equal "This is a comment", result[0][:body]
+    assert_equal "MEMBER", result[0][:author_association]
+  end
+
+  test "should handle unknown timeline event type" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issue: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "UnknownEventType",
+                    id: "UNK_123",
+                    createdAt: "2025-11-06T12:00:00Z"
+                  },
+                  {
+                    __typename: "LabeledEvent",
+                    id: "LE_456",
+                    createdAt: "2025-11-06T13:00:00Z",
+                    actor: { login: "user1" },
+                    label: { name: "bug", color: "ff0000" }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    # Unknown event should return nil and be filtered out
+    # But the labeled event should be included
+    assert_equal 1, result.length
+    assert_equal "labeled", result[0][:type]
+  end
+
+  test "should use correct GraphQL endpoint for GHE" do
+    ghe_client = Github::ApiClient.new(token: @token, domain: "github.example.com")
+    mock_client = OpenStruct.new
+
+    # Track which path is used
+    called_path = nil
+    def mock_client.post(path, body)
+      @called_path = path
+      {
+        data: {
+          repository: {
+            issue: {
+              projectItems: { nodes: [] }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+    def mock_client.called_path
+      @called_path
+    end
+
+    ghe_client.instance_variable_set(:@client, mock_client)
+
+    ghe_client.fetch_issue_project_fields("rails", "rails", 123)
+
+    # GHE should use /api/graphql
+    assert_equal "/api/graphql", mock_client.called_path
+  end
+
+  test "should use correct GraphQL endpoint for github.com" do
+    mock_client = OpenStruct.new
+
+    # Track which path is used
+    called_path = nil
+    def mock_client.post(path, body)
+      @called_path = path
+      {
+        data: {
+          repository: {
+            issue: {
+              projectItems: { nodes: [] }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+    def mock_client.called_path
+      @called_path
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    @client.fetch_issue_project_fields("rails", "rails", 123)
+
+    # GitHub.com should use /graphql
+    assert_equal "/graphql", mock_client.called_path
   end
 end
