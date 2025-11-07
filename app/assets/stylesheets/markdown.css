@@ -155,7 +155,7 @@
 .markdown li:has(> input[type="checkbox"]) > input[type="checkbox"] {
   position: absolute;
   left: 0;
-  top: 0.125rem;
+  top: 0.25rem;
 }
 
 /* Tighter spacing for nested task list items */
