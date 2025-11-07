@@ -13,12 +13,16 @@ class ProjectFieldsComponent < ViewComponent::Base
 
   private
 
+  # :reek:UtilityFunction - Pure helper for formatting field values, appropriate as private method
+  # :reek:TooManyStatements - Simple case statement for different value types
+  # :reek:DuplicateMethodCall - value.to_s called in different case branches for type handling
   def field_display_value(value)
     # Handle different value types
     case value
     when Numeric
       # Show numbers as integers if they have no decimal component
-      value % 1 == 0 ? value.to_i.to_s : value.to_s
+      string_value = value.to_s
+      value % 1 == 0 ? value.to_i.to_s : string_value
     when String
       value.present? ? value : "None"
     else

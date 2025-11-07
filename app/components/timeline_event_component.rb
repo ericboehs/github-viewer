@@ -34,6 +34,7 @@ class TimelineEventComponent < ViewComponent::Base
     end
   end
 
+  # :reek:TooManyStatements - Simple case statement mapping event types to text
   def event_text
     case @type
     when "labeled"
@@ -56,6 +57,7 @@ class TimelineEventComponent < ViewComponent::Base
   end
 
   # SVG icon definitions
+  # :reek:UtilityFunction - Static SVG helper, appropriate as private method
   def tag_icon
     <<~SVG.html_safe
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -64,6 +66,7 @@ class TimelineEventComponent < ViewComponent::Base
     SVG
   end
 
+  # :reek:UtilityFunction - Static SVG helper, appropriate as private method
   def milestone_icon
     <<~SVG.html_safe
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -72,6 +75,7 @@ class TimelineEventComponent < ViewComponent::Base
     SVG
   end
 
+  # :reek:UtilityFunction - Static SVG helper, appropriate as private method
   def project_icon
     <<~SVG.html_safe
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -80,6 +84,7 @@ class TimelineEventComponent < ViewComponent::Base
     SVG
   end
 
+  # :reek:UtilityFunction - Static SVG helper, appropriate as private method
   def arrow_icon
     <<~SVG.html_safe
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

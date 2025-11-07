@@ -9,6 +9,8 @@ module Github
   # :reek:InstanceVariableAssumption - Client caches rate limit data
   # :reek:DuplicateMethodCall - Client response accessed for readability
   # :reek:FeatureEnvy - Methods delegate to rate_limit and headers objects
+  # :reek:TooManyConstants - Error message constants grouped for clarity
+  # :reek:RepeatedConditional - result[:error] checked in different GraphQL handlers
   class ApiClient
     include ActiveSupport::Configurable
 
@@ -568,6 +570,7 @@ module Github
 
     # :reek:UtilityFunction - Data transformation helper
     # :reek:TooManyStatements - Processes multiple field types
+    # :reek:NilCheck - Explicit nil check for field_name filtering
     def normalize_project_item_data(item)
       fields = {}
 

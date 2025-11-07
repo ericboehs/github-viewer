@@ -82,6 +82,7 @@ class RepositoriesController < ApplicationController
   # Used for both Author and Assignee dropdowns
   # :reek:TooManyStatements - JSON endpoint needs API call, filtering, and response
   # :reek:DuplicateMethodCall - Repeated calls are part of filtering logic
+  # :reek:FeatureEnvy - Data transformation method working with user hashes
   def assignable_users
     repository = Current.user.repositories.find(params[:id])
     query = params[:q]
@@ -133,8 +134,8 @@ class RepositoriesController < ApplicationController
 
       # Filter by search query if provided
       if query.present?
-        lowerQuery = query.downcase
-        users = users.select { |user| user[:login].downcase.include?(lowerQuery) }
+        lower_query = query.downcase
+        users = users.select { |user| user[:login].downcase.include?(lower_query) }
       end
 
       # Find current user in the list
@@ -165,8 +166,8 @@ class RepositoriesController < ApplicationController
       users = users.first(20)
 
       render json: users
-    rescue => e
-      Rails.logger.error "Error fetching assignable users: #{e.message}"
+    rescue => error
+      Rails.logger.error "Error fetching assignable users: #{error.message}"
       render json: { error: "Failed to fetch assignable users" }, status: :internal_server_error
     end
   end
