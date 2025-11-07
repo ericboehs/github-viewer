@@ -137,17 +137,11 @@ export default class extends Controller {
       return
     }
 
-    // Sort contributors: selected first, then alphabetically
+    // Trust server-side ordering (selected first, then current user, then everyone else)
+    // Don't re-sort client-side
     const selected = this.selectedValue
-    const sortedContributors = [...contributors].sort((a, b) => {
-      if (selected) {
-        if (a.login === selected) return -1
-        if (b.login === selected) return 1
-      }
-      return a.login.localeCompare(b.login)
-    })
 
-    sortedContributors.forEach(contributor => {
+    contributors.forEach(contributor => {
       const isSelected = selected && contributor.login === selected
       const item = this.createResultItem(contributor, isSelected)
       this.resultsTarget.appendChild(item)
