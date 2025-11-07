@@ -989,6 +989,128 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Connection refused", flash[:alert]
   end
 
+  # Consolidate label events tests
+  test "consolidate_label_events groups multiple labeled events at same time" do
+    controller = IssuesController.new
+    time = Time.current
+
+    events = [
+      { type: "labeled", id: "1", created_at: time, actor: "user1", label: { name: "bug", color: "ff0000" } },
+      { type: "labeled", id: "2", created_at: time, actor: "user1", label: { name: "enhancement", color: "00ff00" } },
+      { type: "labeled", id: "3", created_at: time, actor: "user1", label: { name: "docs", color: "0000ff" } }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    assert_equal 1, result.size
+    assert_equal "labeled", result.first[:type]
+    assert_equal 3, result.first[:labels].size
+    assert_equal [ "bug", "enhancement", "docs" ], result.first[:labels].map { |l| l[:name] }
+  end
+
+  test "consolidate_label_events groups multiple unlabeled events at same time" do
+    controller = IssuesController.new
+    time = Time.current
+
+    events = [
+      { type: "unlabeled", id: "1", created_at: time, actor: "user1", label: { name: "bug", color: "ff0000" } },
+      { type: "unlabeled", id: "2", created_at: time, actor: "user1", label: { name: "wontfix", color: "cccccc" } }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    assert_equal 1, result.size
+    assert_equal "unlabeled", result.first[:type]
+    assert_equal 2, result.first[:labels].size
+  end
+
+  test "consolidate_label_events keeps single label events unconsolidated" do
+    controller = IssuesController.new
+    time = Time.current
+
+    events = [
+      { type: "labeled", id: "1", created_at: time, actor: "user1", label: { name: "bug", color: "ff0000" } }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    assert_equal 1, result.size
+    assert_equal "labeled", result.first[:type]
+    assert_nil result.first[:labels]
+    assert_equal({ name: "bug", color: "ff0000" }, result.first[:label])
+  end
+
+  test "consolidate_label_events does not group events by different actors" do
+    controller = IssuesController.new
+    time = Time.current
+
+    events = [
+      { type: "labeled", id: "1", created_at: time, actor: "user1", label: { name: "bug", color: "ff0000" } },
+      { type: "labeled", id: "2", created_at: time, actor: "user2", label: { name: "enhancement", color: "00ff00" } }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    assert_equal 2, result.size
+    assert result.all? { |e| e[:labels].nil? }
+  end
+
+  test "consolidate_label_events does not group events at different times" do
+    controller = IssuesController.new
+    time1 = Time.current
+    time2 = time1 + 2.seconds
+
+    events = [
+      { type: "labeled", id: "1", created_at: time1, actor: "user1", label: { name: "bug", color: "ff0000" } },
+      { type: "labeled", id: "2", created_at: time2, actor: "user1", label: { name: "enhancement", color: "00ff00" } }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    assert_equal 2, result.size
+    assert result.all? { |e| e[:labels].nil? }
+  end
+
+  test "consolidate_label_events preserves non-label events" do
+    controller = IssuesController.new
+    time = Time.current
+
+    events = [
+      { type: "labeled", id: "1", created_at: time, actor: "user1", label: { name: "bug", color: "ff0000" } },
+      { type: "comment", id: "2", created_at: time, actor: "user1", body: "Test comment" },
+      { type: "milestoned", id: "3", created_at: time, actor: "user1", milestone_title: "v1.0" }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    # Should have labeled event + 2 non-label events
+    assert_operator result.size, :>=, 3
+    assert_includes result.map { |e| e[:type] }, "comment"
+    assert_includes result.map { |e| e[:type] }, "milestoned"
+    assert_includes result.map { |e| e[:type] }, "labeled"
+  end
+
+  test "consolidate_label_events handles mixed label and unlabel events" do
+    controller = IssuesController.new
+    time = Time.current
+
+    events = [
+      { type: "labeled", id: "1", created_at: time, actor: "user1", label: { name: "bug", color: "ff0000" } },
+      { type: "labeled", id: "2", created_at: time, actor: "user1", label: { name: "enhancement", color: "00ff00" } },
+      { type: "unlabeled", id: "3", created_at: time, actor: "user1", label: { name: "wontfix", color: "cccccc" } }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    # Should have 2 events: 1 consolidated labeled, 1 single unlabeled
+    assert_equal 2, result.size
+    labeled_event = result.find { |e| e[:type] == "labeled" }
+    unlabeled_event = result.find { |e| e[:type] == "unlabeled" }
+
+    assert_equal 2, labeled_event[:labels].size
+    assert_nil unlabeled_event[:labels]
+  end
+
   private
 
   def sign_in_as(user)
