@@ -1,8 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["issueCard", "searchInput", "modal"]
+  static targets = ["issueCard", "navigableItem", "searchInput", "modal"]
   static outlets = ["filter-dropdown"]
+  static values = {
+    navigableTarget: { type: String, default: "navigableItem" },
+    linkSelector: { type: String, default: "a" }
+  }
 
   connect() {
     this.currentFocusIndex = -1
@@ -17,26 +21,41 @@ export default class extends Controller {
     document.removeEventListener("focusin", this.handleFocusIn)
   }
 
+  // Get navigable items with backward compatibility for issueCard
+  getNavigableTargets() {
+    // Use navigableItem if available, otherwise fall back to issueCard
+    return this.hasNavigableItemTarget ? this.navigableItemTargets : this.issueCardTargets
+  }
+
+  hasNavigableTargets() {
+    return this.hasNavigableItemTarget || this.hasIssueCardTarget
+  }
+
   handleFocusIn(event) {
     // When focus changes, clear keyboard-focused class from all cards
     // The :has() CSS selector will handle showing the green background for the focused card
-    this.issueCardTargets.forEach(card => {
+    const targets = this.getNavigableTargets()
+    targets.forEach(card => {
       card.classList.remove("keyboard-focused")
     })
 
-    // Update currentFocusIndex if an issue link is focused
+    // Update currentFocusIndex if a navigable link is focused
     const target = event.target
-    if (target && target.tagName === 'A' && target.href && target.href.includes('/issues/')) {
-      // Find which issue card contains this link
-      const card = target.closest('[data-keyboard-shortcuts-target="issueCard"]')
-      if (card) {
-        const newIndex = this.issueCardTargets.indexOf(card)
-        if (newIndex !== -1) {
-          this.currentFocusIndex = newIndex
+    if (target && target.tagName === 'A' && target.href) {
+      // Check if this link matches our configured selector
+      if (target.matches(this.linkSelectorValue)) {
+        // Find which navigable card contains this link
+        const targetName = this.hasNavigableItemTarget ? "navigableItem" : "issueCard"
+        const card = target.closest(`[data-keyboard-shortcuts-target="${targetName}"]`)
+        if (card) {
+          const newIndex = targets.indexOf(card)
+          if (newIndex !== -1) {
+            this.currentFocusIndex = newIndex
+          }
         }
       }
     } else {
-      // Focus moved to a non-issue element, clear the index
+      // Focus moved to a non-navigable element, clear the index
       this.currentFocusIndex = -1
     }
   }
@@ -77,23 +96,11 @@ export default class extends Controller {
         break
       case "j":
         event.preventDefault()
-        this.focusNextIssue()
+        this.focusNext()
         break
       case "k":
         event.preventDefault()
-        this.focusPreviousIssue()
-        break
-      case "Enter":
-        // If an issue is keyboard-focused via j/k, open it
-        if (this.currentFocusIndex >= 0) {
-          event.preventDefault()
-          this.openFocusedIssue()
-        }
-        // Otherwise, if a link is focused via tab, activate it
-        else if (target.tagName === 'A' && target.href) {
-          event.preventDefault()
-          target.click()
-        }
+        this.focusPrevious()
         break
       case "a":
         event.preventDefault()
@@ -151,28 +158,32 @@ export default class extends Controller {
     }
   }
 
-  focusNextIssue() {
-    if (!this.hasIssueCardTarget) return
+  focusNext() {
+    if (!this.hasNavigableTargets()) return
 
-    // Remove visual focus from previous issue (but keep the index)
-    this.issueCardTargets.forEach(card => {
+    const targets = this.getNavigableTargets()
+
+    // Remove visual focus from previous item (but keep the index)
+    targets.forEach(card => {
       card.classList.remove("keyboard-focused")
     })
 
     // Increment focus index
     this.currentFocusIndex++
-    if (this.currentFocusIndex >= this.issueCardTargets.length) {
-      this.currentFocusIndex = this.issueCardTargets.length - 1
+    if (this.currentFocusIndex >= targets.length) {
+      this.currentFocusIndex = targets.length - 1
     }
 
     this.applyFocus()
   }
 
-  focusPreviousIssue() {
-    if (!this.hasIssueCardTarget) return
+  focusPrevious() {
+    if (!this.hasNavigableTargets()) return
 
-    // Remove visual focus from previous issue (but keep the index)
-    this.issueCardTargets.forEach(card => {
+    const targets = this.getNavigableTargets()
+
+    // Remove visual focus from previous item (but keep the index)
+    targets.forEach(card => {
       card.classList.remove("keyboard-focused")
     })
 
@@ -186,13 +197,14 @@ export default class extends Controller {
   }
 
   applyFocus() {
-    if (this.currentFocusIndex >= 0 && this.currentFocusIndex < this.issueCardTargets.length) {
-      const card = this.issueCardTargets[this.currentFocusIndex]
+    const targets = this.getNavigableTargets()
+    if (this.currentFocusIndex >= 0 && this.currentFocusIndex < targets.length) {
+      const card = targets[this.currentFocusIndex]
       card.classList.add("keyboard-focused")
       card.scrollIntoView({ behavior: "smooth", block: "nearest" })
 
-      // Focus the issue title link
-      const link = card.querySelector("a[href*='/issues/']")
+      // Focus the link within the card
+      const link = card.querySelector(this.linkSelectorValue)
       if (link) {
         link.focus()
       }
@@ -200,18 +212,11 @@ export default class extends Controller {
   }
 
   clearFocus() {
-    this.issueCardTargets.forEach(card => {
+    const targets = this.getNavigableTargets()
+    targets.forEach(card => {
       card.classList.remove("keyboard-focused")
     })
     this.currentFocusIndex = -1
-  }
-
-  openFocusedIssue() {
-    // Since we're now focusing the link directly, we can just click the active element
-    const activeElement = document.activeElement
-    if (activeElement && activeElement.tagName === 'A' && activeElement.href.includes('/issues/')) {
-      activeElement.click()
-    }
   }
 
   openFilterDropdown(type) {

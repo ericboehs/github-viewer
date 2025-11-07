@@ -26,7 +26,6 @@ class KeyboardShortcutsModalComponentTest < ViewComponent::TestCase
 
     assert_text "Navigation"
     assert_text "Next/previous issue"
-    assert_text "Open focused issue"
     assert_text "Clear focus"
   end
 

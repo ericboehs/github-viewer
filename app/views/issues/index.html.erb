@@ -1,6 +1,6 @@
 <% content_for :title, "#{t('issues.page_title')} - #{@repository.full_name}" %>
 
-<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]" data-controller="keyboard-shortcuts">
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]" data-controller="keyboard-shortcuts" data-keyboard-shortcuts-navigable-target-value="issueCard" data-keyboard-shortcuts-link-selector-value="a[href*='/issues/']">
   <%= render 'shared/navbar' %>
 
   <div class="py-5">
@@ -228,5 +228,5 @@
     </main>
   </div>
 
-  <%= render KeyboardShortcutsModalComponent.new %>
+  <%= render KeyboardShortcutsModalComponent.new(shortcuts: issue_shortcuts) %>
 </div>

@@ -2,11 +2,18 @@
 
 # Component for displaying keyboard shortcuts help modal
 class KeyboardShortcutsModalComponent < ViewComponent::Base
+  def initialize(shortcuts: nil)
+    @shortcuts = shortcuts
+  end
+
   def shortcuts
+    @shortcuts || default_shortcuts
+  end
+
+  def default_shortcuts
     [
       { category: "Navigation", items: [
         { keys: [ "j", "k" ], description: "Next/previous issue" },
-        { keys: [ "Enter" ], description: "Open focused issue" },
         { keys: [ "Esc" ], description: "Clear focus" }
       ] },
       { category: "Search & Filters", items: [
