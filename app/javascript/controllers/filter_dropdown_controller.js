@@ -136,11 +136,15 @@ export default class extends Controller {
 
       if (qualifierType === 'label') {
         // Labels support multiple selections - toggle the clicked label
-        const labelRegex = new RegExp(`\\blabel:(${value.includes(' ') ? `"${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"` : value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i')
+        // Escape special regex characters in the value
+        const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        // Build pattern that matches label with or without quotes, followed by space or end of string
+        const quotedPattern = `"${escapedValue}"`
+        const labelRegex = new RegExp(`\\blabel:(?:${quotedPattern}|${escapedValue})(?=\\s|$)`, 'i')
 
         if (labelRegex.test(query)) {
           // Label is already selected, remove it
-          query = query.replace(labelRegex, '').trim()
+          query = query.replace(labelRegex, '').replace(/\s+/g, ' ').trim()
         } else {
           // Label not selected, add it
           const quotedValue = value.includes(' ') ? `"${value}"` : value
@@ -149,16 +153,16 @@ export default class extends Controller {
       } else {
         // Author/Assignee: toggle on/off (click to unselect if already selected)
         const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const quotedPattern = value.includes(' ') ? `"${escapedValue}"` : escapedValue
-        const qualifierRegex = new RegExp(`\\b${qualifierType}:(${quotedPattern}|${escapedValue})\\b`, 'i')
+        const quotedPattern = `"${escapedValue}"`
+        const qualifierRegex = new RegExp(`\\b${qualifierType}:(?:${quotedPattern}|${escapedValue})(?=\\s|$)`, 'i')
 
         if (qualifierRegex.test(query)) {
           // User is already selected, remove the qualifier (unselect)
-          query = query.replace(qualifierRegex, '').trim()
+          query = query.replace(qualifierRegex, '').replace(/\s+/g, ' ').trim()
         } else {
           // User not selected, replace any existing qualifier with this one
-          const existingQualifierRegex = new RegExp(`\\b${qualifierType}:("[^"]*"|\\S+)`, 'gi')
-          query = query.replace(existingQualifierRegex, '').trim()
+          const existingQualifierRegex = new RegExp(`\\b${qualifierType}:(?:"[^"]*"|\\S+)`, 'gi')
+          query = query.replace(existingQualifierRegex, '').replace(/\s+/g, ' ').trim()
 
           // Add new qualifier
           const quotedValue = value.includes(' ') ? `"${value}"` : value
