@@ -53,7 +53,7 @@ class IssueCardComponent < ViewComponent::Base
 
   def issue_title
     link_to repository_issue_path(@repository, @issue.number),
-            class: "text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500 hover:underline break-all" do
+            class: "text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500 hover:underline break-words" do
       @issue.title
     end
   end
