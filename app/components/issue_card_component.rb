@@ -166,7 +166,7 @@ class IssueCardComponent < ViewComponent::Base
     updated_at = @issue.github_updated_at
     return unless updated_at
 
-    tag.span do
+    tag.span(class: "hidden sm:inline") do
       concat "Updated "
       concat helpers.time_ago_tag(updated_at)
     end
