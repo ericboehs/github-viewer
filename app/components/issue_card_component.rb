@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 # Component for displaying a GitHub issue card in list view
+# :reek:TooManyMethods - Component breaks down rendering into focused, single-responsibility methods
 class IssueCardComponent < ViewComponent::Base
   def initialize(issue:, repository:)
     @issue = issue
@@ -35,23 +36,24 @@ class IssueCardComponent < ViewComponent::Base
     tag.div(class: "flex-1 min-w-0") do
       safe_join([
         issue_title_row,
+        issue_actions_mobile,
         issue_metadata
       ])
     end
   end
 
   def issue_title_row
-    tag.div(class: "flex items-center gap-2 flex-wrap") do
+    tag.div do
       safe_join([
         issue_title,
         issue_labels
-      ].compact)
+      ].compact, " ")
     end
   end
 
   def issue_title
     link_to repository_issue_path(@repository, @issue.number),
-            class: "text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500 hover:underline break-all min-w-0" do
+            class: "text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500 hover:underline break-all" do
       @issue.title
     end
   end
@@ -60,7 +62,7 @@ class IssueCardComponent < ViewComponent::Base
     labels = @issue.labels
     return if labels.blank?
 
-    tag.div(class: "flex flex-wrap gap-1") do
+    tag.span(class: "inline-flex flex-wrap gap-1 align-middle") do
       labels.map do |label|
         render IssueLabelComponent.new(
           label: label,
@@ -72,7 +74,16 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def issue_actions
-    tag.div(class: "flex items-center gap-3 flex-shrink-0") do
+    tag.div(class: "hidden sm:flex items-center gap-3 flex-shrink-0") do
+      safe_join([
+        comment_count,
+        assignee_avatars
+      ].compact)
+    end
+  end
+
+  def issue_actions_mobile
+    tag.div(class: "flex sm:hidden items-center gap-3 mt-2") do
       safe_join([
         comment_count,
         assignee_avatars
@@ -82,12 +93,11 @@ class IssueCardComponent < ViewComponent::Base
 
   def comment_count
     comments = @issue.issue_comments.count
-    return if comments.zero?
 
     tag.div(class: "flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm") do
       safe_join([
         tag.svg(class: "w-4 h-4", fill: "currentColor", viewBox: "0 0 16 16") do
-          tag.path(d: "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z")
+          tag.path(d: "M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105")
         end,
         tag.span(comments.to_s)
       ])
