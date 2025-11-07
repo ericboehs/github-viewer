@@ -27,6 +27,16 @@ export default class extends Controller {
       event.preventDefault()
       this.closeOtherDropdowns()
       this.openMenu()
+
+      // Focus first item after opening if there's no search input
+      if (!this.hasSearchTarget) {
+        setTimeout(() => {
+          const menuItems = this.getVisibleMenuItems()
+          if (menuItems.length > 0) {
+            menuItems[0].focus()
+          }
+        }, 100)
+      }
     }
   }
 
