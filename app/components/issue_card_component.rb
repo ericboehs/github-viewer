@@ -104,10 +104,10 @@ class IssueCardComponent < ViewComponent::Base
         avatar_url = assignee["avatar_url"] || assignee[:avatar_url]
         login = assignee["login"] || assignee[:login]
 
-        # Build query with assignee filter
+        # Build query with assignee filter and trailing space
         current_query = helpers.params[:q] || ""
         query_without_assignee = current_query.gsub(/\bassignee:("[^"]*"|\S+)/i, "").gsub(/\s+/, " ").strip
-        new_query = query_without_assignee.present? ? "#{query_without_assignee} assignee:#{login}" : "assignee:#{login}"
+        new_query = query_without_assignee.present? ? "#{query_without_assignee} assignee:#{login} " : "assignee:#{login} "
 
         link_to helpers.repository_issues_path(@repository, q: new_query), class: "relative group block" do
           safe_join([
@@ -150,10 +150,10 @@ class IssueCardComponent < ViewComponent::Base
     created_at = @issue.github_created_at
     return unless author_login && created_at
 
-    # Build query with author filter
+    # Build query with author filter and trailing space
     current_query = helpers.params[:q] || ""
     query_without_author = current_query.gsub(/\bauthor:("[^"]*"|\S+)/i, "").gsub(/\s+/, " ").strip
-    new_query = query_without_author.present? ? "#{query_without_author} author:#{author_login}" : "author:#{author_login}"
+    new_query = query_without_author.present? ? "#{query_without_author} author:#{author_login} " : "author:#{author_login} "
 
     tag.span do
       concat link_to(author_login, helpers.repository_issues_path(@repository, q: new_query), class: "font-medium hover:text-gray-700 dark:hover:text-gray-300")

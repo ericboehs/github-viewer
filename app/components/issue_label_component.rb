@@ -32,9 +32,9 @@ class IssueLabelComponent < ViewComponent::Base
     query_text = @query.presence || "is:issue state:open"
     # Remove any existing label: qualifier
     query_without_label = query_text.gsub(/\blabel:("[^"]*"|\S+)/i, "").gsub(/\s+/, " ").strip
-    # Add this label to the query
+    # Add this label to the query with trailing space
     label_name = @name.include?(" ") ? "\"#{@name}\"" : @name
-    new_query = query_without_label.present? ? "#{query_without_label} label:#{label_name}" : "label:#{label_name}"
+    new_query = query_without_label.present? ? "#{query_without_label} label:#{label_name} " : "label:#{label_name} "
 
     helpers.repository_issues_path(@repository, q: new_query)
   end
