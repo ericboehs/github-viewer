@@ -157,7 +157,7 @@
           new_sort = "sort:#{option[:value]}-#{current_order}"
           query_sort_link = query_without_sort.present? ? "#{query_without_sort} #{new_sort}" : new_sort
         %>
-        <%= link_to repository_issues_path(@repository, q: query_sort_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 #{is_selected ? 'bg-gray-100 dark:bg-gray-700' : ''}", role: "menuitem" do %>
+        <%= link_to repository_issues_path(@repository, q: query_sort_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700", role: "menuitem" do %>
           <% if is_selected %>
             <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
@@ -193,7 +193,7 @@
           new_sort = "sort:#{current_sort}-#{option[:value]}"
           query_order_link = query_without_sort.present? ? "#{query_without_sort} #{new_sort}" : new_sort
         %>
-        <%= link_to repository_issues_path(@repository, q: query_order_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 #{is_selected ? 'bg-gray-100 dark:bg-gray-700' : ''}", role: "menuitem" do %>
+        <%= link_to repository_issues_path(@repository, q: query_order_link), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700", role: "menuitem" do %>
           <% if is_selected %>
             <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
