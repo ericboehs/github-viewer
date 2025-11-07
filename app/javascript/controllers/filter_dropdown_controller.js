@@ -166,8 +166,9 @@ export default class extends Controller {
         }
       }
 
-      // Normalize whitespace
-      searchField.value = query.replace(/\s+/g, ' ').trim()
+      // Normalize whitespace and add trailing space (unless empty)
+      const normalizedQuery = query.replace(/\s+/g, ' ').trim()
+      searchField.value = normalizedQuery ? normalizedQuery + ' ' : normalizedQuery
     }
 
     // Automatically close and submit the form
