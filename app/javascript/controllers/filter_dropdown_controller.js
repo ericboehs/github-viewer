@@ -216,7 +216,7 @@ export default class extends Controller {
         break
       case "Enter":
         // If search input is focused, select the first visible item
-        if (document.activeElement === this.searchTarget) {
+        if (this.hasSearchTarget && document.activeElement === this.searchTarget) {
           event.preventDefault()
           const menuItems = this.getVisibleMenuItems()
           if (menuItems.length > 0) {
@@ -261,7 +261,7 @@ export default class extends Controller {
     const menuItems = this.getVisibleMenuItems()
     const currentIndex = this.getCurrentMenuItemIndex(menuItems)
 
-    if (currentIndex === -1 || document.activeElement === this.searchTarget) {
+    if (currentIndex === -1 || (this.hasSearchTarget && document.activeElement === this.searchTarget)) {
       // No item focused or search focused, focus first item
       if (menuItems.length > 0) {
         menuItems[0].focus()
