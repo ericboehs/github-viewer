@@ -55,8 +55,8 @@ en:
         no_assignees: No assignees
         search_placeholder: Search assignees...
       empty:
-        description: This repository has no issues, or they haven't been synced yet.
-        title: No issues found
+        description: Try adjusting your search filters.
+        title: No results
       refresh_button: Refresh
       search_button: Search
       search_placeholder: Search issues... (e.g., is:open label:bug)

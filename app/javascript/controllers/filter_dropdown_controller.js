@@ -21,6 +21,15 @@ export default class extends Controller {
     }
   }
 
+  handleButtonKeydown(event) {
+    // Open dropdown when pressing down arrow on button
+    if (event.key === "ArrowDown" && !this.isOpen()) {
+      event.preventDefault()
+      this.closeOtherDropdowns()
+      this.openMenu()
+    }
+  }
+
   openMenu() {
     this.menuTarget.classList.remove("opacity-0", "scale-95", "pointer-events-none")
     this.menuTarget.classList.add("opacity-100", "scale-100")
@@ -189,6 +198,10 @@ export default class extends Controller {
     switch (event.key) {
       case "Escape":
         event.preventDefault()
+        this.closeMenu()
+        break
+      case "Tab":
+        // Close dropdown when tabbing out
         this.closeMenu()
         break
       case "Enter":
