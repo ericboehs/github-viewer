@@ -8,7 +8,7 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def call
-    tag.div(class: "issue-card py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors") do
+    tag.div(class: "issue-card px-4 sm:px-6 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors") do
       issue_header
     end
   end
@@ -51,7 +51,7 @@ class IssueCardComponent < ViewComponent::Base
 
   def issue_title
     link_to repository_issue_path(@repository, @issue.number),
-            class: "text-base font-semibold text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-400" do
+            class: "text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500 hover:underline" do
       @issue.title
     end
   end
