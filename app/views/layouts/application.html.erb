@@ -144,6 +144,16 @@
       [role="menu"] a:focus-visible {
         outline: none !important;
       }
+
+      /* Dark mode label styles - use transparent background algorithm */
+      @media (prefers-color-scheme: dark) {
+        /* Target label components by their unique class combination */
+        .inline-flex.items-center.px-2.py-0\.5.rounded-full.text-xs.font-medium {
+          background-color: rgba(var(--label-r), var(--label-g), var(--label-b), 0.18) !important;
+          color: hsl(var(--label-h), var(--label-s), var(--label-l)) !important;
+          border-color: hsla(var(--label-h), var(--label-s), var(--label-l), 0.3) !important;
+        }
+      }
     </style>
     <%= javascript_importmap_tags %>
   </head>

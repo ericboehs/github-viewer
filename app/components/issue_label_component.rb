@@ -43,10 +43,12 @@ class IssueLabelComponent < ViewComponent::Base
     "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium hover:opacity-80 transition-opacity border"
   end
 
-  # Generates inline styles for label colors using GitHub's algorithm
+  # Generates inline styles for label colors with CSS custom properties
+  # Light mode uses GitHub's solid color algorithm
+  # Dark mode uses our transparent background algorithm (via CSS)
   # :reek:TooManyStatements - Color calculation requires multiple steps for WCAG compliance
   # :reek:UncommunicativeVariableName { accept: ['r', 'g', 'b', 'h', 's', 'l'] } - Standard color abbreviations
-  # :reek:DuplicateMethodCall - HSL calculations repeated for text and border, intentional for clarity
+  # :reek:DuplicateMethodCall - RGB/HSL conversions needed for dark mode
   def label_styles
     return "" unless @color
 
@@ -55,33 +57,41 @@ class IssueLabelComponent < ViewComponent::Base
     g = @color[2..3].to_i(16)
     b = @color[4..5].to_i(16)
 
-    # Convert to HSL for text/border color
+    # Calculate perceived lightness using WCAG formula
+    perceived_lightness = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255.0
+
+    # Convert to HSL for dark mode
     h, s, l = rgb_to_hsl(r / 255.0, g / 255.0, b / 255.0)
 
-    # Calculate perceived lightness using WCAG formula (same as GitHub)
-    perceived_lightness = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255.0
-    lightness_threshold = 0.6
+    # Calculate values for both modes
+    light_threshold = 0.453
+    border_threshold = 0.96
+    dark_threshold = 0.6
 
-    # Lightness switch: 1 if we need to lighten, 0 otherwise
-    lightness_switch = perceived_lightness < lightness_threshold ? 1 : 0
+    # Light mode calculations
+    light_switch = perceived_lightness > light_threshold ? 0 : 1
+    border_alpha = perceived_lightness > border_threshold ? 1 : 0
 
-    # Calculate how much to lighten
-    lighten_by = ((lightness_threshold - perceived_lightness) * 100 * lightness_switch).round(1)
-
-    # Adjust HSL lightness
+    # Dark mode calculations
+    dark_switch = perceived_lightness < dark_threshold ? 1 : 0
+    lighten_by = ((dark_threshold - perceived_lightness) * 100 * dark_switch).round(1)
     adjusted_l = l * 100 + lighten_by
 
-    # Background: original RGB at 18% opacity
-    bg_color = "rgba(#{r}, #{g}, #{b}, 0.18)"
-
-    # Text: HSL with adjusted lightness
-    text_color = "hsl(#{(h * 360).round}, #{(s * 100).round}%, #{adjusted_l.round(1)}%)"
-
-    # Border: same HSL at 30% opacity
-    border_color = "hsla(#{(h * 360).round}, #{(s * 100).round}%, #{adjusted_l.round(1)}%, 0.3)"
-
-    "background-color: #{bg_color}; color: #{text_color}; border-color: #{border_color};"
+    # Set CSS custom properties that will be used by media queries in CSS
+    "--label-r: #{r}; " \
+    "--label-g: #{g}; " \
+    "--label-b: #{b}; " \
+    "--label-h: #{(h * 360).round}; " \
+    "--label-s: #{(s * 100).round}%; " \
+    "--label-l: #{adjusted_l.round(1)}%; " \
+    "--light-switch: #{light_switch}; " \
+    "--border-alpha: #{border_alpha}; " \
+    "background-color: rgb(#{r}, #{g}, #{b}); " \
+    "color: hsl(0, 0%, #{light_switch * 100}%); " \
+    "border-color: #{border_alpha > 0 ? 'var(--color-border-muted, #d0d7de)' : 'transparent'};"
   end
+
+  private
 
   # Convert RGB (0-1) to HSL
   # :reek:UtilityFunction - Pure calculation method, appropriate as private helper
