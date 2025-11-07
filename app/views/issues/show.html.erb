@@ -1,6 +1,6 @@
 <% content_for :title, "#{@issue.title} ##{@issue.number} - #{@repository.full_name}" %>
 
-<div class="min-h-full bg-white" style="background-color: #0E1116;">
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
   <%= render 'shared/navbar' %>
 
   <div class="py-5">
@@ -32,7 +32,7 @@
           <div class="lg:col-span-9">
             <!-- Issue Body -->
             <div class="mb-6">
-              <div class="bg-white rounded-lg border border-gray-700 overflow-hidden" style="background-color: #0E1116;">
+              <div class="bg-white dark:bg-[#0E1116] rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <!-- Header -->
                 <div class="bg-blue-50 dark:bg-gray-900 px-4 py-3 border-b border-blue-200 dark:border-gray-700">
                   <div class="flex items-center gap-2">

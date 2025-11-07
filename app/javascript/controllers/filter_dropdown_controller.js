@@ -22,21 +22,12 @@ export default class extends Controller {
   }
 
   handleButtonKeydown(event) {
-    // Open dropdown when pressing down arrow on button
-    if (event.key === "ArrowDown" && !this.isOpen()) {
+    // Open dropdown when pressing down arrow or enter on button
+    if ((event.key === "ArrowDown" || event.key === "Enter") && !this.isOpen()) {
       event.preventDefault()
+      event.stopPropagation() // Prevent this event from being handled again
       this.closeOtherDropdowns()
-      this.openMenu()
-
-      // Focus first item after opening if there's no search input
-      if (!this.hasSearchTarget) {
-        setTimeout(() => {
-          const menuItems = this.getVisibleMenuItems()
-          if (menuItems.length > 0) {
-            menuItems[0].focus()
-          }
-        }, 100)
-      }
+      this.openMenu() // Opens and focuses search field
     }
   }
 
@@ -230,7 +221,19 @@ export default class extends Controller {
         break
       case "ArrowUp":
         event.preventDefault()
-        this.focusPreviousMenuItem()
+        // If in search input or at the top item, close and focus button
+        if (this.hasSearchTarget && document.activeElement === this.searchTarget) {
+          this.closeMenu()
+        } else {
+          const menuItems = this.getVisibleMenuItems()
+          const currentIndex = this.getCurrentMenuItemIndex(menuItems)
+          if (currentIndex === 0) {
+            // At the top item, close and focus button
+            this.closeMenu()
+          } else {
+            this.focusPreviousMenuItem()
+          }
+        }
         break
       case "Home":
         event.preventDefault()

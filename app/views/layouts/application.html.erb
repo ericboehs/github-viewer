@@ -17,6 +17,14 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon.png">
 
+    <%# Critical styles - load first to prevent flash %>
+    <style>
+      /* Remove all default outlines immediately */
+      * {
+        outline: none !important;
+      }
+    </style>
+
     <%# Includes all stylesheet files in app/assets/stylesheets %>
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= stylesheet_link_tag "markdown", "data-turbo-track": "reload" %>
@@ -115,6 +123,18 @@
         --color-emerald-800: #065f46;
         --color-emerald-900: #064e3b;
         --color-emerald-950: #022c22;
+      }
+
+      /* Global focus outline - use brand green */
+      *:focus-visible {
+        outline: 2px solid #10b981 !important;
+        outline-offset: 2px !important;
+      }
+
+      /* Issue title links should have no outline (they use background color instead) */
+      .issue-card a[href*='/issues/']:focus,
+      .issue-card a[href*='/issues/']:focus-visible {
+        outline: none !important;
       }
     </style>
     <%= javascript_importmap_tags %>
