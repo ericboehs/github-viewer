@@ -43,7 +43,9 @@
       <% if @type.in?(["labeled", "unlabeled"]) %>
         <% if @item[:labels].present? %>
           <% @item[:labels].each do |label| %>
-            <%= render IssueLabelComponent.new(label: label, repository: @repository) %>
+            <span class="inline-block mt-1">
+              <%= render IssueLabelComponent.new(label: label, repository: @repository) %>
+            </span>
           <% end %>
         <% else %>
           <%= render IssueLabelComponent.new(label: @item[:label], repository: @repository) %>
