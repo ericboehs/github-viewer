@@ -288,11 +288,9 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     json = JSON.parse(response.body)
-    # alice matches search, current_user is always included
-    assert_equal 2, json.length
-    # Current user should be first even with search filter
-    assert_equal "current_user", json.first["login"]
-    assert_equal "alice", json.second["login"]
+    # Only alice matches search ("current_user" doesn't contain "ali")
+    assert_equal 1, json.length
+    assert_equal "alice", json.first["login"]
   end
 
   test "should limit results to 20 users" do
@@ -386,16 +384,15 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     Github::ApiClient.stubs(:new).returns(mock_api_client)
 
     # Search for "ali" with "bob" selected
-    # Bob doesn't match "ali" but should still be included (and appear first)
-    # Current user is also always included (and appears second since bob is selected)
+    # Bob doesn't match "ali" but should still be included (and appear first because selected)
+    # Current user doesn't match search so won't be included
     get assignable_users_repository_url(repository), params: { q: "ali", selected: "bob" }, as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
-    assert_equal 3, json.length # bob (selected) + current_user (always included) + alice (matches)
+    assert_equal 2, json.length # bob (selected) + alice (matches search)
     assert_equal "bob", json.first["login"] # Selected user appears first
-    assert_equal "current_user", json.second["login"] # Current user appears second
-    assert_equal "alice", json.third["login"] # Matching user appears third
+    assert_equal "alice", json.second["login"] # Matching user appears second
   end
 
   test "should return error when no github token exists" do
@@ -468,14 +465,13 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     mock_api_client.stubs(:client).returns(mock_client)
     Github::ApiClient.stubs(:new).returns(mock_api_client)
 
-    # Search for "ali" - current user "zzzuser" won't match but should still be included
+    # Search for "ali" - current user "zzzuser" won't match and should NOT be included
     get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
-    assert_equal 2, json.length
-    assert_equal "zzzuser", json.first["login"] # Current user first
-    assert_equal "alice", json.second["login"] # Matching user second
+    assert_equal 1, json.length
+    assert_equal "alice", json.first["login"] # Only matching user
   end
 
   test "should not duplicate current user when they are selected" do

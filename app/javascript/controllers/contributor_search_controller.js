@@ -153,14 +153,13 @@ export default class extends Controller {
     const button = document.createElement('button')
     button.type = 'button'
     const baseClasses = 'flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none'
-    const selectedClasses = isSelected ? ' bg-gray-100 dark:bg-gray-700' : ''
-    button.className = baseClasses + selectedClasses
+    button.className = baseClasses
     button.dataset.action = 'click->filter-dropdown#selectItem'
     button.dataset.value = contributor.login
     button.dataset.filterDropdownTarget = 'item'
     button.tabIndex = -1
 
-    // Checkmark for selected item
+    // Checkmark for selected item (no background highlight, just checkmark)
     if (isSelected) {
       const checkmark = document.createElement('svg')
       checkmark.className = 'h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0'

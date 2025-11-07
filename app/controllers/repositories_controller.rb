@@ -139,18 +139,23 @@ class RepositoriesController < ApplicationController
 
       # Find current user in the list
       current_user_data = users.find { |user| user[:login] == current_user_login }
+
+      # Only add current user if they match the search query (or no query)
       unless current_user_data
-        # Current user not in results - add them
-        current_user_data = {
-          login: current_github_user.login,
-          avatar_url: current_github_user.avatar_url
-        }
+        # Check if current user matches the query (if there is one)
+        if query.blank? || current_user_login.downcase.include?(query.downcase)
+          # Current user not in results but matches query - add them
+          current_user_data = {
+            login: current_github_user.login,
+            avatar_url: current_github_user.avatar_url
+          }
+        end
       end
 
       # Remove selected and current users from the list
       users.reject! { |user| user[:login] == selected || user[:login] == current_user_login }
 
-      # Add users in priority order: selected first (if present), then current user, then everyone else
+      # Add users in priority order: selected first (if present), then current user (if matches query), then everyone else
       prioritized_users = []
       prioritized_users << selected_user_data if selected_user_data
       prioritized_users << current_user_data if current_user_data && current_user_data[:login] != selected
