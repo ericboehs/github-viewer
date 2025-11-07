@@ -1,6 +1,6 @@
 <% content_for :title, t('dashboard.page_title') %>
 
-<div class="min-h-full bg-gray-50 dark:bg-gray-900">
+<div class="min-h-full bg-gray-50 dark:bg-gray-900" data-controller="keyboard-shortcuts" data-keyboard-shortcuts-navigable-target-value="navigableItem" data-keyboard-shortcuts-link-selector-value="a[href*='/issues']">
   <%= render 'shared/navbar' %>
 
   <div class="py-10">
@@ -16,7 +16,7 @@
             <h2 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4"><%= t('dashboard.recently_updated_heading') %></h2>
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
               <% @recently_updated_repos.each do |repository| %>
-                <div class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <div class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" data-keyboard-shortcuts-target="navigableItem">
                   <%= link_to repository_issues_path(repository), class: "block" do %>
                     <div class="flex items-center justify-between">
                       <div class="flex-1 min-w-0">
@@ -44,4 +44,6 @@
       </div>
     </main>
   </div>
+
+  <%= render KeyboardShortcutsModalComponent.new(shortcuts: repository_shortcuts) %>
 </div>

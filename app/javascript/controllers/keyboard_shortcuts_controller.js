@@ -118,6 +118,14 @@ export default class extends Controller {
         event.preventDefault()
         this.openFilterDropdown("sort")
         break
+      case "ArrowUp":
+      case "ArrowDown":
+        // Allow arrow navigation in open dropdown menus
+        if (this.isDropdownMenuOpen()) {
+          // Let browser handle navigation in dropdowns
+          return
+        }
+        break
       case "ArrowLeft":
       case "ArrowRight":
         // Handle arrow navigation between filter dropdown buttons
@@ -272,6 +280,19 @@ export default class extends Controller {
     if (event.target === this.modalTarget) {
       this.hideHelp()
     }
+  }
+
+  // Check if any dropdown menu is currently open and visible
+  isDropdownMenuOpen() {
+    // Check for any dropdown menu with role="menu" that is visible
+    const dropdowns = document.querySelectorAll('[role="menu"]')
+    for (const dropdown of dropdowns) {
+      // Check if dropdown is visible (not hidden)
+      if (dropdown.offsetParent !== null && !dropdown.classList.contains('hidden')) {
+        return true
+      }
+    }
+    return false
   }
 
   // Check if a filter dropdown button currently has focus
