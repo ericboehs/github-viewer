@@ -159,4 +159,46 @@ class TimelineEventComponentTest < ViewComponent::TestCase
 
     assert_text "testuser"
   end
+
+  test "renders consolidated labeled event with multiple labels" do
+    item = {
+      type: "labeled",
+      id: "labeled_123_456",
+      created_at: Time.current,
+      actor: "testuser",
+      labels: [
+        { name: "bug", color: "ff0000" },
+        { name: "enhancement", color: "00ff00" },
+        { name: "documentation", color: "0000ff" }
+      ]
+    }
+
+    render_inline(TimelineEventComponent.new(item: item))
+
+    assert_text "testuser"
+    assert_text "added"
+    assert_text "bug"
+    assert_text "enhancement"
+    assert_text "documentation"
+  end
+
+  test "renders consolidated unlabeled event with multiple labels" do
+    item = {
+      type: "unlabeled",
+      id: "unlabeled_123_456",
+      created_at: Time.current,
+      actor: "testuser",
+      labels: [
+        { name: "bug", color: "ff0000" },
+        { name: "wontfix", color: "cccccc" }
+      ]
+    }
+
+    render_inline(TimelineEventComponent.new(item: item))
+
+    assert_text "testuser"
+    assert_text "removed"
+    assert_text "bug"
+    assert_text "wontfix"
+  end
 end

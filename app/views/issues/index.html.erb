@@ -1,6 +1,6 @@
 <% content_for :title, "#{t('issues.page_title')} - #{@repository.full_name}" %>
 
-<div class="min-h-full bg-gray-50" style="background-color: #0E1116;">
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]" data-controller="keyboard-shortcuts" data-keyboard-shortcuts-navigable-target-value="issueCard" data-keyboard-shortcuts-link-selector-value="a[href*='/issues/']">
   <%= render 'shared/navbar' %>
 
   <div class="py-5">
@@ -55,7 +55,8 @@
                     value: @query.present? ? "#{@query} " : @query,
                     placeholder: t('issues.index.search_placeholder'),
                     autocomplete: "off",
-                    class: "col-start-1 row-start-1 block w-full rounded-md bg-white px-3 py-1.5 pr-10 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-emerald-600 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:outline-white/10 dark:focus:outline-emerald-500 sm:text-sm/6" %>
+                    data: { keyboard_shortcuts_target: "searchInput" },
+                    class: "col-start-1 row-start-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white px-3 py-1.5 pr-10 text-base text-gray-900 placeholder:text-gray-400 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 sm:text-sm/6" %>
                 <% if @query.present? %>
                   <%= link_to repository_issues_path(@repository, q: ""), class: "col-start-1 row-start-1 mr-3 size-5 self-center justify-self-end text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400" do %>
                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -65,12 +66,12 @@
                 <% end %>
               </div>
             </div>
-            <%= f.submit t('issues.index.search_button'), class: "inline-flex items-center px-4 py-[0.4375rem] border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-700" %>
+            <%= f.submit t('issues.index.search_button'), class: "inline-flex items-center px-4 py-[0.4375rem] border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none dark:bg-emerald-600 dark:hover:bg-emerald-700" %>
           </div>
 
         <% end %>
 
-        <div class="bg-white shadow rounded-lg border border-gray-700" style="background-color: #0E1116;">
+        <div class="bg-white dark:bg-[#0E1116] shadow rounded-lg border border-gray-200 dark:border-gray-700">
           <!-- Filters Header Bar -->
           <div class="px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700" data-controller="filters-toggle">
             <!-- Container uses flexbox wrapping to control layout -->
@@ -226,4 +227,6 @@
       </div>
     </main>
   </div>
+
+  <%= render KeyboardShortcutsModalComponent.new(shortcuts: issue_shortcuts) %>
 </div>

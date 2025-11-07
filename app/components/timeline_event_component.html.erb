@@ -41,7 +41,15 @@
       <%= event_text %>
 
       <% if @type.in?(["labeled", "unlabeled"]) %>
-        <%= render IssueLabelComponent.new(label: @item[:label], repository: @repository) %>
+        <% if @item[:labels].present? %>
+          <% @item[:labels].each do |label| %>
+            <span class="inline-block mt-1">
+              <%= render IssueLabelComponent.new(label: label, repository: @repository) %>
+            </span>
+          <% end %>
+        <% else %>
+          <%= render IssueLabelComponent.new(label: @item[:label], repository: @repository) %>
+        <% end %>
       <% elsif @type.in?(["milestoned", "demilestoned"]) %>
         <span class="font-medium text-gray-900 dark:text-white"><%= @item[:milestone_title] %></span>
         milestone

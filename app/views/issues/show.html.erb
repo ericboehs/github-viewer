@@ -1,6 +1,6 @@
 <% content_for :title, "#{@issue.title} ##{@issue.number} - #{@repository.full_name}" %>
 
-<div class="min-h-full bg-white" style="background-color: #0E1116;">
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
   <%= render 'shared/navbar' %>
 
   <div class="py-5">
@@ -19,8 +19,37 @@
                 class: "text-gray-500 dark:text-gray-400 font-normal hover:text-gray-700 dark:hover:text-gray-300 hover:underline" %>
           </h1>
         </div>
-        <div class="flex items-center">
+
+        <!-- State badge (always visible) -->
+        <div class="hidden lg:flex items-center">
           <%= render IssueStateComponent.new(state: @issue.state, show_text: true) %>
+        </div>
+
+        <!-- Mobile: State, Assignee, and Labels on one line (hidden on lg and up) -->
+        <div class="lg:hidden mt-4">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <%= render IssueStateComponent.new(state: @issue.state, show_text: true) %>
+            <% if @issue.assignees.present? %>
+              <% @issue.assignees.each do |assignee| %>
+                <% assignee_login = assignee["login"] || assignee[:login] %>
+                <%= link_to repository_issues_path(@repository, q: "is:issue state:open assignee:#{assignee_login}"), class: "inline-flex items-center gap-1 hover:opacity-70 transition-opacity ml-2" do %>
+                  <%= render AvatarComponent.new(
+                    src: assignee["avatar_url"] || assignee[:avatar_url],
+                    alt: assignee_login,
+                    size: :small
+                  ) %>
+                  <span class="text-sm text-gray-900 dark:text-gray-200 font-medium"><%= assignee_login %></span>
+                <% end %>
+              <% end %>
+            <% end %>
+            <% if @issue.labels.present? %>
+              <% @issue.labels.each_with_index do |label, index| %>
+                <span class="<%= index == 0 ? 'ml-2' : '' %>">
+                  <%= render IssueLabelComponent.new(label: label, repository: @repository) %>
+                </span>
+              <% end %>
+            <% end %>
+          </div>
         </div>
       </div>
     </header>
@@ -32,7 +61,7 @@
           <div class="lg:col-span-9">
             <!-- Issue Body -->
             <div class="mb-6">
-              <div class="bg-white rounded-lg border border-gray-700 overflow-hidden" style="background-color: #0E1116;">
+              <div class="bg-white dark:bg-[#0E1116] rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <!-- Header -->
                 <div class="bg-blue-50 dark:bg-gray-900 px-4 py-3 border-b border-blue-200 dark:border-gray-700">
                   <div class="flex items-center gap-2">

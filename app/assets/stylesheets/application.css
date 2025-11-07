@@ -10,3 +10,94 @@
   *
   * Note: markdown.css is loaded separately via stylesheet_link_tag in the layout
   */
+
+/* Keyboard navigation focus styles - Open issues (green) */
+.issue-card.keyboard-focused,
+.issue-card[data-issue-state="open"].keyboard-focused {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+  padding-left: calc(1rem - 3px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .issue-card.keyboard-focused,
+  .issue-card[data-issue-state="open"].keyboard-focused {
+    background-color: rgba(16, 185, 129, 0.15);
+    border-left-color: #10b981;
+  }
+}
+
+@media (min-width: 640px) {
+  .issue-card.keyboard-focused,
+  .issue-card[data-issue-state="open"].keyboard-focused {
+    padding-left: calc(1.5rem - 3px);
+  }
+}
+
+/* Keyboard navigation focus styles - Closed issues (purple) */
+.issue-card[data-issue-state="closed"].keyboard-focused {
+  background-color: rgba(139, 92, 246, 0.1);
+  border-left: 3px solid #8b5cf6;
+  padding-left: calc(1rem - 3px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .issue-card[data-issue-state="closed"].keyboard-focused {
+    background-color: rgba(139, 92, 246, 0.15);
+    border-left-color: #8b5cf6;
+  }
+}
+
+@media (min-width: 640px) {
+  .issue-card[data-issue-state="closed"].keyboard-focused {
+    padding-left: calc(1.5rem - 3px);
+  }
+}
+
+/* Remove focus outline from issue title links */
+.issue-card a[href*='/issues/']:focus {
+  outline: none;
+}
+
+/* Add keyboard-focused class when link is focused via tab/focus - Open issues */
+.issue-card:has(a[href*='/issues/']:focus),
+.issue-card[data-issue-state="open"]:has(a[href*='/issues/']:focus) {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+  padding-left: calc(1rem - 3px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .issue-card:has(a[href*='/issues/']:focus),
+  .issue-card[data-issue-state="open"]:has(a[href*='/issues/']:focus) {
+    background-color: rgba(16, 185, 129, 0.15);
+    border-left-color: #10b981;
+  }
+}
+
+@media (min-width: 640px) {
+  .issue-card:has(a[href*='/issues/']:focus),
+  .issue-card[data-issue-state="open"]:has(a[href*='/issues/']:focus) {
+    padding-left: calc(1.5rem - 3px);
+  }
+}
+
+/* Add keyboard-focused class when link is focused via tab/focus - Closed issues */
+.issue-card[data-issue-state="closed"]:has(a[href*='/issues/']:focus) {
+  background-color: rgba(139, 92, 246, 0.1);
+  border-left: 3px solid #8b5cf6;
+  padding-left: calc(1rem - 3px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .issue-card[data-issue-state="closed"]:has(a[href*='/issues/']:focus) {
+    background-color: rgba(139, 92, 246, 0.15);
+    border-left-color: #8b5cf6;
+  }
+}
+
+@media (min-width: 640px) {
+  .issue-card[data-issue-state="closed"]:has(a[href*='/issues/']:focus) {
+    padding-left: calc(1.5rem - 3px);
+  }
+}

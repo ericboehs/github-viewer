@@ -139,7 +139,8 @@ class IssueCardComponentTest < ViewComponent::TestCase
       state: "open",
       author_login: "author",
       github_created_at: 1.day.ago,
-      github_updated_at: 1.hour.ago
+      github_updated_at: 1.hour.ago,
+      comments_count: 3
     )
 
     # Create some issue_comments

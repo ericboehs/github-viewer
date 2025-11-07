@@ -429,6 +429,44 @@ class IssuesController < ApplicationController
     end
   end
 
+  # Consolidate label events that occur at the same time by the same actor
+  # Returns array with consolidated label events
+  # :reek:UtilityFunction - Pure data transformation helper
+  # :reek:TooManyStatements - Grouping and consolidation requires multiple steps
+  # :reek:NestedIterators - Grouping requires nested iteration over events
+  def consolidate_label_events(timeline_events)
+    # Group events by type, actor, and rounded timestamp (within 1 second)
+    grouped = timeline_events.group_by do |event|
+      next unless event[:type].in?([ "labeled", "unlabeled" ])
+      [ event[:type], event[:actor], event[:created_at].to_i ]
+    end
+
+    # Extract non-label events
+    non_label_events = timeline_events.reject { |event| event[:type].in?([ "labeled", "unlabeled" ]) }
+
+    # Consolidate grouped label events
+    consolidated_label_events = grouped.compact.filter_map do |(type, _actor, _timestamp), events|
+      next if events.size == 1
+
+      # Multiple label events at same time - consolidate them
+      {
+        type: type,
+        id: events.map { |event| event[:id] }.join("_"),
+        created_at: events.first[:created_at],
+        actor: events.first[:actor],
+        labels: events.map { |event| event[:label] }
+      }
+    end
+
+    # Get single label events (not consolidated)
+    single_label_events = grouped.compact.flat_map do |(_type, _actor, _timestamp), events|
+      events if events.size == 1
+    end.compact
+
+    # Combine all events
+    non_label_events + consolidated_label_events + single_label_events
+  end
+
   # Merge timeline events from API with cached comments from database
   # Returns array sorted chronologically by created_at
   # :reek:UtilityFunction - Pure data transformation helper
@@ -436,8 +474,11 @@ class IssuesController < ApplicationController
     # Convert cached comments to timeline items (those not in API response)
     comment_items = comments_to_timeline_items(@issue.issue_comments)
 
-    # Merge API timeline events with cached comments
-    all_items = timeline_events + comment_items
+    # Consolidate label events that happen at the same time
+    consolidated_events = consolidate_label_events(timeline_events)
+
+    # Merge consolidated events with cached comments
+    all_items = consolidated_events + comment_items
 
     # Sort chronologically and remove nil values
     all_items.compact.sort_by { |item| item[:created_at] }

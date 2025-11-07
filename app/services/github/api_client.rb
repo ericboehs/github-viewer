@@ -109,6 +109,18 @@ module Github
       { error: ERROR_SAML_PROTECTED }
     end
 
+    def fetch_labels(owner, repo_name)
+      with_rate_limiting do
+        @client.labels("#{owner}/#{repo_name}", per_page: 100)
+      end
+    rescue Octokit::NotFound
+      []
+    rescue Octokit::Unauthorized
+      { error: ERROR_UNAUTHORIZED }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
     # Fetch project memberships and field values for an issue via GraphQL
     # Returns array of project items with fields like Status, Sprint, Priority, Estimate, etc.
     # Returns empty array on error (graceful degradation)
@@ -287,8 +299,9 @@ module Github
                     createdAt
                     author {
                       login
+                      avatarUrl
                     }
-                    bodyText
+                    body
                     authorAssociation
                   }
                 }
@@ -687,7 +700,8 @@ module Github
           id: item[:id],
           created_at: Time.parse(item[:createdAt]),
           actor: item.dig(:author, :login),
-          body: item[:bodyText],
+          avatar_url: item.dig(:author, :avatarUrl),
+          body: item[:body],
           author_association: item[:authorAssociation]
         }
       else

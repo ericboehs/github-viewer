@@ -9,7 +9,13 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def call
-    tag.div(class: "issue-card px-4 sm:px-6 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors") do
+    tag.div(
+      class: "issue-card px-4 sm:px-6 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
+      data: {
+        keyboard_shortcuts_target: "issueCard",
+        issue_state: @issue.state
+      }
+    ) do
       issue_header
     end
   end
@@ -92,7 +98,7 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def comment_count
-    comments = @issue.issue_comments.count
+    comments = @issue.comments_count || 0
 
     tag.div(class: "flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm") do
       safe_join([

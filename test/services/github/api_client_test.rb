@@ -1436,8 +1436,11 @@ class Github::ApiClientTest < ActiveSupport::TestCase
                     __typename: "IssueComment",
                     id: "IC_123",
                     createdAt: "2025-11-06T12:00:00Z",
-                    author: { login: "commenter1" },
-                    bodyText: "This is a comment",
+                    author: {
+                      login: "commenter1",
+                      avatarUrl: "https://example.com/avatar.png"
+                    },
+                    body: "This is a comment",
                     authorAssociation: "MEMBER"
                   }
                 ]
@@ -1458,6 +1461,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal 1, result.length
     assert_equal "comment", result[0][:type]
     assert_equal "commenter1", result[0][:actor]
+    assert_equal "https://example.com/avatar.png", result[0][:avatar_url]
     assert_equal "This is a comment", result[0][:body]
     assert_equal "MEMBER", result[0][:author_association]
   end

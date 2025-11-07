@@ -14,7 +14,7 @@ CI.run do
   step "Style: ERB", "npx @herb-tools/linter 'app/**/*.erb'"
   step "Style: Ruby", "bin/rubocop"
   step "Style: GitHub Actions", "actionlint"
-  step "Quality: Code smells", "bundle exec reek"
+  step "Quality: Code smells", "bundle exec reek ."
   step "Quality: Zeitwerk autoloading", "bin/rails zeitwerk:check"
   step "Security: Bundler vulnerability audit", "bundle exec bundle-audit check --update"
   step "Security: Importmap vulnerability audit", "bin/importmap audit"
