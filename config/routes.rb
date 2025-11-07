@@ -9,6 +9,7 @@ Rails.application.routes.draw do
     member do
       post :refresh
       get :assignable_users
+      get :labels
     end
     resources :issues, only: [ :index, :show ] do
       collection do

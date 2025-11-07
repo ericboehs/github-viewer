@@ -136,6 +136,14 @@
       .issue-card a[href*='/issues/']:focus-visible {
         outline: none !important;
       }
+
+      /* Dropdown menu items should have no outline (they use background color instead) */
+      [role="menu"] button:focus,
+      [role="menu"] button:focus-visible,
+      [role="menu"] a:focus,
+      [role="menu"] a:focus-visible {
+        outline: none !important;
+      }
     </style>
     <%= javascript_importmap_tags %>
   </head>

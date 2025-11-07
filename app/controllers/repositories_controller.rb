@@ -172,6 +172,48 @@ class RepositoriesController < ApplicationController
     end
   end
 
+  # :reek:TooManyStatements - Controller action orchestrates API call and data transformation
+  def labels
+    user = Current.user
+    repository = user.repositories.find(params[:id])
+    domain = repository.github_domain
+    query = params[:q]
+
+    # Fetch labels from GitHub API
+    github_token = user.github_tokens.find_by(domain: domain)
+    unless github_token
+      render json: { error: "No GitHub token found for #{domain}" }, status: :unauthorized
+      return
+    end
+
+    begin
+      client = Github::ApiClient.new(token: github_token.token, domain: domain)
+      labels = client.fetch_labels(repository.owner, repository.name)
+
+      # Convert to array of hashes with name and color
+      labels_data = labels.map do |label|
+        {
+          name: label.name,
+          color: label.color
+        }
+      end
+
+      # Filter by search query if provided
+      if query.present?
+        lower_query = query.downcase
+        labels_data = labels_data.select { |label| label[:name].downcase.include?(lower_query) }
+      end
+
+      # Limit to 50 results for dropdown
+      labels_data = labels_data.first(50)
+
+      render json: labels_data
+    rescue => error
+      Rails.logger.error "Error fetching labels: #{error.message}"
+      render json: { error: "Failed to fetch labels" }, status: :internal_server_error
+    end
+  end
+
   private
 
   def repository_params
