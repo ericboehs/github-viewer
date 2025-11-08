@@ -66,6 +66,7 @@ export default class extends Controller {
     // Decision logic:
     // - If there's enough space on the right, anchor to the LEFT edge (left-0) - menu extends right
     // - If there's not enough space on the right but enough on the left, anchor to the RIGHT edge (right-0) - menu extends left
+    // - On narrow screens (< 640px), prefer left-anchored to avoid going off-screen
     // - Prefer left-anchored (extending right) when there's enough space
     if (spaceOnRight >= menuWidth + buffer) {
       // Enough space on right, anchor left (menu extends right)
@@ -76,9 +77,16 @@ export default class extends Controller {
       this.menuTarget.classList.remove("left-0", "origin-top-left")
       this.menuTarget.classList.add("right-0", "origin-top-right")
     } else {
-      // Not enough space on either side, default to right anchor
-      this.menuTarget.classList.remove("left-0", "origin-top-left")
-      this.menuTarget.classList.add("right-0", "origin-top-right")
+      // Not enough space on either side
+      // On mobile (< 640px), prefer left anchor to avoid menu going completely off-screen
+      if (viewportWidth < 640) {
+        this.menuTarget.classList.remove("right-0", "origin-top-right")
+        this.menuTarget.classList.add("left-0", "origin-top-left")
+      } else {
+        // On larger screens, anchor right
+        this.menuTarget.classList.remove("left-0", "origin-top-left")
+        this.menuTarget.classList.add("right-0", "origin-top-right")
+      }
     }
   }
 
