@@ -10,7 +10,7 @@ class IssueCardComponent < ViewComponent::Base
 
   def call
     tag.div(
-      class: "issue-card px-4 sm:px-6 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
+      class: "issue-card px-2 sm:px-6 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
       data: {
         keyboard_shortcuts_target: "issueCard",
         issue_state: @issue.state
