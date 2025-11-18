@@ -470,9 +470,17 @@ class IssuesController < ApplicationController
   # Merge timeline events from API with cached comments from database
   # Returns array sorted chronologically by created_at
   # :reek:UtilityFunction - Pure data transformation helper
+  # :reek:TooManyStatements - Deduplication and merging requires multiple steps
   def merge_timeline_with_comments(timeline_events)
-    # Convert cached comments to timeline items (those not in API response)
-    comment_items = comments_to_timeline_items(@issue.issue_comments)
+    # Extract comment IDs from timeline events to avoid duplicates
+    timeline_comment_ids = timeline_events
+      .select { |event| event[:type] == "comment" }
+      .map { |event| event[:github_id] }
+      .compact
+
+    # Convert cached comments to timeline items (only those not in API response)
+    cached_comments = @issue.issue_comments.reject { |comment| timeline_comment_ids.include?(comment.github_id) }
+    comment_items = comments_to_timeline_items(cached_comments)
 
     # Consolidate label events that happen at the same time
     consolidated_events = consolidate_label_events(timeline_events)

@@ -296,6 +296,7 @@ module Github
                   }
                   ... on IssueComment {
                     id
+                    databaseId
                     createdAt
                     author {
                       login
@@ -698,6 +699,7 @@ module Github
         {
           type: "comment",
           id: item[:id],
+          github_id: item[:databaseId],
           created_at: Time.parse(item[:createdAt]),
           actor: item.dig(:author, :login),
           avatar_url: item.dig(:author, :avatarUrl),
