@@ -140,4 +140,54 @@ module IssueShowable
       flash.now[:notice] = t("issues.errors.rate_limit_unavailable")
     end
   end
+
+  # :reek:TooManyStatements - Calculates threshold warnings for multiple resources
+  # :reek:UtilityFunction - Pure calculation function for rate limit warnings
+  def approaching_rate_limit?(rate_limit)
+    return false unless rate_limit
+
+    # Check if any resource is approaching its limit
+    rate_limit.each do |resource, info|
+      percentage = (info[:remaining].to_f / info[:limit]) * 100
+
+      # Different thresholds based on resource type
+      threshold = case resource
+      when "search"
+        20 # Warn at 20% for search (30/min limit)
+      else
+        20 # Warn at 20% for core and other resources
+      end
+
+      return true if percentage < threshold
+    end
+
+    false
+  end
+
+  # :reek:TooManyStatements - Formats and displays rate limit for multiple resources
+  # :reek:DuplicateMethodCall - Flash and message formatting accessed for readability
+  def show_rate_limit_warning(rate_limit)
+    return unless rate_limit
+
+    messages = []
+
+    # Show rate limit for each resource type
+    rate_limit.each do |resource, info|
+      remaining = info[:remaining]
+      limit = info[:limit]
+      resets_at = info[:resets_at]
+      percentage = ((remaining.to_f / limit) * 100).round(1)
+
+      # Format resource name nicely
+      resource_name = resource.to_s.capitalize
+      messages << "#{resource_name}: #{remaining}/#{limit} (#{percentage}%). Resets at #{resets_at.strftime('%I:%M %p')}"
+    end
+
+    # Use warning (yellow) banner when approaching limit, notice (blue) when just showing debug info
+    if approaching_rate_limit?(rate_limit)
+      flash.now[:warning] = t("issues.rate_limits.warning", messages: messages.join(" | "))
+    else
+      flash.now[:notice] = t("issues.rate_limits.notice", messages: messages.join(" | "))
+    end
+  end
 end
