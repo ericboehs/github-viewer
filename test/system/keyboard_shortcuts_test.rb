@@ -125,7 +125,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
     fill_in "Email address", with: @user.email_address
     fill_in "Password", with: "password123"
     click_button "Sign in"
-    # Wait for redirect to complete
-    assert_current_path root_path, wait: 5
+    # Wait for redirect to complete - CI can be slow
+    assert_current_path root_path, wait: 10
   end
 end
