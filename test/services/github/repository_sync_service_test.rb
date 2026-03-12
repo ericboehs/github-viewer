@@ -129,6 +129,38 @@ class Github::RepositorySyncServiceTest < ActiveSupport::TestCase
     assert_includes result[:error], "Unauthorized"
   end
 
+  test "should handle rate limit error" do
+    Github::ApiClient.stubs(:new).raises(
+      Octokit::TooManyRequests.new(
+        response_headers: { "x-ratelimit-reset" => Time.current.to_i.to_s },
+        body: "rate limit exceeded"
+      )
+    )
+
+    result = @service.call
+
+    assert_not result[:success]
+    assert_includes result[:error], "Rate limit exceeded"
+  end
+
+  test "should handle unauthorized exception" do
+    Github::ApiClient.stubs(:new).raises(Octokit::Unauthorized)
+
+    result = @service.call
+
+    assert_not result[:success]
+    assert_includes result[:error], "Unauthorized"
+  end
+
+  test "should handle unexpected errors" do
+    Github::ApiClient.stubs(:new).raises(StandardError, "connection failed")
+
+    result = @service.call
+
+    assert_not result[:success]
+    assert_includes result[:error], "connection failed"
+  end
+
   # Test helper methods
 
   def create_mock_client_with_repo_data

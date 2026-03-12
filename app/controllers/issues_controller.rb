@@ -208,7 +208,6 @@ class IssuesController < ApplicationController
     @available_labels = extract_unique_labels(@repository.issues)
   end
 
-  # :reek:TooManyStatements - Controller action delegates to shared concern
   def show
     load_and_display_issue
   end

@@ -38,6 +38,10 @@ class ProxyController < ApplicationController
 
   private
 
+  def issue_not_found_redirect_path
+    root_path
+  end
+
   # :reek:UtilityFunction - Pure path parsing function
   # :reek:DuplicateMethodCall - Accessing repo_segments indices for readability
   def parse_proxy_path(path)

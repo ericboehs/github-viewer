@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # Shared logic for displaying a single GitHub issue
-# Used by IssuesController#show and ProxyController#show
-# :reek:InstanceVariableAssumption - Expects @repository, @issue to be set by including controller
+# Used by controllers that need to display a single GitHub issue
+# :reek:InstanceVariableAssumption - Expects @repository to be set by including controller; @issue_number is optional (falls back to params[:id])
 module IssueShowable
   extend ActiveSupport::Concern
 
@@ -15,7 +15,7 @@ module IssueShowable
     issue_number = @issue_number || params[:id].to_i
     @issue = @repository.issues.find_by(number: issue_number)
 
-    # Fetch from API if issue doesn't exist or is stale
+    # Fetch from API if issue doesn't exist, has never been cached, or is stale
     sync_result = nil
     if @issue.nil? || @issue.cached_at.nil? || @issue.cached_at < 5.minutes.ago
       sync_result = Github::IssueSyncService.new(
@@ -28,7 +28,9 @@ module IssueShowable
         @issue = @repository.issues.find_by!(number: issue_number)
       elsif @issue.nil?
         flash[:alert] = t("issues.errors.issue_not_found", error: sync_result[:error])
-        redirect_to repository_issues_path(@repository) and return
+        redirect_to issue_not_found_redirect_path and return
+      else
+        flash.now[:alert] = "Could not refresh issue data: #{sync_result[:error]}. Showing cached version."
       end
     end
 
@@ -130,6 +132,10 @@ module IssueShowable
         avatar_url: comment.author_avatar_url
       }
     end
+  end
+
+  def issue_not_found_redirect_path
+    repository_issues_path(@repository)
   end
 
   def show_debug_rate_limit(sync_result)

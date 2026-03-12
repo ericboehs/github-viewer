@@ -93,13 +93,24 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
     assert_match /Could not find repository/, flash[:alert]
   end
 
-  test "should redirect when issue sync fails and issue not cached" do
-    repo = create_repo("github.com", "rails", "rails")
+  test "should redirect to root when issue sync fails and issue not cached" do
+    create_repo("github.com", "rails", "rails")
     Github::IssueSyncService.any_instance.stubs(:call).returns({ success: false, error: "Issue not found", cache_preserved: true })
 
     get "/rails/rails/issues/99999"
-    assert_redirected_to repository_issues_path(repo)
+    assert_redirected_to root_path
     assert_match /Issue not found/, flash[:alert]
+  end
+
+  test "should display stale cached issue when sync fails" do
+    repo = create_repo("github.com", "rails", "rails")
+    create_issue(repo, 42, "Stale But Visible", cached_at: 10.minutes.ago)
+
+    Github::IssueSyncService.any_instance.stubs(:call).returns({ success: false, error: "API rate limited" })
+
+    get "/rails/rails/issues/42"
+    assert_response :success
+    assert_select "h1", text: /Stale But Visible/
   end
 
   # Authentication
