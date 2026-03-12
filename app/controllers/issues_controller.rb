@@ -6,6 +6,8 @@
 # :reek:DuplicateMethodCall - Controller actions access params and parsed data repeatedly
 # :reek:RepeatedConditional - Debug mode checked in multiple actions
 class IssuesController < ApplicationController
+  include IssueShowable
+
   before_action :set_repository
 
   # :reek:TooManyStatements - Controller action orchestrates sync, search, and pagination
@@ -206,67 +208,9 @@ class IssuesController < ApplicationController
     @available_labels = extract_unique_labels(@repository.issues)
   end
 
-  # :reek:TooManyStatements - Controller action orchestrates auto-refresh logic
-  # :reek:NilCheck - Explicit nil check required to detect uncached issues
+  # :reek:TooManyStatements - Controller action delegates to shared concern
   def show
-    @issue = @repository.issues.find_by(number: params[:id])
-
-    # Fetch from API if issue doesn't exist in database yet (beyond initial 200)
-    # Or auto-refresh if issue is stale (older than 5 minutes)
-    sync_result = nil
-    if @issue.nil? || @issue.cached_at.nil? || @issue.cached_at < 5.minutes.ago
-      issue_number = @issue&.number || params[:id].to_i
-      sync_result = Github::IssueSyncService.new(
-        user: Current.user,
-        repository: @repository,
-        issue_number: issue_number
-      ).call
-
-      if sync_result[:success]
-        # Load or reload issue after sync
-        @issue = @repository.issues.find_by!(number: issue_number)
-      elsif @issue.nil?
-        # Issue doesn't exist and sync failed - show error
-        flash[:alert] = t("issues.errors.issue_not_found", error: sync_result[:error])
-        redirect_to repository_issues_path(@repository) and return
-      end
-    end
-
-    # Fetch project fields and timeline (API-only, no caching)
-    github_token = Current.user.github_tokens.find_by(domain: @repository.github_domain)
-    if github_token
-      client = Github::ApiClient.new(token: github_token.token, domain: @repository.github_domain)
-
-      # Fetch project fields for sidebar
-      @project_items = client.fetch_issue_project_fields(
-        @repository.owner,
-        @repository.name,
-        @issue.number
-      )
-
-      # Fetch timeline events
-      timeline_events = client.fetch_issue_timeline(
-        @repository.owner,
-        @repository.name,
-        @issue.number
-      )
-
-      # Merge timeline events with cached comments and sort chronologically
-      @timeline_items = merge_timeline_with_comments(timeline_events)
-    else
-      @project_items = []
-      @timeline_items = comments_to_timeline_items(@issue.issue_comments)
-    end
-
-    # Show rate limit info if debug mode
-    if params[:debug] == "true"
-      rate_limit = sync_result&.[](:rate_limit)
-      if rate_limit && rate_limit.any?
-        show_rate_limit_warning(rate_limit)
-      else
-        flash.now[:notice] = t("issues.errors.rate_limit_unavailable")
-      end
-    end
+    load_and_display_issue
   end
 
   # :reek:TooManyStatements - Controller action orchestrates sync and redirect
@@ -426,85 +370,6 @@ class IssuesController < ApplicationController
       flash.now[:warning] = t("issues.rate_limits.warning", messages: messages.join(" | "))
     else
       flash.now[:notice] = t("issues.rate_limits.notice", messages: messages.join(" | "))
-    end
-  end
-
-  # Consolidate label events that occur at the same time by the same actor
-  # Returns array with consolidated label events
-  # :reek:UtilityFunction - Pure data transformation helper
-  # :reek:TooManyStatements - Grouping and consolidation requires multiple steps
-  # :reek:NestedIterators - Grouping requires nested iteration over events
-  def consolidate_label_events(timeline_events)
-    # Group events by type, actor, and rounded timestamp (within 1 second)
-    grouped = timeline_events.group_by do |event|
-      next unless event[:type].in?([ "labeled", "unlabeled" ])
-      [ event[:type], event[:actor], event[:created_at].to_i ]
-    end
-
-    # Extract non-label events
-    non_label_events = timeline_events.reject { |event| event[:type].in?([ "labeled", "unlabeled" ]) }
-
-    # Consolidate grouped label events
-    consolidated_label_events = grouped.compact.filter_map do |(type, _actor, _timestamp), events|
-      next if events.size == 1
-
-      # Multiple label events at same time - consolidate them
-      {
-        type: type,
-        id: events.map { |event| event[:id] }.join("_"),
-        created_at: events.first[:created_at],
-        actor: events.first[:actor],
-        labels: events.map { |event| event[:label] }
-      }
-    end
-
-    # Get single label events (not consolidated)
-    single_label_events = grouped.compact.flat_map do |(_type, _actor, _timestamp), events|
-      events if events.size == 1
-    end.compact
-
-    # Combine all events
-    non_label_events + consolidated_label_events + single_label_events
-  end
-
-  # Merge timeline events from API with cached comments from database
-  # Returns array sorted chronologically by created_at
-  # :reek:UtilityFunction - Pure data transformation helper
-  # :reek:TooManyStatements - Deduplication and merging requires multiple steps
-  def merge_timeline_with_comments(timeline_events)
-    # Extract comment IDs from timeline events to avoid duplicates
-    timeline_comment_ids = timeline_events
-      .select { |event| event[:type] == "comment" }
-      .map { |event| event[:github_id] }
-      .compact
-
-    # Convert cached comments to timeline items (only those not in API response)
-    cached_comments = @issue.issue_comments.reject { |comment| timeline_comment_ids.include?(comment.github_id) }
-    comment_items = comments_to_timeline_items(cached_comments)
-
-    # Consolidate label events that happen at the same time
-    consolidated_events = consolidate_label_events(timeline_events)
-
-    # Merge consolidated events with cached comments
-    all_items = consolidated_events + comment_items
-
-    # Sort chronologically and remove nil values
-    all_items.compact.sort_by { |item| item[:created_at] }
-  end
-
-  # Convert cached comments to timeline item format
-  # :reek:UtilityFunction - Pure data transformation helper
-  # :reek:FeatureEnvy - Accesses comment attributes extensively
-  def comments_to_timeline_items(comments)
-    comments.map do |comment|
-      {
-        type: "comment",
-        id: "cached_#{comment.id}",
-        created_at: comment.github_created_at,
-        actor: comment.author_login,
-        body: comment.body,
-        avatar_url: comment.author_avatar_url
-      }
     end
   end
 end

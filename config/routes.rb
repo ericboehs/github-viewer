@@ -32,4 +32,7 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   root "dashboard#index"
+
+  # Proxy-style issue viewing: /va.ghe.com/software/eert/issues/185 or /rails/rails/issues/123
+  get "*path", to: "proxy#show", constraints: ->(req) { req.path.match?(%r{/issues/\d+\z}) }
 end
