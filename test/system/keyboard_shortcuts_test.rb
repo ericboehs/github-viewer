@@ -122,10 +122,10 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   def sign_in
     visit new_session_path
+    assert_selector "input[name='email_address']", wait: 5
     fill_in "Email address", with: @user.email_address
     fill_in "Password", with: "password123"
     click_button "Sign in"
-    # Wait for redirect to complete - CI can be slow
     assert_current_path root_path, wait: 10
   end
 end
