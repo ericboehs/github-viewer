@@ -23,8 +23,7 @@ class ProxyController < ApplicationController
 
     # Check user has a token for this domain
     current_user = Current.user
-    github_token = current_user.github_tokens.find_by(domain: @domain)
-    unless github_token
+    unless current_user.github_tokens.exists?(domain: @domain)
       redirect_to root_path, alert: "No GitHub token configured for #{@domain}. Add one in your settings."
       return
     end

@@ -42,23 +42,12 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
 
   # Auto-creates repository when visiting proxy URL for untracked repo
   test "should auto-create repository when not tracked" do
-    repo = create_repo("github.com", "rails", "rails")
-    issue = create_issue(repo, 123, "Auto-created Repo Issue")
-
-    # Delete the repo so it doesn't exist when controller checks
-    repo_id = repo.id
-    issue.destroy!
-    repo.destroy!
-
-    # Stub sync service to re-create repo and issue
-    Github::RepositorySyncService.any_instance.stubs(:call).with do
-      # Re-create inside the stub block
-      true
-    end.returns(lambda {
-      r = create_repo("github.com", "rails", "rails")
-      create_issue(r, 123, "Auto-created Repo Issue")
-      { success: true, repository: r }
-    }.call)
+    # No repo exists initially - stub sync service to create it
+    Github::RepositorySyncService.any_instance.stubs(:call).returns(
+      { success: true, repository: create_repo("github.com", "rails", "rails").tap { |r|
+        create_issue(r, 123, "Auto-created Repo Issue")
+      } }
+    )
 
     get "/rails/rails/issues/123"
     assert_response :success
