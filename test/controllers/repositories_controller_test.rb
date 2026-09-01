@@ -529,7 +529,93 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert json["error"].include?("Failed to fetch assignable users")
   end
 
+  # Labels endpoint (filter dropdown data source)
+
+  test "should return repository labels as JSON" do
+    repository = create_repository
+    stub_labels_client([
+      OpenStruct.new(name: "bug", color: "d73a4a"),
+      OpenStruct.new(name: "enhancement", color: "a2eeef")
+    ])
+
+    get labels_repository_url(repository), as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal 2, json.length
+    assert_equal [ "bug", "enhancement" ], json.map { |label| label["name"] }
+    assert_equal "d73a4a", json.first["color"]
+  end
+
+  test "should filter labels by query" do
+    repository = create_repository
+    stub_labels_client([
+      OpenStruct.new(name: "bug", color: "d73a4a"),
+      OpenStruct.new(name: "debt", color: "cccccc"),
+      OpenStruct.new(name: "enhancement", color: "a2eeef")
+    ])
+
+    get labels_repository_url(repository), params: { q: "B" }, as: :json
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal [ "bug", "debt" ], json.map { |label| label["name"] }
+  end
+
+  test "should limit labels to 50 results" do
+    repository = create_repository
+    stub_labels_client(60.times.map { |i| OpenStruct.new(name: "label-#{i}", color: "ffffff") })
+
+    get labels_repository_url(repository), as: :json
+
+    assert_response :success
+    assert_equal 50, JSON.parse(response.body).length
+  end
+
+  test "should return error when no github token exists for labels" do
+    repository = @user.repositories.create!(
+      github_domain: "va.ghe.com",
+      owner: "software",
+      name: "eert",
+      full_name: "software/eert",
+      cached_at: 1.minute.ago
+    )
+
+    get labels_repository_url(repository), as: :json
+
+    assert_response :unauthorized
+    assert_includes JSON.parse(response.body)["error"], "No GitHub token found for va.ghe.com"
+  end
+
+  test "should handle label API errors gracefully" do
+    repository = create_repository
+    mock_api_client = mock
+    mock_api_client.stubs(:fetch_labels).raises(StandardError.new("API Error"))
+    Github::ApiClient.stubs(:new).returns(mock_api_client)
+
+    get labels_repository_url(repository), as: :json
+
+    assert_response :internal_server_error
+    assert_includes JSON.parse(response.body)["error"], "Failed to fetch labels"
+  end
+
   private
+
+  def create_repository
+    @user.repositories.create!(
+      github_domain: "github.com",
+      owner: "rails",
+      name: "rails",
+      full_name: "rails/rails",
+      cached_at: 1.minute.ago
+    )
+  end
+
+  def stub_labels_client(labels)
+    mock_api_client = mock
+    mock_api_client.stubs(:fetch_labels).returns(labels)
+    Github::ApiClient.stubs(:new).returns(mock_api_client)
+  end
 
   def sign_in_as(user)
     post session_url, params: { email_address: user.email_address, password: "password123" }
