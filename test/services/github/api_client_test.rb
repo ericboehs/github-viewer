@@ -1239,6 +1239,155 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
   # Tests for different timeline event types
 
+  test "should normalize inline review comments" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issueOrPullRequest: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "PullRequestReview",
+                    id: "PRR_1",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    state: "COMMENTED",
+                    author: { login: "reviewer", avatarUrl: "https://example.com/a.png" },
+                    body: "A few notes.",
+                    comments: {
+                      totalCount: 2,
+                      nodes: [
+                        {
+                          id: "PRRC_1",
+                          body: "Extract this.",
+                          path: "app/models/issue.rb",
+                          diffHunk: "@@ -1 +1 @@\n+code",
+                          outdated: false,
+                          line: 12,
+                          originalLine: 10,
+                          createdAt: "2025-11-06T12:01:00Z",
+                          author: { login: "reviewer", avatarUrl: "https://example.com/a.png" }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    review = @client.fetch_issue_timeline("rails", "rails", 123).first
+
+    assert_equal "review", review[:type]
+    assert_equal "A few notes.", review[:body]
+    assert_equal 2, review[:comments_total]
+
+    comment = review[:comments].first
+    assert_equal "app/models/issue.rb", comment[:path]
+    assert_equal "Extract this.", comment[:body]
+    assert_equal 12, comment[:line]
+    assert_equal "reviewer", comment[:actor]
+  end
+
+  # An outdated comment has no current line, so it falls back to the line it
+  # was originally left on.
+  test "should fall back to the original line for an outdated review comment" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issueOrPullRequest: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "PullRequestReview",
+                    id: "PRR_2",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    state: "COMMENTED",
+                    author: { login: "reviewer" },
+                    body: nil,
+                    comments: {
+                      totalCount: 1,
+                      nodes: [
+                        {
+                          id: "PRRC_2",
+                          body: "Stale note.",
+                          path: "a.rb",
+                          diffHunk: nil,
+                          outdated: true,
+                          line: nil,
+                          originalLine: 7,
+                          createdAt: "2025-11-06T12:01:00Z",
+                          author: { login: "reviewer" }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    comment = @client.fetch_issue_timeline("rails", "rails", 123).first[:comments].first
+
+    assert_equal 7, comment[:line]
+    assert comment[:outdated]
+  end
+
+  test "should handle a review with no comments" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issueOrPullRequest: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "PullRequestReview",
+                    id: "PRR_3",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    state: "APPROVED",
+                    author: { login: "reviewer" },
+                    body: "LGTM"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    review = @client.fetch_issue_timeline("rails", "rails", 123).first
+
+    assert_empty review[:comments]
+    assert_equal 0, review[:comments_total]
+  end
+
   test "should handle unlabeled event" do
     mock_client = OpenStruct.new
     def mock_client.post(path, body)

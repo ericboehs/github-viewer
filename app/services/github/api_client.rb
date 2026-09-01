@@ -407,6 +407,23 @@ module Github
               avatarUrl
             }
             body
+            comments(first: 50) {
+              totalCount
+              nodes {
+                id
+                body
+                path
+                diffHunk
+                outdated
+                line
+                originalLine
+                createdAt
+                author {
+                  login
+                  avatarUrl
+                }
+              }
+            }
           }
         }
 
@@ -952,6 +969,7 @@ module Github
           reviewer: reviewer[:login] || reviewer[:name]
         }
       when "PullRequestReview"
+        comments = item.dig(:comments, :nodes) || []
         {
           type: "review",
           id: item[:id],
@@ -959,11 +977,32 @@ module Github
           actor: item.dig(:author, :login),
           avatar_url: item.dig(:author, :avatarUrl),
           review_state: item[:state],
-          body: item[:body]
+          body: item[:body],
+          comments: comments.map { |comment| normalize_review_comment(comment) },
+          comments_total: item.dig(:comments, :totalCount) || comments.size
         }
       else
         nil
       end
+    end
+
+    # An inline review comment, anchored to a line of the diff.
+    #
+    # `line` is null once a comment goes outdated (the line no longer exists in
+    # the current diff), so fall back to the line it was originally left on.
+    # :reek:UtilityFunction - Pure shape mapping, kept beside its sibling normalizers
+    def normalize_review_comment(comment)
+      {
+        id: comment[:id],
+        body: comment[:body],
+        path: comment[:path],
+        diff_hunk: comment[:diffHunk],
+        outdated: comment[:outdated],
+        line: comment[:line] || comment[:originalLine],
+        created_at: Time.parse(comment[:createdAt]),
+        actor: comment.dig(:author, :login),
+        avatar_url: comment.dig(:author, :avatarUrl)
+      }
     end
   end
 end

@@ -2,6 +2,7 @@
 
 # Component for displaying timeline events (labels, milestones, projects, comments)
 # :reek:TooManyInstanceVariables - Extracts data from item hash for view access
+# :reek:TooManyMethods - One predicate/accessor per timeline event shape
 class TimelineEventComponent < ViewComponent::Base
   def initialize(item:, repository: nil)
     @item = item
@@ -10,13 +11,45 @@ class TimelineEventComponent < ViewComponent::Base
   end
 
   def render?
-    @item.present?
+    return false if @item.blank?
+
+    # An empty "commented" review is pure noise: GitHub emits one to carry
+    # inline comments, so with no body and no comments there is nothing to say.
+    return false if empty_review?
+
+    true
   end
 
   private
 
   def is_comment?
     @type == "comment"
+  end
+
+  def review?
+    @type == "review"
+  end
+
+  def review_comments
+    @item[:comments] || []
+  end
+
+  # A review worth its own card: it has a summary body, inline comments, or both.
+  def detailed_review?
+    review? && (@item[:body].present? || review_comments.any?)
+  end
+
+  def empty_review?
+    review? && @item[:body].blank? && review_comments.empty? &&
+      @item[:review_state].to_s.in?(%w[COMMENTED PENDING])
+  end
+
+  # We only request the first page of inline comments; say so rather than
+  # quietly showing a partial thread.
+  def hidden_comment_count
+    shown = review_comments.size
+    total = @item[:comments_total] || shown
+    [ total - shown, 0 ].max
   end
 
   # :reek:TooManyStatements - Simple case statement mapping event types to icons

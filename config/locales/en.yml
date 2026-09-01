@@ -119,6 +119,11 @@ en:
       line: line
       rendered: Rendered
       source: Source
+    reviews:
+      more_comments:
+        one: 1 more comment not shown.
+        other: "%{count} more comments not shown."
+      outdated: Outdated
     files:
       binary_file: Binary file not shown.
       diff_too_large: This diff is too large to display.

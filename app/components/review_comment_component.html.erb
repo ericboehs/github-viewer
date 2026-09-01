@@ -1,0 +1,40 @@
+<div class="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+  <div class="flex items-center gap-2 flex-wrap bg-gray-50 dark:bg-gray-900 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+    <span class="font-mono text-xs text-gray-900 dark:text-gray-200 break-all"><%= path %></span>
+    <% if line %>
+      <span class="text-xs text-gray-500 dark:text-gray-400">line <%= line %></span>
+    <% end %>
+    <% if outdated? %>
+      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+        <%= t("pulls.reviews.outdated") %>
+      </span>
+    <% end %>
+  </div>
+
+  <% if hunk_lines.any? %>
+    <div class="overflow-x-auto bg-white dark:bg-black border-b border-gray-200 dark:border-gray-700">
+      <table class="w-full font-mono text-xs border-collapse">
+        <tbody>
+          <% hunk_lines.each do |hunk_line| %>
+            <tr class="<%= line_classes(hunk_line) %>">
+              <td class="px-3 py-0.5 whitespace-pre"><%= hunk_line %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+
+  <div class="px-3 py-3 bg-white dark:bg-black">
+    <div class="flex items-center gap-2 mb-2">
+      <% if avatar_url %>
+        <%= render AvatarComponent.new(src: avatar_url, alt: actor || "Author", size: :small) %>
+      <% end %>
+      <span class="font-semibold text-sm text-gray-900 dark:text-white"><%= actor %></span>
+      <span class="text-xs text-gray-500 dark:text-gray-400"><%= helpers.time_ago_tag(created_at) %></span>
+    </div>
+    <div class="markdown text-sm text-gray-900 dark:text-gray-200">
+      <%= helpers.render_markdown(body) %>
+    </div>
+  </div>
+</div>
