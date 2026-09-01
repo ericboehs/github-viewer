@@ -299,6 +299,110 @@ class PullsControllerTest < ActionDispatch::IntegrationTest
     assert_match "+608", response.body
   end
 
+  # File viewer
+
+  test "should view a file's contents at the pull request head revision" do
+    pull = create_pull_request(number: 30, title: "Viewer", cached_at: Time.current)
+    client = stub_api_client(fetch_pull_request: { head_sha: "deadbeef" })
+    client.expects(:fetch_file_contents)
+      .with("rails", "rails", "README.md", ref: "deadbeef")
+      .returns(sample_file_contents)
+
+    get file_repository_pull_url(@repository, pull.number, path: "README.md")
+
+    assert_response :success
+    assert_select "div.markdown h1", text: "Hello"
+  end
+
+  test "should show markdown source when the source toggle is used" do
+    pull = create_pull_request(number: 31, title: "Viewer", cached_at: Time.current)
+    stub_api_client(fetch_pull_request: { head_sha: "abc" }, fetch_file_contents: sample_file_contents)
+
+    get file_repository_pull_url(@repository, pull.number, path: "README.md", display: "source")
+
+    assert_response :success
+    assert_select "div.markdown", count: 0
+    assert_match "# Hello", response.body
+  end
+
+  test "should offer a rendered and source toggle for markdown files" do
+    pull = create_pull_request(number: 32, title: "Viewer", cached_at: Time.current)
+    stub_api_client(fetch_pull_request: { head_sha: "abc" }, fetch_file_contents: sample_file_contents)
+
+    get file_repository_pull_url(@repository, pull.number, path: "README.md")
+
+    assert_response :success
+    assert_select "a", text: I18n.t("pulls.file.rendered")
+    assert_select "a", text: I18n.t("pulls.file.source")
+  end
+
+  # Only markdown has two useful presentations, so a source file gets no
+  # toggle at all.
+  test "should not offer a toggle for a non-markdown file" do
+    pull = create_pull_request(number: 33, title: "Viewer", cached_at: Time.current)
+    contents = sample_file_contents.merge(path: "app/models/issue.rb", content: "class Issue\nend")
+    stub_api_client(fetch_pull_request: { head_sha: "abc" }, fetch_file_contents: contents)
+
+    get file_repository_pull_url(@repository, pull.number, path: "app/models/issue.rb")
+
+    assert_response :success
+    assert_select "a", text: I18n.t("pulls.file.rendered"), count: 0
+    assert_match "class Issue", response.body
+  end
+
+  test "should report a file that could not be read" do
+    pull = create_pull_request(number: 34, title: "Viewer", cached_at: Time.current)
+    stub_api_client(fetch_pull_request: { head_sha: "abc" }, fetch_file_contents: { error: "File not found" })
+
+    get file_repository_pull_url(@repository, pull.number, path: "gone.rb")
+
+    assert_response :success
+    assert_match "File not found", flash[:alert]
+  end
+
+  # The head SHA comes from the pull request endpoint, so its failure has to
+  # surface rather than being read as a missing file.
+  test "should report a failure to resolve the head revision" do
+    pull = create_pull_request(number: 35, title: "Viewer", cached_at: Time.current)
+    client = stub_api_client(fetch_pull_request: { error: "rate limited" })
+    client.expects(:fetch_file_contents).never
+
+    get file_repository_pull_url(@repository, pull.number, path: "README.md")
+
+    assert_response :success
+    assert_match "rate limited", flash[:alert]
+  end
+
+  test "should redirect to the files tab when no path is given" do
+    pull = create_pull_request(number: 36, title: "Viewer", cached_at: Time.current)
+
+    get file_repository_pull_url(@repository, pull.number)
+
+    assert_redirected_to files_repository_pull_path(@repository, pull.number)
+  end
+
+  test "should link changed filenames to the file viewer" do
+    pull = create_pull_request(number: 37, title: "Linked", cached_at: Time.current)
+    stub_api_client(fetch_pull_request_files: [ sample_file ])
+
+    get files_repository_pull_url(@repository, pull.number)
+
+    assert_response :success
+    assert_select "a[href=?]", file_repository_pull_path(@repository, pull.number, path: "README.md")
+  end
+
+  # A deleted file has no contents at the head revision, so linking it would
+  # only lead to a 404.
+  test "should not link a removed file to the viewer" do
+    pull = create_pull_request(number: 38, title: "Removed", cached_at: Time.current)
+    stub_api_client(fetch_pull_request_files: [ sample_file.merge(status: "removed") ])
+
+    get files_repository_pull_url(@repository, pull.number)
+
+    assert_response :success
+    assert_select "a[href=?]", file_repository_pull_path(@repository, pull.number, path: "README.md"), count: 0
+  end
+
   private
 
   def create_pull_request(number:, title:, state: "open", cached_at: nil)
@@ -343,6 +447,10 @@ class PullsControllerTest < ActionDispatch::IntegrationTest
       changes: 1,
       patch: "@@ -1,2 +1,3 @@\n context\n+a new line\n context"
     }
+  end
+
+  def sample_file_contents
+    { path: "README.md", size: 42, binary: false, content: "# Hello\n\nSome text." }
   end
 
   def sign_in_as(user)

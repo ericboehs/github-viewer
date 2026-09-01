@@ -26,6 +26,11 @@ module Github
     ERROR_UNAUTHORIZED = "Unauthorized - check your GitHub token"
     ERROR_SAML_PROTECTED = "This repository requires SAML SSO authorization. Please authorize your personal access token with the organization. See: https://docs.github.com/en/enterprise-cloud@latest/authentication/authenticating-with-single-sign-on/authorizing-a-personal-access-token-for-use-with-single-sign-on"
     ERROR_INVALID_TOKEN = "Invalid GitHub token"
+    ERROR_FILE_NOT_FOUND = "File not found"
+    # GitHub's contents endpoint refuses to inline blobs over 1 MB and answers
+    # with a 403 rather than a size field, so this is a distinct failure mode
+    # from a missing file.
+    ERROR_FILE_TOO_LARGE = "File is too large to display"
 
     config_accessor :default_rate_limit_delay, default: ApiConfiguration::DEFAULT_RATE_LIMIT_DELAY
     config_accessor :max_retries, default: ApiConfiguration::MAX_RETRIES
@@ -149,6 +154,22 @@ module Github
       end
     rescue Octokit::NotFound
       { error: ERROR_ISSUE_NOT_FOUND }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
+    # Reads one file at a specific revision. `ref` should be a commit SHA
+    # rather than a branch name so the content matches the revision under
+    # review even after later pushes.
+    # :reek:LongParameterList - Mirrors the owner/repo/... shape of the other fetches, plus the revision to read at
+    def fetch_file_contents(owner, repo_name, path, ref:)
+      with_rate_limiting do
+        normalize_file_contents(@client.contents("#{owner}/#{repo_name}", path: path, ref: ref))
+      end
+    rescue Octokit::NotFound
+      { error: ERROR_FILE_NOT_FOUND }
+    rescue Octokit::Forbidden
+      { error: ERROR_FILE_TOO_LARGE }
     rescue Octokit::SAMLProtected
       { error: ERROR_SAML_PROTECTED }
     end
@@ -687,13 +708,38 @@ module Github
 
     # :reek:UtilityFunction - Data transformation helper
     def normalize_pull_request_data(pull)
+      head = pull[:head]
       {
         commits_count: pull[:commits],
         changed_files_count: pull[:changed_files],
         additions: pull[:additions],
         deletions: pull[:deletions],
         merged_at: pull[:merged_at],
-        draft: pull[:draft].present?
+        draft: pull[:draft].present?,
+        head_sha: head && head[:sha]
+      }
+    end
+
+    # :reek:UtilityFunction - Data transformation helper
+    # :reek:TooManyStatements - Sorts out directories, oversized blobs and binaries
+    def normalize_file_contents(contents)
+      # A directory path answers with an array of entries. Nothing downstream
+      # can display that, and it means the caller asked for the wrong thing.
+      return { error: ERROR_FILE_NOT_FOUND } if contents.is_a?(Array)
+
+      encoding = contents[:encoding]
+      # "none" is how GitHub reports a blob it declined to inline.
+      return { error: ERROR_FILE_TOO_LARGE } unless encoding == "base64"
+
+      decoded = Base64.decode64(contents[:content].to_s).force_encoding(Encoding::UTF_8)
+
+      {
+        path: contents[:path],
+        size: contents[:size],
+        # Anything that is not valid UTF-8 is binary as far as a text view is
+        # concerned, and must not be pushed into the response as-is.
+        binary: !decoded.valid_encoding?,
+        content: decoded.valid_encoding? ? decoded : nil
       }
     end
 

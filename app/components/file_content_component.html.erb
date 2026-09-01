@@ -1,0 +1,31 @@
+<div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-[#0E1116]">
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
+    <span class="truncate font-mono text-sm text-gray-900 dark:text-gray-100" title="<%= path %>"><%= path %></span>
+    <span class="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
+      <%= number_to_human_size(size) %><%= " · #{pluralize(lines.size, t('pulls.file.line'))}" unless binary? || empty? %>
+    </span>
+  </div>
+
+  <% if binary? %>
+    <p class="px-4 py-6 text-center text-sm italic text-gray-500 dark:text-gray-400"><%= t('pulls.files.binary_file') %></p>
+  <% elsif empty? %>
+    <p class="px-4 py-6 text-center text-sm italic text-gray-500 dark:text-gray-400"><%= t('pulls.file.empty') %></p>
+  <% elsif render_markdown? %>
+    <div class="markdown px-4 py-4 text-gray-900 sm:px-6 sm:py-5 dark:text-gray-200">
+      <%= helpers.render_markdown(content) %>
+    </div>
+  <% else %>
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse font-mono text-xs">
+        <tbody>
+          <% lines.each_with_index do |line, index| %>
+            <tr>
+              <td class="w-12 select-none border-r border-gray-200 px-2 py-0.5 text-right align-top text-gray-400 dark:border-gray-700 dark:text-gray-500"><%= index + 1 %></td>
+              <td class="whitespace-pre-wrap break-all px-3 py-0.5 text-gray-900 dark:text-gray-200"><%= line %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>

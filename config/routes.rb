@@ -28,6 +28,9 @@ Rails.application.routes.draw do
         # Mirrors GitHub's own /pull/:number/commits and /files sub-pages
         get :commits
         get :files
+        # The path is a query parameter rather than a path segment because file
+        # paths contain slashes.
+        get :file
       end
     end
   end

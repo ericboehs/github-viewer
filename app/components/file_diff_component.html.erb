@@ -6,7 +6,11 @@
         <% if previous_filename %>
           <span class="text-gray-500 dark:text-gray-400"><%= previous_filename %> &rarr;</span>
         <% end %>
-        <%= filename %>
+        <% if viewable? %>
+          <%= link_to filename, file_path, class: "text-blue-600 hover:underline dark:text-blue-400" %>
+        <% else %>
+          <%= filename %>
+        <% end %>
       </span>
     </div>
 

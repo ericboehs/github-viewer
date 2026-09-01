@@ -1925,6 +1925,69 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "Issue not found", @client.fetch_pull_request_commits("rails", "rails", 1)[:error]
   end
 
+  test "fetch_file_contents decodes the base64 blob GitHub returns" do
+    stub_octokit(:contents, {
+      path: "README.md", size: 12, encoding: "base64", content: Base64.encode64("# Hello\nworld")
+    })
+
+    result = @client.fetch_file_contents("rails", "rails", "README.md", ref: "abc123")
+
+    assert_equal "# Hello\nworld", result[:content]
+    assert_equal "README.md", result[:path]
+    assert_equal 12, result[:size]
+    refute result[:binary]
+  end
+
+  # Anything that is not valid UTF-8 cannot be shown as text and must not be
+  # passed through into the response.
+  test "fetch_file_contents flags a binary blob instead of returning bytes" do
+    stub_octokit(:contents, {
+      path: "logo.png", size: 4, encoding: "base64", content: Base64.encode64("\x89PNG\xFF\xFE".b)
+    })
+
+    result = @client.fetch_file_contents("rails", "rails", "logo.png", ref: "abc123")
+
+    assert result[:binary]
+    assert_nil result[:content]
+  end
+
+  # GitHub reports a blob it declined to inline with encoding "none".
+  test "fetch_file_contents reports a blob GitHub refused to inline" do
+    stub_octokit(:contents, { path: "big.csv", size: 2_000_000, encoding: "none", content: "" })
+
+    assert_equal "File is too large to display",
+      @client.fetch_file_contents("rails", "rails", "big.csv", ref: "abc123")[:error]
+  end
+
+  # Over 1 MB the endpoint answers 403 rather than a size field.
+  test "fetch_file_contents treats a forbidden response as too large" do
+    stub_octokit_failure(:contents, Octokit::Forbidden)
+
+    assert_equal "File is too large to display",
+      @client.fetch_file_contents("rails", "rails", "big.bin", ref: "abc123")[:error]
+  end
+
+  test "fetch_file_contents reports a missing file" do
+    stub_octokit_failure(:contents, Octokit::NotFound)
+
+    assert_equal "File not found",
+      @client.fetch_file_contents("rails", "rails", "nope.rb", ref: "abc123")[:error]
+  end
+
+  # A directory answers with an array of entries, which no file view can show.
+  test "fetch_file_contents rejects a directory path" do
+    stub_octokit(:contents, [ { path: "app/models/issue.rb" } ])
+
+    assert_equal "File not found",
+      @client.fetch_file_contents("rails", "rails", "app/models", ref: "abc123")[:error]
+  end
+
+  test "fetch_pull_request exposes the head SHA so files can be read at that revision" do
+    stub_octokit(:pull_request, { commits: 1, head: { sha: "deadbeef" } })
+
+    assert_equal "deadbeef", @client.fetch_pull_request("rails", "rails", 1)[:head_sha]
+  end
+
   private
 
   def stub_octokit(octokit_method, value)

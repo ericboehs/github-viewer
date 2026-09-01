@@ -78,7 +78,7 @@ The application uses separate SQLite databases:
 
 #### ViewComponents for GitHub UI (`app/components/`)
 - **Issue components**: IssueCardComponent, IssueLabelComponent, IssueStateComponent, IssueCommentComponent
-- **Pull request components**: PullRequestTabsComponent (Conversation/Commits/Files changed sub-nav), CommitListItemComponent, FileDiffComponent (unified diff parsing and rendering)
+- **Pull request components**: PullRequestTabsComponent (Conversation/Commits/Files changed sub-nav), CommitListItemComponent, FileDiffComponent (unified diff parsing and rendering), FileContentComponent (file viewer with markdown rendering and a Rendered/Source toggle)
 - **Filter components**: FilterDropdown namespace (BaseComponent, ButtonComponent, MenuComponent, SearchComponent, ItemComponent)
 - **Auth components**: Auth namespace (FormContainerComponent, InputComponent, ButtonComponent, LinkComponent)
 - **Common components**: AvatarComponent (with Gravatar fallback), AlertComponent, UserPageComponent

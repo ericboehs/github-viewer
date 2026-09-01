@@ -113,6 +113,12 @@ en:
       no_message: (no commit message)
     errors:
       no_token: No GitHub token configured for %{domain}.
+    file:
+      back_to_files: Back to Files changed
+      empty: This file is empty.
+      line: line
+      rendered: Rendered
+      source: Source
     files:
       binary_file: Binary file not shown.
       diff_too_large: This diff is too large to display.

@@ -24,10 +24,12 @@ class FileDiffComponent < ViewComponent::Base
     context: ""
   }.freeze
 
-  attr_reader :file
+  attr_reader :file, :repository, :issue
 
-  def initialize(file:)
+  def initialize(file:, repository: nil, issue: nil)
     @file = file
+    @repository = repository
+    @issue = issue
     super()
   end
 
@@ -57,6 +59,16 @@ class FileDiffComponent < ViewComponent::Base
 
   def patch
     file[:patch]
+  end
+
+  # A removed file has no contents at the head revision, so there is nothing
+  # for the viewer to show and the name stays unlinked.
+  def viewable?
+    repository.present? && issue.present? && status != "removed"
+  end
+
+  def file_path
+    file_repository_pull_path(repository, issue.number, path: filename)
   end
 
   # Explains an absent patch rather than rendering a blank panel, since the two
