@@ -4,12 +4,13 @@
 # :reek:TooManyInstanceVariables - Requires label data, repository, and query for link generation
 class IssueLabelComponent < ViewComponent::Base
   # :reek:FeatureEnvy - Extracting values from label hash is initialization responsibility
-  def initialize(label:, repository: nil, query: nil)
+  def initialize(label:, repository: nil, query: nil, list_scope: :issues)
     @label = label
     @name = label["name"] || label[:name]
     @color = label["color"] || label[:color]
     @repository = repository
     @query = query
+    @list_scope = list_scope
   end
 
   def call
@@ -28,15 +29,20 @@ class IssueLabelComponent < ViewComponent::Base
 
   # :reek:TooManyStatements - Building label filter URL requires multiple transformations
   def label_url
+    pulls = @list_scope.to_sym == :pulls
     # Use default query if none provided (matches controller default)
-    query_text = @query.presence || "is:issue state:open"
+    query_text = @query.presence || (pulls ? "is:pr state:open" : "is:issue state:open")
     # Remove any existing label: qualifier
     query_without_label = query_text.gsub(/\blabel:("[^"]*"|\S+)/i, "").gsub(/\s+/, " ").strip
     # Add this label to the query with trailing space
     label_name = @name.include?(" ") ? "\"#{@name}\"" : @name
     new_query = query_without_label.present? ? "#{query_without_label} label:#{label_name} " : "label:#{label_name} "
 
-    helpers.repository_issues_path(@repository, q: new_query)
+    if pulls
+      helpers.repository_pulls_path(@repository, q: new_query)
+    else
+      helpers.repository_issues_path(@repository, q: new_query)
+    end
   end
 
   def label_classes

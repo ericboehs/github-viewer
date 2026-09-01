@@ -201,4 +201,75 @@ class TimelineEventComponentTest < ViewComponent::TestCase
     assert_text "bug"
     assert_text "wontfix"
   end
+
+  test "renders merged event" do
+    item = {
+      type: "merged",
+      id: "merged_1",
+      created_at: Time.current,
+      actor: "maintainer",
+      merge_ref_name: "main"
+    }
+
+    render_inline(TimelineEventComponent.new(item: item))
+
+    assert_text "maintainer"
+    assert_text "merged this pull request into"
+    assert_text "main"
+  end
+
+  test "renders ready for review event" do
+    item = {
+      type: "ready_for_review",
+      id: "rfr_1",
+      created_at: Time.current,
+      actor: "contributor"
+    }
+
+    render_inline(TimelineEventComponent.new(item: item))
+
+    assert_text "marked this pull request ready for review"
+  end
+
+  test "renders review requested event" do
+    item = {
+      type: "review_requested",
+      id: "rr_1",
+      created_at: Time.current,
+      actor: "contributor",
+      reviewer: "maintainer"
+    }
+
+    render_inline(TimelineEventComponent.new(item: item))
+
+    assert_text "requested a review from"
+    assert_text "maintainer"
+  end
+
+  test "renders review events for each review state" do
+    {
+      "APPROVED" => "approved these changes",
+      "CHANGES_REQUESTED" => "requested changes",
+      "DISMISSED" => "had their review dismissed",
+      "COMMENTED" => "reviewed these changes"
+    }.each do |review_state, expected_text|
+      render_inline(TimelineEventComponent.new(item: {
+        type: "review",
+        id: "review_#{review_state}",
+        created_at: Time.current,
+        actor: "reviewer",
+        review_state: review_state
+      }))
+
+      assert_text expected_text
+    end
+  end
+
+  test "renders nothing for unknown event types" do
+    item = { type: "mystery", id: "x", created_at: Time.current, actor: "someone" }
+
+    render_inline(TimelineEventComponent.new(item: item))
+
+    assert_text "someone"
+  end
 end

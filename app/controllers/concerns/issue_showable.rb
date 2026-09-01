@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
-# Shared logic for displaying a single GitHub issue
+# Shared logic for displaying a single GitHub issue or pull request
 # Used by controllers that need to display a single GitHub issue
 # :reek:InstanceVariableAssumption - Expects @repository to be set by including controller; @issue_number is optional (falls back to params[:id])
 module IssueShowable
   extend ActiveSupport::Concern
+
+  included do
+    include IssueScoped
+  end
 
   private
 
@@ -34,13 +38,32 @@ module IssueShowable
       end
     end
 
-    # Fetch project fields and timeline
+    redirect_to canonical_item_path and return if scope_mismatch?
+
     load_project_fields_and_timeline
 
     # Show rate limit info if debug mode
     show_debug_rate_limit(sync_result) if params[:debug] == "true"
 
     render "issues/show"
+  end
+
+  # GitHub serves issues and pull requests from separate URL spaces and 302s
+  # between them. Mirror that: without this, `/pulls/12` happily renders a
+  # plain issue (and `/issues/12` a merged PR) on a page that contradicts
+  # itself, because `github_item_url` derives its link from the record while
+  # the refresh button derives its target from the route's scope.
+  #
+  # Checked after the sync above so `pull_request` reflects the API, not a
+  # cold cache row.
+  def scope_mismatch?
+    @issue.pull_request? != pull_request_scope?
+  end
+
+  def canonical_item_path
+    number = @issue.number
+
+    @issue.pull_request? ? repository_pull_path(@repository, number) : repository_issue_path(@repository, number)
   end
 
   # :reek:TooManyStatements - Fetches project fields and timeline from API
@@ -79,8 +102,12 @@ module IssueShowable
 
     non_label_events = timeline_events.reject { |event| event[:type].in?(label_types) }
 
-    compacted = grouped.compact
-    consolidated_label_events = compacted.filter_map do |(type, _actor, _timestamp), events|
+    # Non-label events all land under a nil key above and are handled by
+    # `non_label_events`. Drop that bucket by key - `Hash#compact` only removes
+    # nil *values*, so it would leave the nil-keyed group in place and re-emit
+    # those events below whenever the bucket happened to hold exactly one item.
+    label_groups = grouped.except(nil)
+    consolidated_label_events = label_groups.filter_map do |(type, _actor, _timestamp), events|
       next if events.size == 1
 
       first = events.first
@@ -93,7 +120,7 @@ module IssueShowable
       }
     end
 
-    single_label_events = compacted.flat_map do |(_type, _actor, _timestamp), events|
+    single_label_events = label_groups.flat_map do |(_type, _actor, _timestamp), events|
       events if events.size == 1
     end.compact
 
@@ -135,7 +162,7 @@ module IssueShowable
   end
 
   def issue_not_found_redirect_path
-    repository_issues_path(@repository)
+    list_index_path(@repository)
   end
 
   def show_debug_rate_limit(sync_result)

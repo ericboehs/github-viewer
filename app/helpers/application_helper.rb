@@ -20,4 +20,15 @@ module ApplicationHelper
 
     content_tag :time, time_ago_in_words(datetime) + " ago", datetime: datetime.utc.iso8601, **options
   end
+
+  # Canonical GitHub URL for an issue or pull request
+  #
+  # @param repository [Repository]
+  # @param issue [Issue]
+  # @return [String] e.g. https://github.com/rails/rails/pull/123
+  # :reek:FeatureEnvy - Builds a URL from repository and issue attributes
+  def github_item_url(repository = @repository, issue = @issue)
+    kind = issue.pull_request? ? "pull" : "issues"
+    "https://#{repository.github_domain}/#{repository.owner}/#{repository.name}/#{kind}/#{issue.number}"
+  end
 end

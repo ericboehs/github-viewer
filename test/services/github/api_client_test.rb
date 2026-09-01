@@ -305,6 +305,8 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "Comment body", result.first[:body]
   end
 
+  # A 404 means the thread is unreadable, not empty. Callers prune cached
+  # comments against this response, so an empty array would delete the cache.
   test "should handle comments not found" do
     mock_client = OpenStruct.new
     def mock_client.issue_comments(repo, issue_number)
@@ -318,7 +320,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
     result = @client.fetch_issue_comments("rails", "rails", 999)
 
-    assert_equal [], result
+    assert_equal Github::ApiClient::ERROR_ISSUE_NOT_FOUND, result[:error]
   end
 
   test "should handle SAML protected error in fetch_issue_comments" do
@@ -866,7 +868,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               projectItems: {
                 nodes: [
                   {
@@ -954,7 +956,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               timelineItems: {
                 nodes: [
                   {
@@ -1039,7 +1041,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               projectItems: {
                 nodes: [
                   {
@@ -1095,7 +1097,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               projectItems: {
                 nodes: [
                   {
@@ -1139,7 +1141,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               projectItems: {
                 nodes: [
                   {
@@ -1189,7 +1191,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               projectItems: {
                 nodes: [
                   {
@@ -1243,7 +1245,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               timelineItems: {
                 nodes: [
                   {
@@ -1280,7 +1282,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               timelineItems: {
                 nodes: [
                   {
@@ -1317,7 +1319,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               timelineItems: {
                 nodes: [
                   {
@@ -1354,7 +1356,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               timelineItems: {
                 nodes: [
                   {
@@ -1392,7 +1394,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               timelineItems: {
                 nodes: [
                   {
@@ -1429,7 +1431,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               timelineItems: {
                 nodes: [
                   {
@@ -1466,13 +1468,151 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "MEMBER", result[0][:author_association]
   end
 
+  test "should handle pull request timeline events" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issueOrPullRequest: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "MergedEvent",
+                    id: "ME_1",
+                    createdAt: "2025-11-06T12:00:00Z",
+                    actor: { login: "maintainer" },
+                    mergeRefName: "main"
+                  },
+                  {
+                    __typename: "ReadyForReviewEvent",
+                    id: "RFR_1",
+                    createdAt: "2025-11-06T12:05:00Z",
+                    actor: { login: "contributor" }
+                  },
+                  {
+                    __typename: "ReviewRequestedEvent",
+                    id: "RR_1",
+                    createdAt: "2025-11-06T12:10:00Z",
+                    actor: { login: "contributor" },
+                    requestedReviewer: { login: "maintainer" }
+                  },
+                  {
+                    __typename: "PullRequestReview",
+                    id: "PRR_1",
+                    createdAt: "2025-11-06T12:15:00Z",
+                    state: "APPROVED",
+                    author: { login: "maintainer", avatarUrl: "https://example.com/avatar.png" },
+                    body: "LGTM"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_equal 4, result.length
+
+    merged = result[0]
+    assert_equal "merged", merged[:type]
+    assert_equal "maintainer", merged[:actor]
+    assert_equal "main", merged[:merge_ref_name]
+
+    assert_equal "ready_for_review", result[1][:type]
+
+    review_requested = result[2]
+    assert_equal "review_requested", review_requested[:type]
+    assert_equal "maintainer", review_requested[:reviewer]
+
+    review = result[3]
+    assert_equal "review", review[:type]
+    assert_equal "APPROVED", review[:review_state]
+    assert_equal "LGTM", review[:body]
+  end
+
+  test "should fall back to team name for requested reviewers" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issueOrPullRequest: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "ReviewRequestedEvent",
+                    id: "RR_2",
+                    createdAt: "2025-11-06T12:10:00Z",
+                    actor: { login: "contributor" },
+                    requestedReviewer: { name: "platform-team" }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_equal "platform-team", result[0][:reviewer]
+  end
+
+  test "should handle review requested event without a reviewer" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      {
+        data: {
+          repository: {
+            issueOrPullRequest: {
+              timelineItems: {
+                nodes: [
+                  {
+                    __typename: "ReviewRequestedEvent",
+                    id: "RR_3",
+                    createdAt: "2025-11-06T12:10:00Z",
+                    actor: { login: "contributor" }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    end
+    def mock_client.rate_limit
+      nil
+    end
+
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_issue_timeline("rails", "rails", 123)
+
+    assert_nil result[0][:reviewer]
+  end
+
   test "should handle unknown timeline event type" do
     mock_client = OpenStruct.new
     def mock_client.post(path, body)
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               timelineItems: {
                 nodes: [
                   {
@@ -1519,7 +1659,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               projectItems: { nodes: [] }
             }
           }
@@ -1551,7 +1691,7 @@ class Github::ApiClientTest < ActiveSupport::TestCase
       {
         data: {
           repository: {
-            issue: {
+            issueOrPullRequest: {
               projectItems: { nodes: [] }
             }
           }
@@ -1571,5 +1711,107 @@ class Github::ApiClientTest < ActiveSupport::TestCase
 
     # GitHub.com should use /graphql
     assert_equal "/graphql", mock_client.called_path
+  end
+
+  # Error handling across the REST fetch methods
+
+  {
+    "fetch_issues" => { octokit: :issues, args: [ "rails", "rails" ] },
+    "fetch_issue" => { octokit: :issue, args: [ "rails", "rails", 1 ] },
+    "fetch_issue_comments" => { octokit: :issue_comments, args: [ "rails", "rails", 1 ] },
+    "fetch_labels" => { octokit: :labels, args: [ "rails", "rails" ] }
+  }.each do |method, config|
+    test "#{method} surfaces SAML protected errors" do
+      stub_octokit_failure(config[:octokit], Octokit::SAMLProtected)
+
+      result = @client.public_send(method, *config[:args])
+
+      assert_includes result[:error], "SAML SSO authorization"
+    end
+  end
+
+  test "fetch_issues reports a missing repository" do
+    stub_octokit_failure(:issues, Octokit::NotFound)
+
+    assert_equal "Repository not found", @client.fetch_issues("rails", "rails")[:error]
+  end
+
+  test "fetch_issues reports an unauthorized token" do
+    stub_octokit_failure(:issues, Octokit::Unauthorized)
+
+    assert_equal "Unauthorized - check your GitHub token", @client.fetch_issues("rails", "rails")[:error]
+  end
+
+  test "fetch_issue reports a missing issue" do
+    stub_octokit_failure(:issue, Octokit::NotFound)
+
+    assert_equal "Issue not found", @client.fetch_issue("rails", "rails", 1)[:error]
+  end
+
+  test "fetch_issue_comments reports a missing issue rather than an empty thread" do
+    stub_octokit_failure(:issue_comments, Octokit::NotFound)
+
+    result = @client.fetch_issue_comments("rails", "rails", 1)
+
+    assert_equal Github::ApiClient::ERROR_ISSUE_NOT_FOUND, result[:error]
+  end
+
+  test "fetch_labels returns no labels when the repository is missing" do
+    stub_octokit_failure(:labels, Octokit::NotFound)
+
+    assert_equal [], @client.fetch_labels("rails", "rails")
+  end
+
+  test "fetch_labels reports an unauthorized token" do
+    stub_octokit_failure(:labels, Octokit::Unauthorized)
+
+    assert_equal "Unauthorized - check your GitHub token", @client.fetch_labels("rails", "rails")[:error]
+  end
+
+  test "fetch_labels returns labels from the API" do
+    mock_client = OpenStruct.new
+    def mock_client.labels(_full_name, _options)
+      [ OpenStruct.new(name: "bug", color: "d73a4a") ]
+    end
+    def mock_client.rate_limit
+      nil
+    end
+    @client.instance_variable_set(:@client, mock_client)
+
+    labels = @client.fetch_labels("rails", "rails")
+
+    assert_equal 1, labels.length
+    assert_equal "bug", labels.first.name
+  end
+
+  # GraphQL failures degrade to empty results rather than raising
+
+  test "fetch_issue_project_fields returns empty on transport errors" do
+    @client.stubs(:graphql_query).raises(StandardError.new("boom"))
+
+    assert_equal [], @client.fetch_issue_project_fields("rails", "rails", 1)
+  end
+
+  test "fetch_issue_timeline returns empty on transport errors" do
+    @client.stubs(:graphql_query).raises(StandardError.new("boom"))
+
+    assert_equal [], @client.fetch_issue_timeline("rails", "rails", 1)
+  end
+
+  test "fetch_assignable_users reports transport errors" do
+    @client.stubs(:graphql_query).raises(StandardError.new("boom"))
+
+    assert_equal "boom", @client.fetch_assignable_users("rails", "rails")[:error]
+  end
+
+  private
+
+  def stub_octokit_failure(octokit_method, error_class)
+    mock_client = OpenStruct.new
+    mock_client.define_singleton_method(octokit_method) do |*_args|
+      raise error_class.new
+    end
+    mock_client.define_singleton_method(:rate_limit) { nil }
+    @client.instance_variable_set(:@client, mock_client)
   end
 end

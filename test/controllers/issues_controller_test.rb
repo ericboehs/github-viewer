@@ -96,6 +96,21 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", text: /Fix critical bug/
   end
 
+  # Mirror of the pulls-side test: GitHub 302s between the two URL spaces.
+  test "should redirect to the pull request page when the number is a pull request" do
+    pull = @repository.issues.create!(
+      number: 43,
+      title: "Some pull request",
+      state: "open",
+      pull_request: true,
+      cached_at: Time.current
+    )
+
+    get repository_issue_url(@repository, pull.number)
+
+    assert_redirected_to repository_pull_path(@repository, pull.number)
+  end
+
   test "should return 404 when issue not found" do
     # Mock the sync service to fail when fetching non-existent issue
     mock_result = { success: false, error: "Issue not found", cache_preserved: true }
@@ -656,7 +671,12 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     get repository_issues_url(@repository)
     assert_response :success
-    # Should display all issues
+    # Default query is "is:issue state:open", so only the open issues show
+    assert_select ".issue-card", count: 2
+
+    # Clearing the query shows every cached issue
+    get repository_issues_url(@repository, q: "")
+    assert_response :success
     assert_select ".issue-card", count: 3
   end
 
@@ -989,6 +1009,93 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Connection refused", flash[:alert]
   end
 
+  # Show page fallbacks
+
+  test "should render show without project fields when no token exists for the domain" do
+    repository = @user.repositories.create!(
+      github_domain: "va.ghe.com",
+      owner: "software",
+      name: "eert",
+      full_name: "software/eert",
+      cached_at: 1.hour.ago
+    )
+    issue = repository.issues.create!(
+      number: 5,
+      title: "No token issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 1.minute.ago
+    )
+    issue.issue_comments.create!(
+      github_id: 999,
+      author_login: "commenter",
+      body: "Cached comment",
+      github_created_at: 1.hour.ago
+    )
+
+    get repository_issue_url(repository, issue.number)
+
+    assert_response :success
+    assert_select "h1", text: /No token issue/
+    assert_match "Cached comment", response.body
+  end
+
+  test "should keep cached comments that are absent from the API timeline" do
+    issue = @repository.issues.create!(
+      number: 6,
+      title: "Timeline merge issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 1.minute.ago
+    )
+    issue.issue_comments.create!(
+      github_id: 555,
+      author_login: "cached_author",
+      body: "Only in the local cache",
+      github_created_at: 30.minutes.ago
+    )
+
+    Github::ApiClient.any_instance.stubs(:fetch_issue_project_fields).returns([])
+    Github::ApiClient.any_instance.stubs(:fetch_issue_timeline).returns([
+      { type: "comment", id: "IC_1", github_id: 111, created_at: 1.hour.ago, actor: "api_author", body: "From the API" }
+    ])
+
+    get repository_issue_url(@repository, issue.number)
+
+    assert_response :success
+    assert_match "From the API", response.body
+    assert_match "Only in the local cache", response.body
+  end
+
+  test "should drop cached comments that the API timeline already returned" do
+    issue = @repository.issues.create!(
+      number: 7,
+      title: "Dedup issue",
+      state: "open",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago,
+      cached_at: 1.minute.ago
+    )
+    issue.issue_comments.create!(
+      github_id: 222,
+      author_login: "author",
+      body: "Duplicated body",
+      github_created_at: 30.minutes.ago
+    )
+
+    Github::ApiClient.any_instance.stubs(:fetch_issue_project_fields).returns([])
+    Github::ApiClient.any_instance.stubs(:fetch_issue_timeline).returns([
+      { type: "comment", id: "IC_1", github_id: 222, created_at: 30.minutes.ago, actor: "author", body: "Duplicated body" }
+    ])
+
+    get repository_issue_url(@repository, issue.number)
+
+    assert_response :success
+    assert_equal 1, response.body.scan("Duplicated body").length
+  end
+
   # Consolidate label events tests
   test "consolidate_label_events groups multiple labeled events at same time" do
     controller = IssuesController.new
@@ -1083,11 +1190,47 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     result = controller.send(:consolidate_label_events, events)
 
-    # Should have labeled event + 2 non-label events
-    assert_operator result.size, :>=, 3
+    # Should have labeled event + 2 non-label events, each exactly once
+    assert_equal 3, result.size
     assert_includes result.map { |e| e[:type] }, "comment"
     assert_includes result.map { |e| e[:type] }, "milestoned"
     assert_includes result.map { |e| e[:type] }, "labeled"
+  end
+
+  # Regression: non-label events are grouped under a nil key internally.
+  # `Hash#compact` only strips nil values, so that bucket used to survive and
+  # get re-emitted whenever it held exactly one event - rendering a lone
+  # comment twice on the issue/PR page.
+  test "consolidate_label_events does not duplicate a lone non-label event" do
+    controller = IssuesController.new
+    time = Time.current
+
+    events = [
+      { type: "comment", id: "1", created_at: time, actor: "user1", body: "Only comment" }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    assert_equal 1, result.size
+    assert_equal "comment", result.first[:type]
+  end
+
+  test "consolidate_label_events does not duplicate a lone non-label event alongside labels" do
+    controller = IssuesController.new
+    time = Time.current
+
+    events = [
+      { type: "comment", id: "1", created_at: time, actor: "user1", body: "Only comment" },
+      { type: "labeled", id: "2", created_at: time, actor: "user1", label: { name: "bug", color: "ff0000" } },
+      { type: "labeled", id: "3", created_at: time, actor: "user1", label: { name: "docs", color: "0000ff" } }
+    ]
+
+    result = controller.send(:consolidate_label_events, events)
+
+    comments = result.select { |e| e[:type] == "comment" }
+    assert_equal 1, comments.size
+    # The two same-actor/same-time labels still consolidate into one event
+    assert_equal 2, result.size
   end
 
   test "consolidate_label_events handles mixed label and unlabel events" do

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_01_042847) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_02_000000) do
   create_table "github_tokens", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "domain", default: "github.com", null: false
@@ -44,15 +44,19 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_01_042847) do
     t.datetime "cached_at"
     t.integer "comments_count", default: 0, null: false
     t.datetime "created_at", null: false
+    t.boolean "draft", default: false, null: false
     t.datetime "github_created_at"
     t.datetime "github_updated_at"
     t.json "labels", default: []
+    t.datetime "merged_at"
     t.integer "number", null: false
+    t.boolean "pull_request", default: false, null: false
     t.integer "repository_id", null: false
     t.string "state", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["repository_id", "number"], name: "index_issues_on_repository_id_and_number", unique: true
+    t.index ["repository_id", "pull_request"], name: "index_issues_on_repository_id_and_pull_request"
     t.index ["repository_id", "state"], name: "index_issues_on_repository_id_and_state"
     t.index ["repository_id"], name: "index_issues_on_repository_id"
   end

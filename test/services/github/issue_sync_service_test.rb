@@ -16,7 +16,7 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
 
   # Successful sync tests
 
-  test "should successfully sync issues and comments" do
+  test "should successfully sync issues" do
     mock_client = create_mock_client_with_issues_and_comments
 
     Github::ApiClient.stubs(:new).returns(mock_client)
@@ -39,15 +39,59 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     assert_equal [ { "name" => "bug", "color" => "d73a4a" } ], issue1.labels
     assert_equal 2, issue1.comments_count
 
-    # Verify comments were created
-    assert_equal 2, issue1.issue_comments.count
-    comment1 = issue1.issue_comments.first
-    assert_equal 123456, comment1.github_id
-    assert_equal "commenter1", comment1.author_login
-    assert_equal "This is a comment", comment1.body
-
     # Verify repository cached_at was updated
     assert @repository.reload.cached_at >= 1.second.ago
+  end
+
+  # Bulk sync must not make one comment request per issue - that turned list
+  # pages into 200+ sequential API round-trips. Comments are fetched lazily by
+  # the show page instead.
+  test "should not prefetch comments during a bulk sync" do
+    mock_client = create_mock_client_with_issues_and_comments
+    comment_calls = []
+    mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, issue_number|
+      comment_calls << issue_number
+      []
+    end
+
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    result = @service.call
+
+    assert result[:success]
+    assert_empty comment_calls
+    assert_equal 0, IssueComment.where(issue: @repository.issues).count
+  end
+
+  # A nil cached_at is the signal IssueShowable uses to fetch the full issue
+  # (including comments) the first time it is viewed.
+  test "should leave bulk synced issues uncached so the show page hydrates them" do
+    mock_client = create_mock_client_with_issues_and_comments
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    @service.call
+
+    assert_nil @repository.issues.find_by(number: 1).cached_at
+    assert_nil @repository.issues.find_by(number: 2).cached_at
+  end
+
+  test "should preserve cached_at of already hydrated issues on bulk re-sync" do
+    hydrated_at = 2.minutes.ago
+    @repository.issues.create!(
+      number: 1,
+      title: "Old Title",
+      state: "open",
+      cached_at: hydrated_at
+    )
+
+    mock_client = create_mock_client_with_issues_and_comments
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    @service.call
+
+    issue = @repository.issues.find_by(number: 1)
+    assert_equal "Test Issue 1", issue.title
+    assert_in_delta hydrated_at, issue.cached_at, 1.second
   end
 
   test "should update existing issues on re-sync" do
@@ -86,16 +130,103 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
       body: "Old comment"
     )
 
-    mock_client = create_mock_client_with_issues_and_comments
+    # Comments are only synced for single-issue refreshes now
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 1)
+    test_context = self
+    mock_client = create_mock_client_with_single_issue(1)
+    mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
+      test_context.sample_comments_data
+    end
     Github::ApiClient.stubs(:new).returns(mock_client)
 
-    result = @service.call
+    result = service.call
 
     assert result[:success]
 
     # Verify comment was updated
     comment = issue.reload.issue_comments.find_by(github_id: 123456)
     assert_equal "commenter1", comment.author_login  # Updated
+  end
+
+  # Regression: GitHub omits deleted comments from the list response rather
+  # than flagging them, so a cached copy survives every re-sync unless we
+  # prune ids that stopped coming back. The show page then keeps rendering
+  # the deleted comment because the timeline API drops it too, and cached
+  # comments missing from the timeline are treated as ones to add back.
+  test "should delete cached comments that no longer exist on GitHub" do
+    issue = @repository.issues.create!(number: 1, title: "Test", state: "open")
+
+    issue.issue_comments.create!(github_id: 123456, author_login: "commenter1", body: "Kept")
+    issue.issue_comments.create!(github_id: 999999, author_login: "ghost", body: "Deleted upstream")
+
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 1)
+    test_context = self
+    mock_client = create_mock_client_with_single_issue(1)
+    mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
+      test_context.sample_comments_data
+    end
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    assert service.call[:success]
+
+    github_ids = issue.reload.issue_comments.pluck(:github_id)
+
+    assert_not_includes github_ids, 999999
+    assert_includes github_ids, 123456
+  end
+
+  # Deleting the *last* comment returns an empty array, which the old guard
+  # treated as "nothing to do" and returned early on, stranding every
+  # cached comment.
+  test "should delete cached comments when GitHub returns none" do
+    issue = @repository.issues.create!(number: 1, title: "Test", state: "open")
+    issue.issue_comments.create!(github_id: 123456, author_login: "ghost", body: "Deleted upstream")
+
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 1)
+    mock_client = create_mock_client_with_single_issue(1)
+    mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
+      []
+    end
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    assert service.call[:success]
+    assert_equal 0, issue.reload.issue_comments.count
+  end
+
+  # An error payload means we learned nothing about the comment thread, so the
+  # cache has to survive rather than be mistaken for an empty thread.
+  test "should keep cached comments when the comments request errors" do
+    issue = @repository.issues.create!(number: 1, title: "Test", state: "open")
+    issue.issue_comments.create!(github_id: 123456, author_login: "commenter1", body: "Kept")
+
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 1)
+    mock_client = create_mock_client_with_single_issue(1)
+    mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
+      { error: "rate limited" }
+    end
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    assert service.call[:success]
+    assert_equal 1, issue.reload.issue_comments.count
+  end
+
+  # Regression for the interaction between the prune and a 404 comments
+  # response: `fetch_issue_comments` used to rescue Octokit::NotFound into an
+  # empty array, which the prune could not distinguish from a genuine empty
+  # thread, so it destroyed every cached comment.
+  test "should keep cached comments when the comments request 404s" do
+    issue = @repository.issues.create!(number: 1, title: "Test", state: "open")
+    issue.issue_comments.create!(github_id: 123456, author_login: "commenter1", body: "Kept")
+
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 1)
+    mock_client = create_mock_client_with_single_issue(1)
+    mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
+      { error: Github::ApiClient::ERROR_ISSUE_NOT_FOUND }
+    end
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    assert service.call[:success]
+    assert_equal 1, issue.reload.issue_comments.count
   end
 
   test "should handle issues without comments" do
@@ -270,18 +401,12 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
   test "should rollback all changes if error occurs mid-sync" do
     test_context = self
     mock_client = Object.new
-    call_count = 0
     mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
-      [ test_context.sample_issue_data(1), test_context.sample_issue_data(2) ]
+      # Second issue is invalid (no title), so save! raises part-way through
+      [ test_context.sample_issue_data(1), test_context.sample_issue_data(2).merge(title: nil) ]
     end
-    mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, issue_number|
-      call_count += 1
-      # First call succeeds, second call raises error
-      if call_count == 1
-        test_context.sample_comments_data
-      else
-        raise StandardError.new("Comment fetch failed")
-      end
+    mock_client.define_singleton_method(:rate_limit_info) do
+      nil
     end
 
     Github::ApiClient.stubs(:new).returns(mock_client)

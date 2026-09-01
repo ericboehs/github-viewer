@@ -19,6 +19,14 @@ Rails.application.routes.draw do
         post :refresh
       end
     end
+    resources :pulls, only: [ :index, :show ] do
+      collection do
+        post :refresh
+      end
+      member do
+        post :refresh
+      end
+    end
   end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
@@ -34,5 +42,5 @@ Rails.application.routes.draw do
   root "dashboard#index"
 
   # Proxy-style issue viewing: /va.ghe.com/software/eert/issues/185 or /rails/rails/issues/123
-  get "*path", to: "proxy#show", constraints: ->(req) { req.path.match?(%r{/issues/\d+\z}) }
+  get "*path", to: "proxy#show", constraints: ->(req) { req.path.match?(%r{/(issues|pull)/\d+\z}) }
 end

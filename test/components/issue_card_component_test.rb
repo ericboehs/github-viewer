@@ -272,4 +272,98 @@ class IssueCardComponentTest < ViewComponent::TestCase
       refute_includes link[:href], "%20author%3A"  # No space before author:
     end
   end
+
+  test "links pull requests to the pulls route" do
+    pull = @repository.issues.create!(
+      number: 42,
+      title: "Add caching layer",
+      state: "open",
+      pull_request: true,
+      author_login: "developer",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    render_inline(IssueCardComponent.new(issue: pull, repository: @repository, list_scope: :pulls))
+
+    assert_selector "a[href*='/pulls/42']", text: "Add caching layer"
+  end
+
+  test "keeps author filter links within the pulls list" do
+    pull = @repository.issues.create!(
+      number: 43,
+      title: "Another pull request",
+      state: "open",
+      pull_request: true,
+      author_login: "developer",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    render_inline(IssueCardComponent.new(issue: pull, repository: @repository, list_scope: :pulls))
+
+    link = page.find("a", text: "developer")
+    assert_includes link[:href], "/pulls"
+  end
+
+  test "keeps assignee filter links within the pulls list" do
+    pull = @repository.issues.create!(
+      number: 44,
+      title: "Assigned pull request",
+      state: "open",
+      pull_request: true,
+      author_login: "developer",
+      assignees: [ { "login" => "reviewer", "avatar_url" => "https://example.com/a.png" } ],
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    render_inline(IssueCardComponent.new(issue: pull, repository: @repository, list_scope: :pulls))
+
+    assert_selector "a[href*='/pulls'][href*='assignee%3Areviewer']"
+  end
+
+  test "renders the merged state icon for merged pull requests" do
+    pull = @repository.issues.create!(
+      number: 45,
+      title: "Merged pull request",
+      state: "closed",
+      pull_request: true,
+      merged_at: 1.hour.ago,
+      author_login: "developer",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    render_inline(IssueCardComponent.new(issue: pull, repository: @repository, list_scope: :pulls))
+
+    assert_selector "span.text-purple-600 svg"
+  end
+
+  # When the existing query is nothing but an author qualifier, stripping it
+  # leaves an empty string and the new query must not gain a leading space.
+  test "builds author filter query when the current query is only an author" do
+    issue = @repository.issues.create!(
+      number: 77,
+      title: "Author only query",
+      state: "open",
+      author_login: "developer",
+      github_created_at: 1.day.ago,
+      github_updated_at: 1.hour.ago
+    )
+
+    with_request_query("author:someoneelse") do
+      render_inline(IssueCardComponent.new(issue: issue, repository: @repository))
+    end
+
+    link = page.find("a", text: "developer")
+    assert_includes link[:href], "q=author%3Adeveloper"
+  end
+
+  private
+
+  def with_request_query(query)
+    vc_test_controller.params[:q] = query
+    yield
+  end
 end

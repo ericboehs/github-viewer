@@ -101,10 +101,25 @@ en:
     mobile_menu:
       open: Open main menu
     repositories: Repositories
+    repository_tabs: Repository sections
     user_menu:
       open: Open user menu
       profile: Your Profile
       sign_out: Sign out
+  pulls:
+    index:
+      empty:
+        description: Try adjusting your search filters.
+        title: No pull requests found
+      search_placeholder: Search pull requests... (e.g., is:open label:bug)
+      state_filter:
+        closed: Closed
+        open: Open
+      title: Pull requests
+    page_title: Pull requests
+    show:
+      back_to_list: Back to Pull requests
+      title: 'Pull request #%{number}'
   repositories:
     create:
       error: 'Failed to add repository: %{error}'
