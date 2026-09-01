@@ -29,7 +29,7 @@ A modern Rails 8.1.0 application for viewing and managing GitHub issues with sma
 
 ### Backend
 - **Rails 8.1.0** with modern asset pipeline (Propshaft)
-- **Ruby 3.4.7**
+- **Ruby 4.0.6**
 - **SQLite3** for all environments including production (multi-database setup)
 - **Octokit 10.0+** for GitHub REST API integration with rate limiting and retries
 - **CommonMarker** for GitHub-flavored markdown rendering
@@ -55,7 +55,7 @@ A modern Rails 8.1.0 application for viewing and managing GitHub issues with sma
 
 ### Prerequisites
 
-- Ruby 3.4.7
+- Ruby 4.0.6
 - Rails 8.1.0+
 - SQLite3
 
