@@ -1,5 +1,4 @@
-<% if is_comment? %>
-  <!-- Full comment card -->
+<% if is_comment? %>  <!-- Full comment card -->
   <div class="bg-white dark:bg-black rounded-lg border border-blue-200 dark:border-gray-700 overflow-hidden">
     <!-- Header -->
     <div class="bg-blue-50 dark:bg-gray-900 px-4 py-3 border-b border-blue-200 dark:border-gray-700">
@@ -26,6 +25,43 @@
         </div>
       <% else %>
         <p class="text-gray-500 dark:text-gray-400 italic">No description provided.</p>
+      <% end %>
+    </div>
+  </div>
+<% elsif detailed_review? %>
+  <!-- Review with a summary body and/or inline comments -->
+  <div class="py-2">
+    <div class="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+      <div class="flex-shrink-0 mt-1 text-gray-400 dark:text-gray-500">
+        <%= event_icon_svg %>
+      </div>
+      <div class="flex-1">
+        <% if @item[:avatar_url] %>
+          <span class="inline-block align-middle mr-1">
+            <%= render AvatarComponent.new(src: @item[:avatar_url], alt: @item[:actor] || "Author", size: :small) %>
+          </span>
+        <% end %>
+        <span class="font-semibold text-gray-900 dark:text-white"><%= @item[:actor] %></span>
+        <%= event_text %>
+        <%= helpers.time_ago_tag(@item[:created_at]) %>
+      </div>
+    </div>
+
+    <div class="mt-2 ml-6 space-y-3">
+      <% if @item[:body].present? %>
+        <div class="markdown text-sm text-gray-900 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-3 bg-white dark:bg-black">
+          <%= helpers.render_markdown(@item[:body]) %>
+        </div>
+      <% end %>
+
+      <% review_comments.each do |review_comment| %>
+        <%= render ReviewCommentComponent.new(comment: review_comment) %>
+      <% end %>
+
+      <% if hidden_comment_count.positive? %>
+        <p class="text-xs text-gray-500 dark:text-gray-400 italic">
+          <%= t("pulls.reviews.more_comments", count: hidden_comment_count) %>
+        </p>
       <% end %>
     </div>
   </div>

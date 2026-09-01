@@ -250,8 +250,7 @@ class TimelineEventComponentTest < ViewComponent::TestCase
     {
       "APPROVED" => "approved these changes",
       "CHANGES_REQUESTED" => "requested changes",
-      "DISMISSED" => "had their review dismissed",
-      "COMMENTED" => "reviewed these changes"
+      "DISMISSED" => "had their review dismissed"
     }.each do |review_state, expected_text|
       render_inline(TimelineEventComponent.new(item: {
         type: "review",
@@ -263,6 +262,75 @@ class TimelineEventComponentTest < ViewComponent::TestCase
 
       assert_text expected_text
     end
+  end
+
+  # GitHub emits a COMMENTED review purely to carry inline comments, so one
+  # with neither a body nor comments says nothing and is left out.
+  test "renders nothing for an empty commented review" do
+    render_inline(TimelineEventComponent.new(item: {
+      type: "review",
+      id: "empty",
+      created_at: Time.current,
+      actor: "reviewer",
+      review_state: "COMMENTED"
+    }))
+
+    assert_no_text "reviewed these changes"
+  end
+
+  test "renders a commented review that carries a body" do
+    render_inline(TimelineEventComponent.new(item: {
+      type: "review",
+      id: "with_body",
+      created_at: Time.current,
+      actor: "reviewer",
+      review_state: "COMMENTED",
+      body: "Looks reasonable overall."
+    }))
+
+    assert_text "reviewed these changes"
+    assert_text "Looks reasonable overall."
+  end
+
+  test "renders inline review comments" do
+    render_inline(TimelineEventComponent.new(item: {
+      type: "review",
+      id: "with_comments",
+      created_at: Time.current,
+      actor: "reviewer",
+      review_state: "COMMENTED",
+      comments: [ {
+        id: "c1",
+        body: "Should this be memoized?",
+        path: "app/models/issue.rb",
+        diff_hunk: "@@ -1,3 +1,4 @@\n def call\n+  expensive\n end",
+        line: 12,
+        created_at: Time.current,
+        actor: "reviewer"
+      } ]
+    }))
+
+    assert_text "reviewed these changes"
+    assert_text "app/models/issue.rb"
+    assert_text "line 12"
+    assert_text "Should this be memoized?"
+  end
+
+  test "notes inline comments beyond the first page" do
+    render_inline(TimelineEventComponent.new(item: {
+      type: "review",
+      id: "truncated",
+      created_at: Time.current,
+      actor: "reviewer",
+      review_state: "COMMENTED",
+      comments_total: 53,
+      comments: [ {
+        id: "c1", body: "First.", path: "a.rb", diff_hunk: nil,
+        line: 1, created_at: Time.current, actor: "reviewer"
+      } ]
+    }))
+
+    assert_text "52 more comments not shown."
   end
 
   test "renders nothing for unknown event types" do
