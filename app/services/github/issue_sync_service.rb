@@ -18,7 +18,7 @@ module Github
     # :reek:DuplicateMethodCall - repository.github_domain accessed for token lookup and client
     def call
       domain = repository.github_domain
-      github_token = user.github_tokens.find_by(domain: domain)
+      github_token = user.github_token_for(domain)
       return { success: false, error: missing_token_error } unless github_token
 
       client = Github::ApiClient.new(token: github_token.token, domain: domain)

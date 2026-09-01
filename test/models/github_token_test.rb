@@ -52,4 +52,22 @@ class GithubTokenTest < ActiveSupport::TestCase
     # We can verify this by checking that the token is accessible but stored differently
     assert_equal "plaintext_token", token.token
   end
+
+  # Ciphertext written under a different set of encryption keys is
+  # unrecoverable. It must not take down the page that lets you replace it.
+  test "treats an undecryptable token as unreadable" do
+    token = GithubToken.create!(user: users(:one), domain: "github.com", token: "plaintext_token")
+    token.stubs(:token).raises(ActiveRecord::Encryption::Errors::Decryption)
+
+    assert_nil token.readable_token
+    assert_not token.readable?
+    assert_nil token.masked_token
+  end
+
+  test "masks a readable token" do
+    token = GithubToken.create!(user: users(:one), domain: "github.com", token: "ghp_abcdefghijklmn")
+
+    assert token.readable?
+    assert_equal "ghp_ab*****mn", token.masked_token
+  end
 end

@@ -157,4 +157,25 @@ class UserTest < ActiveSupport::TestCase
 
     assert_not GithubToken.exists?(token_id)
   end
+
+  test "github_token_for returns the token for a domain" do
+    user = users(:one)
+    token = user.github_tokens.create!(domain: "va.ghe.com", token: "ghp_example_token")
+
+    assert_equal token, user.github_token_for("va.ghe.com")
+  end
+
+  test "github_token_for returns nil when no token is stored" do
+    assert_nil users(:one).github_token_for("nowhere.example.com")
+  end
+
+  # An unreadable token is worse than useless: callers already handle a missing
+  # one, so report it as absent rather than letting decryption blow up midway.
+  test "github_token_for treats an undecryptable token as absent" do
+    user = users(:one)
+    user.github_tokens.create!(domain: "va.ghe.com", token: "ghp_example_token")
+    GithubToken.any_instance.stubs(:readable?).returns(false)
+
+    assert_nil user.github_token_for("va.ghe.com")
+  end
 end

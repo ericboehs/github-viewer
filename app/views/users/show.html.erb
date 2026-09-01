@@ -49,7 +49,13 @@
                     <%= token.domain %>
                   </td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">
-                    <%= token.token.first(6) %>*****<%= token.token.last(2) %>
+                    <% if token.masked_token %>
+                      <%= token.masked_token %>
+                    <% else %>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 font-sans">
+                        <%= t('users.show.github_tokens.table.unreadable') %>
+                      </span>
+                    <% end %>
                   </td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                     <%= time_ago_in_words(token.created_at) %> ago

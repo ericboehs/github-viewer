@@ -15,7 +15,7 @@ class SyncRepositoryAssignableUsersJob < ApplicationJob
     user = repository.user
 
     # Find the GitHub token for this repository's domain
-    github_token = user.github_tokens.find_by(domain: repository.github_domain)
+    github_token = user.github_token_for(repository.github_domain)
     unless github_token
       Rails.logger.error "No GitHub token found for domain #{repository.github_domain}"
       return

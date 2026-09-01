@@ -89,4 +89,19 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   def sign_in_as(user)
     post session_url, params: { email_address: user.email_address, password: "password123" }
   end
+
+  # Regression: the profile page rendered a masked preview by decrypting the
+  # token, so an unreadable one 500ed the only page that can remove it.
+  test "profile still renders when a token cannot be decrypted" do
+    sign_in_as(@user)
+    @user.github_tokens.create!(domain: "va.ghe.com", token: "ghp_example_token")
+    # Only the persisted row has unreadable ciphertext; the blank record behind
+    # the "add token" form must still render normally.
+    GithubToken.any_instance.stubs(:readable_token).returns(nil)
+
+    get user_path
+
+    assert_response :success
+    assert_match "Unreadable", response.body
+  end
 end

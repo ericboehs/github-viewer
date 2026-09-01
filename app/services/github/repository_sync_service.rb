@@ -13,7 +13,7 @@ class Github::RepositorySyncService
   end
 
   def call
-    github_token = user.github_tokens.find_by(domain: github_domain)
+    github_token = user.github_token_for(github_domain)
     return { success: false, error: missing_token_error } unless github_token
 
     client = Github::ApiClient.new(token: github_token.token, domain: github_domain)

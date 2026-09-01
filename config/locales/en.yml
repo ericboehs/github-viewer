@@ -214,6 +214,7 @@ en:
           added: Added
           domain: Domain
           token: Token
+          unreadable: Unreadable — remove and re-add
         title: GitHub Tokens
       member_since: Member since %{date}
       page_title: Profile
