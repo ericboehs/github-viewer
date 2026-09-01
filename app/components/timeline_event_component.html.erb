@@ -72,6 +72,10 @@
         <% if @item[:was_automated] %>
           <span class="text-xs text-gray-500 dark:text-gray-400">(automated)</span>
         <% end %>
+      <% elsif @type == "merged" %>
+        <span class="font-mono text-xs text-gray-900 dark:text-white"><%= @item[:merge_ref_name] %></span>
+      <% elsif @type == "review_requested" %>
+        <span class="font-medium text-gray-900 dark:text-white"><%= @item[:reviewer] %></span>
       <% end %>
 
       <%= helpers.time_ago_tag(@item[:created_at]) %>

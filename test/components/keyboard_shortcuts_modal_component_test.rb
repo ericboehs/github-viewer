@@ -85,4 +85,32 @@ class KeyboardShortcutsModalComponentTest < ViewComponent::TestCase
 
     assert_selector "[data-action*='click->keyboard-shortcuts#closeOnOutside']"
   end
+
+  def test_renders_cmd_shortcut_on_mac_user_agents
+    with_request_user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)") do
+      render_inline(KeyboardShortcutsModalComponent.new)
+      assert_text "Cmd-/"
+    end
+  end
+
+  def test_renders_ctrl_shortcut_on_non_mac_user_agents
+    with_request_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)") do
+      render_inline(KeyboardShortcutsModalComponent.new)
+      assert_text "Ctrl-/"
+    end
+  end
+
+  def test_falls_back_to_ctrl_when_request_is_unavailable
+    component = KeyboardShortcutsModalComponent.new
+    component.stubs(:helpers).raises(NoMethodError)
+
+    assert_equal false, component.send(:mac_platform?)
+  end
+
+  private
+
+  def with_request_user_agent(user_agent)
+    vc_test_controller.request.user_agent = user_agent
+    yield
+  end
 end

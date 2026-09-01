@@ -1,6 +1,6 @@
-<% content_for :title, "#{t('issues.page_title')} - #{@repository.full_name}" %>
+<% content_for :title, "#{t("#{list_i18n_scope}.page_title")} - #{@repository.full_name}" %>
 
-<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]" data-controller="keyboard-shortcuts" data-keyboard-shortcuts-navigable-target-value="issueCard" data-keyboard-shortcuts-link-selector-value="a[href*='/issues/']">
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]" data-controller="keyboard-shortcuts" data-keyboard-shortcuts-navigable-target-value="issueCard" data-keyboard-shortcuts-link-selector-value="<%= pull_request_scope? ? "a[href*='/pulls/']" : "a[href*='/issues/']" %>">
   <%= render 'shared/navbar' %>
 
   <div class="py-5">
@@ -17,7 +17,7 @@
           <% if @search_mode == :local && @repository.stale? && @repository.cached_at.present? %>
             <div class="flex items-center gap-2">
               <div class="relative group">
-                <%= button_to refresh_repository_issues_path(@repository), method: :post, params: (params[:q].present? ? { q: params[:q] } : {}), class: "inline-flex items-center p-2 text-yellow-600 dark:text-yellow-500 hover:text-emerald-600 dark:hover:text-emerald-500 transition-colors cursor-pointer" do %>
+                <%= button_to list_refresh_path(@repository), method: :post, params: (params[:q].present? ? { q: params[:q] } : {}), class: "inline-flex items-center p-2 text-yellow-600 dark:text-yellow-500 hover:text-emerald-600 dark:hover:text-emerald-500 transition-colors cursor-pointer" do %>
                   <!-- Warning icon - shown by default -->
                   <svg class="h-5 w-5 group-hover:hidden" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
@@ -41,24 +41,35 @@
             </div>
           <% end %>
         </div>
+
+        <!-- Issues / Pull requests tabs -->
+        <nav class="mt-4 flex gap-6 border-b border-gray-200 dark:border-gray-700" aria-label="<%= t('navigation.repository_tabs') %>">
+          <% [[:issues, repository_issues_path(@repository), t('issues.index.title')],
+              [:pulls, repository_pulls_path(@repository), t('pulls.index.title')]].each do |scope, path, label| %>
+            <% active = list_scope == scope %>
+            <%= link_to label, path,
+                class: "-mb-px border-b-2 px-1 pb-2 text-sm font-medium #{active ? 'border-emerald-500 text-gray-900 dark:text-white' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}",
+                "aria-current": (active ? "page" : nil) %>
+          <% end %>
+        </nav>
       </div>
     </header>
 
     <main>
       <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
-        <%= form_with url: repository_issues_path(@repository), method: :get do |f| %>
+        <%= form_with url: list_index_path(@repository), method: :get do |f| %>
           <!-- Search Bar -->
           <div class="flex gap-3 mb-4">
             <div class="flex-1 relative">
               <div class="grid grid-cols-1">
                 <%= f.text_field :q,
                     value: @query.present? ? "#{@query} " : @query,
-                    placeholder: t('issues.index.search_placeholder'),
+                    placeholder: t("#{list_i18n_scope}.index.search_placeholder"),
                     autocomplete: "off",
                     data: { keyboard_shortcuts_target: "searchInput" },
                     class: "col-start-1 row-start-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white px-3 py-1.5 pr-10 text-base text-gray-900 placeholder:text-gray-400 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 sm:text-sm/6" %>
                 <% if @query.present? %>
-                  <%= link_to repository_issues_path(@repository, q: ""), class: "col-start-1 row-start-1 mr-3 size-5 self-center justify-self-end text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400" do %>
+                  <%= link_to list_index_path(@repository, q: ""), class: "col-start-1 row-start-1 mr-3 size-5 self-center justify-self-end text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400" do %>
                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clip-rule="evenodd" />
                     </svg>
@@ -88,11 +99,11 @@
                   query_open = query_without_state.present? ? "state:open #{query_without_state}" : "state:open"
                   query_closed = query_without_state.present? ? "state:closed #{query_without_state}" : "state:closed"
                 %>
-                <%= link_to repository_issues_path(@repository, q: query_open), class: "text-sm font-medium whitespace-nowrap #{has_state_open ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}" do %>
-                  <%= "#{@open_count} " if @open_count %><%= t('issues.index.state_filter.open') %>
+                <%= link_to list_index_path(@repository, q: query_open), class: "text-sm font-medium whitespace-nowrap #{has_state_open ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}" do %>
+                  <%= "#{@open_count} " if @open_count %><%= t("#{list_i18n_scope}.index.state_filter.open") %>
                 <% end %>
-                <%= link_to repository_issues_path(@repository, q: query_closed), class: "text-sm font-medium whitespace-nowrap #{has_state_closed ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}" do %>
-                  <%= "#{@closed_count} " if @closed_count %><%= t('issues.index.state_filter.closed') %>
+                <%= link_to list_index_path(@repository, q: query_closed), class: "text-sm font-medium whitespace-nowrap #{has_state_closed ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}" do %>
+                  <%= "#{@closed_count} " if @closed_count %><%= t("#{list_i18n_scope}.index.state_filter.closed") %>
                 <% end %>
               </div>
 
@@ -108,14 +119,14 @@
 
               <!-- Desktop: Filter Dropdowns inline (on same row, right side) -->
               <div class="hidden md:flex md:flex-wrap md:items-center md:gap-2 md:ml-auto">
-                <%= render partial: "filter_dropdowns", locals: { query_text: query_text } %>
+                <%= render partial: "issues/filter_dropdowns", locals: { query_text: query_text } %>
               </div>
             </div>
 
             <!-- Mobile: Collapsible Filter Dropdowns (below top row, hidden by default) -->
             <div class="md:hidden mt-3 hidden" data-filters-toggle-target="mobileFilters">
               <div class="flex flex-wrap items-center gap-2">
-                <%= render partial: "filter_dropdowns", locals: { query_text: query_text } %>
+                <%= render partial: "issues/filter_dropdowns", locals: { query_text: query_text } %>
               </div>
             </div>
           </div>
@@ -124,7 +135,7 @@
             <% if @issues.any? %>
               <div class="divide-y divide-gray-200 dark:divide-gray-700">
                 <% @issues.each do |issue| %>
-                  <%= render IssueCardComponent.new(issue: issue, repository: @repository) %>
+                  <%= render IssueCardComponent.new(issue: issue, repository: @repository, list_scope: list_scope) %>
                 <% end %>
               </div>
 
@@ -133,14 +144,14 @@
                 <div class="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 py-3 sm:px-6 mt-4">
                   <div class="flex flex-1 justify-between sm:hidden">
                     <% if @pagy.prev %>
-                      <%= link_to repository_issues_path(@repository, q: params[:q], page: @pagy.prev), class: "relative inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" do %>
+                      <%= link_to list_index_path(@repository, q: params[:q], page: @pagy.prev), class: "relative inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" do %>
                         Previous
                       <% end %>
                     <% else %>
                       <span class="relative inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 px-4 py-2 text-sm font-medium text-gray-400 dark:text-gray-500 cursor-not-allowed">Previous</span>
                     <% end %>
                     <% if @pagy.next %>
-                      <%= link_to repository_issues_path(@repository, q: params[:q], page: @pagy.next), class: "relative ml-3 inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" do %>
+                      <%= link_to list_index_path(@repository, q: params[:q], page: @pagy.next), class: "relative ml-3 inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700" do %>
                         Next
                       <% end %>
                     <% else %>
@@ -163,7 +174,7 @@
                       <nav aria-label="Pagination" class="isolate inline-flex -space-x-px rounded-md shadow-sm">
                         <!-- Previous Button -->
                         <% if @pagy.prev %>
-                          <%= link_to repository_issues_path(@repository, q: params[:q], page: @pagy.prev), class: "relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 dark:text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0" do %>
+                          <%= link_to list_index_path(@repository, q: params[:q], page: @pagy.prev), class: "relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 dark:text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0" do %>
                             <span class="sr-only">Previous</span>
                             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5">
                               <path d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd" fill-rule="evenodd" />
@@ -185,7 +196,7 @@
                             <% if page_num == @pagy.page %>
                               <span aria-current="page" class="relative z-10 inline-flex items-center bg-emerald-600 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"><%= page_num %></span>
                             <% else %>
-                              <%= link_to page_num, repository_issues_path(@repository, q: params[:q], page: (page_num == 1 ? nil : page_num)), class: "relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0" %>
+                              <%= link_to page_num, list_index_path(@repository, q: params[:q], page: (page_num == 1 ? nil : page_num)), class: "relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-200 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0" %>
                             <% end %>
                           <% elsif item == :gap %>
                             <span class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600">...</span>
@@ -194,7 +205,7 @@
 
                         <!-- Next Button -->
                         <% if @pagy.next %>
-                          <%= link_to repository_issues_path(@repository, q: params[:q], page: @pagy.next), class: "relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 dark:text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0" do %>
+                          <%= link_to list_index_path(@repository, q: params[:q], page: @pagy.next), class: "relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 dark:text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-offset-0" do %>
                             <span class="sr-only">Next</span>
                             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5">
                               <path d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
@@ -218,8 +229,8 @@
                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-white"><%= t('issues.index.empty.title') %></h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= t('issues.index.empty.description') %></p>
+                <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-white"><%= t("#{list_i18n_scope}.index.empty.title") %></h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= t("#{list_i18n_scope}.index.empty.description") %></p>
               </div>
             <% end %>
           </div>

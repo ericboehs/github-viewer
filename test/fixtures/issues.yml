@@ -29,3 +29,53 @@ two:
   github_created_at: 2025-10-20 09:00:00
   github_updated_at: 2025-10-27 14:00:00
   cached_at: 2025-10-29 15:51:46
+
+pull_request:
+  repository: one
+  number: 3
+  title: Add caching layer
+  state: open
+  body: Pull request description
+  author_login: dhh
+  author_avatar_url: https://avatars.githubusercontent.com/u/2741?v=4
+  labels: [{"name": "enhancement", "color": "84b6eb"}]
+  assignees: []
+  comments_count: 1
+  pull_request: true
+  github_created_at: 2025-10-26 10:00:00
+  github_updated_at: 2025-10-28 16:00:00
+  cached_at: 2025-10-29 15:51:46
+
+merged_pull_request:
+  repository: one
+  number: 4
+  title: Speed up boot time
+  state: closed
+  body: Merged pull request description
+  author_login: tenderlove
+  author_avatar_url: https://avatars.githubusercontent.com/u/3?v=4
+  labels: []
+  assignees: []
+  comments_count: 0
+  pull_request: true
+  merged_at: 2025-10-28 12:00:00
+  github_created_at: 2025-10-22 10:00:00
+  github_updated_at: 2025-10-28 12:00:00
+  cached_at: 2025-10-29 15:51:46
+
+draft_pull_request:
+  repository: one
+  number: 5
+  title: Experimental rewrite
+  state: open
+  body: Draft pull request description
+  author_login: dhh
+  author_avatar_url: https://avatars.githubusercontent.com/u/2741?v=4
+  labels: []
+  assignees: []
+  comments_count: 0
+  pull_request: true
+  draft: true
+  github_created_at: 2025-10-27 10:00:00
+  github_updated_at: 2025-10-28 10:00:00
+  cached_at: 2025-10-29 15:51:46

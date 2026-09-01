@@ -143,4 +143,43 @@ class IssueLabelComponentTest < ViewComponent::TestCase
     assert_includes link[:href], "label%3Abug"
     assert_text "bug"
   end
+
+  test "links to the pulls list when scoped to pull requests" do
+    user = User.create!(email_address: "label-pulls@example.com", password: "password123")
+    repository = user.repositories.create!(
+      owner: "testuser",
+      name: "testrepo",
+      full_name: "testuser/testrepo",
+      url: "https://github.com/testuser/testrepo",
+      github_domain: "github.com"
+    )
+
+    render_inline(IssueLabelComponent.new(
+      label: { "name" => "bug", "color" => "d73a4a" },
+      repository: repository,
+      list_scope: :pulls
+    ))
+
+    link = page.find("a")
+    assert_includes link[:href], "/pulls"
+    assert_includes link[:href], "is%3Apr"
+    assert_includes link[:href], "label%3Abug"
+  end
+
+  # rgb_to_hsl picks a different hue formula depending on which channel is
+  # brightest, and red-max has a further branch for green < blue.
+  test "computes readable text colors across all hue branches" do
+    {
+      "00ff00" => "green-dominant",
+      "0000ff" => "blue-dominant",
+      "ff0000" => "red-dominant with green >= blue",
+      "ff00ff" => "red-dominant with green < blue",
+      "808080" => "achromatic"
+    }.each do |color, description|
+      render_inline(IssueLabelComponent.new(label: { "name" => description, "color" => color }))
+
+      assert_text description
+      assert_selector "span[style*='background-color: rgb(']"
+    end
+  end
 end

@@ -30,6 +30,29 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", text: /Test Issue/
   end
 
+  # GitHub's own pull request URLs use /pull/:number
+  test "should view pull request via owner/repo/pull path" do
+    repo = create_repo("github.com", "rails", "rails")
+    pull = create_issue(repo, 456, "Test Pull Request")
+    pull.update!(pull_request: true)
+
+    get "/rails/rails/pull/456"
+    assert_response :success
+    assert_select "h1", text: /Test Pull Request/
+    # Refresh button and back links stay in the pulls scope
+    assert_select "form[action=?]", refresh_repository_pull_path(repo, 456)
+  end
+
+  test "should link a proxied pull request back to GitHub's pull URL" do
+    repo = create_repo("github.com", "rails", "rails")
+    pull = create_issue(repo, 456, "Test Pull Request")
+    pull.update!(pull_request: true)
+
+    get "/rails/rails/pull/456"
+    assert_response :success
+    assert_select "a[href=?]", "https://github.com/rails/rails/pull/456"
+  end
+
   # Three-segment with dot: domain/owner/repo for GHE
   test "should view issue via domain/owner/repo path for GHE" do
     repo = create_repo("va.ghe.com", "software", "eert")
@@ -129,6 +152,56 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
     get "/org/sub/repo/issues/1"
     assert_redirected_to root_path
     assert_match /Invalid issue URL/, flash[:alert]
+  end
+
+  # Path parsing rejections
+
+  test "should redirect on paths that are too short" do
+    get "/rails/issues/1"
+    assert_redirected_to root_path
+    assert_match(/Invalid issue URL format/, flash[:alert])
+  end
+
+  test "should redirect on zero issue numbers" do
+    get "/rails/rails/issues/0"
+    assert_redirected_to root_path
+    assert_match(/Invalid issue URL format/, flash[:alert])
+  end
+
+  # The catch-all route only forwards /issues/N and /pull/N, so these
+  # rejections are exercised directly against the parser.
+  test "parse_proxy_path rejects unsupported path kinds" do
+    controller = ProxyController.new
+    assert_nil controller.send(:parse_proxy_path, "rails/rails/discussions/1")
+  end
+
+  test "parse_proxy_path rejects blank paths" do
+    controller = ProxyController.new
+    assert_nil controller.send(:parse_proxy_path, "")
+  end
+
+  test "parse_proxy_path maps pull paths to the pulls scope" do
+    controller = ProxyController.new
+    parsed = controller.send(:parse_proxy_path, "rails/rails/pull/9")
+    assert_equal IssueScoped::PULLS_SCOPE, parsed[:scope]
+    assert_equal 9, parsed[:issue_number]
+  end
+
+  test "should redirect on paths with too many segments" do
+    get "/a/b/c/d/issues/1"
+    assert_redirected_to root_path
+    assert_match(/Invalid issue URL format/, flash[:alert])
+  end
+
+  test "should redirect when the repository cannot be found on GitHub" do
+    Github::RepositorySyncService.any_instance.stubs(:call).returns(
+      { success: false, error: "Not Found" }
+    )
+
+    get "/unknown/repo/issues/1"
+
+    assert_redirected_to root_path
+    assert_match(/Could not find repository unknown\/repo on github.com/, flash[:alert])
   end
 
   private

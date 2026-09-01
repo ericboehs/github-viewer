@@ -42,4 +42,25 @@ class IssueStateComponentTest < ViewComponent::TestCase
     assert_selector "svg path[d*='M8 9.5a1.5']"
     assert_selector "svg path[d*='M8 0a8 8 0 1 1 0 16']"
   end
+
+  test "renders merged state with text and correct styling" do
+    render_inline(IssueStateComponent.new(state: "merged", show_text: true))
+
+    assert_selector "span.bg-purple-200.text-purple-900"
+    assert_text "Merged"
+  end
+
+  test "renders draft state with text and correct styling" do
+    render_inline(IssueStateComponent.new(state: "draft", show_text: true))
+
+    assert_selector "span.bg-gray-200"
+    assert_text "Draft"
+  end
+
+  test "falls back to open styling for unknown states" do
+    render_inline(IssueStateComponent.new(state: "bogus", show_text: true))
+
+    assert_selector "span.bg-green-200.text-green-900"
+    assert_text "Open"
+  end
 end

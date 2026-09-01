@@ -117,7 +117,9 @@ module Github
       labels = filters[:labels] || []
       assignee = filters[:assignee]
       author = filters[:author]
+      type = filters[:type]
 
+      issues = issues.of_type(type) if type.present?
       issues = issues.by_state(state) if state.present?
       # Apply each label filter (must have all labels)
       labels.each do |label|
@@ -154,7 +156,9 @@ module Github
       labels = filters[:labels] || []
       assignee = filters[:assignee]
       author = filters[:author]
+      type = filters[:type]
 
+      parts << "is:#{type}" if type.present?
       parts << "state:#{state}" if state.present?
       # Add each label as a separate qualifier
       labels.each do |label|
@@ -200,6 +204,9 @@ module Github
         comments_count: issue_data[:comments_count],
         github_created_at: issue_data[:created_at],
         github_updated_at: issue_data[:updated_at],
+        pull_request: issue_data[:pull_request].present?,
+        draft: issue_data[:draft].present?,
+        merged_at: issue_data[:merged_at],
         cached_at: nil  # Not cached in database
       )
     end

@@ -140,7 +140,7 @@ GitHub Issues Viewer is a modern Rails 8.1.0 application that provides a GitHub.
 
 #### Backend
 - **Rails 8.1.0** with modern asset pipeline (Propshaft)
-- **Ruby 3.4.7**
+- **Ruby 4.0.6**
 - **SQLite3** for all environments including production
 - **Octokit 10.0+** for GitHub REST and GraphQL API integration
 - **Faraday-Retry** for HTTP retry middleware
@@ -340,7 +340,7 @@ Dual search implementation:
 ## Dependencies
 
 ### Application Dependencies
-- **Ruby 3.4.7** - Application runtime
+- **Ruby 4.0.6** - Application runtime
 - **Rails 8.1.0** - Web framework with Solid libraries
 - **SQLite3** - Database for all environments
 - **Octokit ~> 10.0** - GitHub API client (Ruby)

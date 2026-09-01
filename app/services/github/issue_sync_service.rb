@@ -40,8 +40,16 @@ module Github
         return handle_api_error(error) if error
       end
 
-      # Sync issues and comments
-      synced_count = sync_issues_with_comments(client, issues_data)
+      # Sync issues, and comments only for single-issue refreshes.
+      #
+      # Bulk syncs deliberately skip comment prefetching: fetching a comment
+      # thread per issue means one HTTP round-trip per issue (200+ sequential
+      # requests) inside a single transaction, which made list pages take
+      # minutes on slower GitHub Enterprise hosts. Bulk-synced issues keep a
+      # nil `cached_at`, so `IssueShowable` treats them as stale and fetches
+      # the full issue plus its comments on first view instead.
+      single_issue_sync = issue_number.present?
+      synced_count = sync_issues_with_comments(client, issues_data, with_comments: single_issue_sync)
 
       # Update repository cache timestamp only when syncing all issues
       # Single issue refreshes should not update the repository timestamp
@@ -63,17 +71,19 @@ module Github
     end
 
     # :reek:TooManyStatements - Orchestrates issue and comment syncing
-    def sync_issues_with_comments(client, issues_data)
+    # :reek:ControlParameter - with_comments selects the sync strategy
+    # :reek:BooleanParameter - Bulk and single-issue syncs differ only by this flag
+    def sync_issues_with_comments(client, issues_data, with_comments: true)
       synced_count = 0
 
       # Use transaction for atomicity - all issues sync or none
       ApplicationRecord.transaction do
         issues_data.each do |issue_data|
           # Upsert issue
-          issue = upsert_issue(issue_data)
+          issue = upsert_issue(issue_data, cached: with_comments)
 
           # Fetch and sync comments
-          sync_issue_comments(client, issue, issue_data[:number])
+          sync_issue_comments(client, issue, issue_data[:number]) if with_comments
 
           synced_count += 1
         end
@@ -83,8 +93,10 @@ module Github
     end
 
     # :reek:UtilityFunction - Data transformation and persistence helper
-    def upsert_issue(issue_data)
-      issue_attrs = issue_attributes(issue_data)
+    # :reek:ControlParameter - cached marks whether the record is fully hydrated
+    # :reek:BooleanParameter - Hydration state is inherently a yes/no
+    def upsert_issue(issue_data, cached: true)
+      issue_attrs = issue_attributes(issue_data, cached: cached)
 
       repository.issues.find_or_initialize_by(
         number: issue_data[:number]
@@ -94,9 +106,15 @@ module Github
       end
     end
 
+    # `cached_at` is only stamped once an issue has been fully hydrated
+    # (including its comments). Bulk syncs leave the column untouched so new
+    # records keep a nil `cached_at` (signalling the show page to fetch the
+    # comment thread on demand) while already-hydrated issues keep theirs.
     # :reek:UtilityFunction - Data transformation helper
-    def issue_attributes(issue_data)
-      {
+    # :reek:ControlParameter - cached marks whether the record is fully hydrated
+    # :reek:BooleanParameter - Hydration state is inherently a yes/no
+    def issue_attributes(issue_data, cached: true)
+      attributes = {
         title: issue_data[:title],
         state: issue_data[:state],
         body: issue_data[:body],
@@ -107,20 +125,40 @@ module Github
         comments_count: issue_data[:comments_count],
         github_created_at: issue_data[:created_at],
         github_updated_at: issue_data[:updated_at],
-        cached_at: Time.current
+        pull_request: issue_data[:pull_request].present?,
+        draft: issue_data[:draft].present?,
+        merged_at: issue_data[:merged_at]
       }
+
+      cached ? attributes.merge(cached_at: Time.current) : attributes
     end
 
     # :reek:FeatureEnvy - issue encapsulates issue_comments relationship
     def sync_issue_comments(client, issue, issue_number)
       comments_data = client.fetch_issue_comments(repository.owner, repository.name, issue_number)
 
-      # Handle empty or error responses
-      return if comments_data.empty? || (comments_data.is_a?(Hash) && comments_data[:error])
+      # Bail on error payloads only. An empty array is a valid "this issue has
+      # no comments" answer and still has to reach the prune below, otherwise
+      # deleting the last comment upstream would strand the cached copy.
+      return if comments_data.is_a?(Hash) && comments_data[:error]
 
-      comments_data.each do |comment_data|
-        upsert_comment(issue, comment_data)
+      synced_ids = comments_data.map do |comment_data|
+        upsert_comment(issue, comment_data).github_id
       end
+
+      prune_deleted_comments(issue, synced_ids)
+    end
+
+    # GitHub simply omits deleted comments from the list response, so anything
+    # still cached under an id we did not just see has been removed upstream.
+    # Without this the show page keeps rendering it forever: the timeline API
+    # drops the comment too, and `merge_timeline_with_comments` treats cached
+    # comments missing from the timeline as ones it needs to add back.
+    # :reek:UtilityFunction - issue encapsulates issue_comments relationship
+    def prune_deleted_comments(issue, synced_ids)
+      stale = issue.issue_comments
+      stale = stale.where.not(github_id: synced_ids) if synced_ids.any?
+      stale.destroy_all
     end
 
     # :reek:UtilityFunction - Data transformation and persistence helper

@@ -85,4 +85,34 @@ class KeyboardShortcutsHelperTest < ActionView::TestCase
     assert_kind_of String, first_item[:description]
     assert first_item[:description].length > 0
   end
+
+  # mac_platform? drives the Cmd-/ vs Ctrl-/ label in every shortcut set
+
+  test "shortcuts use Cmd-/ on macOS user agents" do
+    request.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+
+    [ issue_shortcuts, repository_shortcuts, base_shortcuts ].each do |shortcuts|
+      search = shortcuts.find { |cat| cat[:category].start_with?("Search") }
+      focus = search[:items].find { |item| item[:description] == "Focus search bar" }
+      assert_equal [ "Cmd-/" ], focus[:keys]
+    end
+  end
+
+  test "shortcuts use Ctrl-/ on non-macOS user agents" do
+    request.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+
+    [ issue_shortcuts, repository_shortcuts, base_shortcuts ].each do |shortcuts|
+      search = shortcuts.find { |cat| cat[:category].start_with?("Search") }
+      focus = search[:items].find { |item| item[:description] == "Focus search bar" }
+      assert_equal [ "Ctrl-/" ], focus[:keys]
+    end
+  end
+
+  test "shortcuts fall back to Ctrl-/ when no request is available" do
+    self.stubs(:request).raises(NoMethodError)
+
+    search = base_shortcuts.find { |cat| cat[:category] == "Search" }
+    focus = search[:items].find { |item| item[:description] == "Focus search bar" }
+    assert_equal [ "Ctrl-/" ], focus[:keys]
+  end
 end

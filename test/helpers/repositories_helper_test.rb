@@ -102,4 +102,8 @@ class RepositoriesHelperTest < ActionView::TestCase
     result = parse_repository_url("https:")
     assert_nil result
   end
+
+  test "parse_repository_url returns nil for a malformed URL" do
+    assert_nil parse_repository_url("http://[bad url]/rails/rails")
+  end
 end

@@ -104,7 +104,13 @@ module Github
         comments.map { |comment| normalize_comment_data(comment) }
       end
     rescue Octokit::NotFound
-      []
+      # Must not be `[]`. Callers prune their cached comments against this
+      # response, and a 404 here means we learned nothing about the thread
+      # (token scope lost, repo renamed, issue converted to a discussion) --
+      # not that the thread is empty. Returning an empty array would let the
+      # prune delete every cached comment. `fetch_issue` reports the same
+      # exception the same way.
+      { error: ERROR_ISSUE_NOT_FOUND }
     rescue Octokit::SAMLProtected
       { error: ERROR_SAML_PROTECTED }
     end
@@ -121,67 +127,78 @@ module Github
       { error: ERROR_SAML_PROTECTED }
     end
 
-    # Fetch project memberships and field values for an issue via GraphQL
+    # Fetch project memberships and field values for an issue or pull request via GraphQL
     # Returns array of project items with fields like Status, Sprint, Priority, Estimate, etc.
     # Returns empty array on error (graceful degradation)
     def fetch_issue_project_fields(owner, repo_name, issue_number)
       query = <<~GRAPHQL
-        query($owner: String!, $name: String!, $number: Int!) {
-          repository(owner: $owner, name: $name) {
-            issue(number: $number) {
-              projectItems(first: 10) {
-                nodes {
-                  id
-                  project {
-                    title
-                    number
-                    url
-                  }
-                  fieldValues(first: 20) {
-                    nodes {
-                      __typename
-                      ... on ProjectV2ItemFieldSingleSelectValue {
-                        name
-                        field {
-                          ... on ProjectV2SingleSelectField {
-                            name
-                          }
-                        }
-                      }
-                      ... on ProjectV2ItemFieldTextValue {
-                        text
-                        field {
-                          ... on ProjectV2Field {
-                            name
-                          }
-                        }
-                      }
-                      ... on ProjectV2ItemFieldNumberValue {
-                        number
-                        field {
-                          ... on ProjectV2Field {
-                            name
-                          }
-                        }
-                      }
-                      ... on ProjectV2ItemFieldDateValue {
-                        date
-                        field {
-                          ... on ProjectV2Field {
-                            name
-                          }
-                        }
-                      }
-                      ... on ProjectV2ItemFieldIterationValue {
-                        title
-                        field {
-                          ... on ProjectV2IterationField {
-                            name
-                          }
-                        }
-                      }
+        fragment ProjectItemFields on ProjectV2ItemConnection {
+          nodes {
+            id
+            project {
+              title
+              number
+              url
+            }
+            fieldValues(first: 20) {
+              nodes {
+                __typename
+                ... on ProjectV2ItemFieldSingleSelectValue {
+                  name
+                  field {
+                    ... on ProjectV2SingleSelectField {
+                      name
                     }
                   }
+                }
+                ... on ProjectV2ItemFieldTextValue {
+                  text
+                  field {
+                    ... on ProjectV2Field {
+                      name
+                    }
+                  }
+                }
+                ... on ProjectV2ItemFieldNumberValue {
+                  number
+                  field {
+                    ... on ProjectV2Field {
+                      name
+                    }
+                  }
+                }
+                ... on ProjectV2ItemFieldDateValue {
+                  date
+                  field {
+                    ... on ProjectV2Field {
+                      name
+                    }
+                  }
+                }
+                ... on ProjectV2ItemFieldIterationValue {
+                  title
+                  field {
+                    ... on ProjectV2IterationField {
+                      name
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        query($owner: String!, $name: String!, $number: Int!) {
+          repository(owner: $owner, name: $name) {
+            issueOrPullRequest(number: $number) {
+              ... on Issue {
+                projectItems(first: 10) {
+                  ...ProjectItemFields
+                }
+              }
+              ... on PullRequest {
+                projectItems(first: 10) {
+                  ...ProjectItemFields
                 }
               }
             }
@@ -194,116 +211,182 @@ module Github
 
       return [] if result[:error]
 
-      project_items = result.dig(:data, :repository, :issue, :projectItems, :nodes) || []
+      project_items = result.dig(:data, :repository, :issueOrPullRequest, :projectItems, :nodes) || []
       project_items.map { |item| normalize_project_item_data(item) }
     rescue => error
       Rails.logger.debug "Failed to fetch project fields: #{error.message}"
       []
     end
 
-    # Fetch timeline items (events + comments) for an issue via GraphQL
+    # Fetch timeline items (events + comments) for an issue or pull request via GraphQL
     # Returns array of timeline items including labels, milestones, project events, status changes, and comments
     # Returns empty array on error (graceful degradation)
     # :reek:TooManyStatements - Complex GraphQL query with multiple event types
     def fetch_issue_timeline(owner, repo_name, issue_number)
       query = <<~GRAPHQL
+        fragment TimelineEventFields on Node {
+          __typename
+          ... on LabeledEvent {
+            id
+            createdAt
+            actor {
+              login
+            }
+            label {
+              name
+              color
+            }
+          }
+          ... on UnlabeledEvent {
+            id
+            createdAt
+            actor {
+              login
+            }
+            label {
+              name
+              color
+            }
+          }
+          ... on MilestonedEvent {
+            id
+            createdAt
+            actor {
+              login
+            }
+            milestoneTitle
+          }
+          ... on DemilestonedEvent {
+            id
+            createdAt
+            actor {
+              login
+            }
+            milestoneTitle
+          }
+          ... on AddedToProjectV2Event {
+            id
+            createdAt
+            actor {
+              login
+            }
+            project {
+              title
+              number
+            }
+          }
+          ... on RemovedFromProjectV2Event {
+            id
+            createdAt
+            actor {
+              login
+            }
+            project {
+              title
+            }
+          }
+          ... on ProjectV2ItemStatusChangedEvent {
+            id
+            createdAt
+            actor {
+              login
+            }
+            previousStatus
+            status
+            wasAutomated
+            project {
+              title
+            }
+          }
+          ... on IssueComment {
+            id
+            databaseId
+            createdAt
+            author {
+              login
+              avatarUrl
+            }
+            body
+            authorAssociation
+          }
+          ... on MergedEvent {
+            id
+            createdAt
+            actor {
+              login
+            }
+            mergeRefName
+          }
+          ... on ReadyForReviewEvent {
+            id
+            createdAt
+            actor {
+              login
+            }
+          }
+          ... on ReviewRequestedEvent {
+            id
+            createdAt
+            actor {
+              login
+            }
+            requestedReviewer {
+              ... on User {
+                login
+              }
+              ... on Team {
+                name
+              }
+            }
+          }
+          ... on PullRequestReview {
+            id
+            createdAt
+            state
+            author {
+              login
+              avatarUrl
+            }
+            body
+          }
+        }
+
         query($owner: String!, $name: String!, $number: Int!) {
           repository(owner: $owner, name: $name) {
-            issue(number: $number) {
-              timelineItems(first: 100, itemTypes: [
-                LABELED_EVENT,
-                UNLABELED_EVENT,
-                MILESTONED_EVENT,
-                DEMILESTONED_EVENT,
-                ADDED_TO_PROJECT_V2_EVENT,
-                REMOVED_FROM_PROJECT_V2_EVENT,
-                PROJECT_V2_ITEM_STATUS_CHANGED_EVENT,
-                ISSUE_COMMENT
-              ]) {
-                nodes {
-                  __typename
-                  ... on LabeledEvent {
-                    id
-                    createdAt
-                    actor {
-                      login
-                    }
-                    label {
-                      name
-                      color
-                    }
+            issueOrPullRequest(number: $number) {
+              ... on Issue {
+                timelineItems(first: 100, itemTypes: [
+                  LABELED_EVENT,
+                  UNLABELED_EVENT,
+                  MILESTONED_EVENT,
+                  DEMILESTONED_EVENT,
+                  ADDED_TO_PROJECT_V2_EVENT,
+                  REMOVED_FROM_PROJECT_V2_EVENT,
+                  PROJECT_V2_ITEM_STATUS_CHANGED_EVENT,
+                  ISSUE_COMMENT
+                ]) {
+                  nodes {
+                    ...TimelineEventFields
                   }
-                  ... on UnlabeledEvent {
-                    id
-                    createdAt
-                    actor {
-                      login
-                    }
-                    label {
-                      name
-                      color
-                    }
-                  }
-                  ... on MilestonedEvent {
-                    id
-                    createdAt
-                    actor {
-                      login
-                    }
-                    milestoneTitle
-                  }
-                  ... on DemilestonedEvent {
-                    id
-                    createdAt
-                    actor {
-                      login
-                    }
-                    milestoneTitle
-                  }
-                  ... on AddedToProjectV2Event {
-                    id
-                    createdAt
-                    actor {
-                      login
-                    }
-                    project {
-                      title
-                      number
-                    }
-                  }
-                  ... on RemovedFromProjectV2Event {
-                    id
-                    createdAt
-                    actor {
-                      login
-                    }
-                    project {
-                      title
-                    }
-                  }
-                  ... on ProjectV2ItemStatusChangedEvent {
-                    id
-                    createdAt
-                    actor {
-                      login
-                    }
-                    previousStatus
-                    status
-                    wasAutomated
-                    project {
-                      title
-                    }
-                  }
-                  ... on IssueComment {
-                    id
-                    databaseId
-                    createdAt
-                    author {
-                      login
-                      avatarUrl
-                    }
-                    body
-                    authorAssociation
+                }
+              }
+              ... on PullRequest {
+                timelineItems(first: 100, itemTypes: [
+                  LABELED_EVENT,
+                  UNLABELED_EVENT,
+                  MILESTONED_EVENT,
+                  DEMILESTONED_EVENT,
+                  ADDED_TO_PROJECT_V2_EVENT,
+                  REMOVED_FROM_PROJECT_V2_EVENT,
+                  PROJECT_V2_ITEM_STATUS_CHANGED_EVENT,
+                  ISSUE_COMMENT,
+                  MERGED_EVENT,
+                  READY_FOR_REVIEW_EVENT,
+                  REVIEW_REQUESTED_EVENT,
+                  PULL_REQUEST_REVIEW
+                ]) {
+                  nodes {
+                    ...TimelineEventFields
                   }
                 }
               }
@@ -317,7 +400,7 @@ module Github
 
       return [] if result[:error]
 
-      timeline_items = result.dig(:data, :repository, :issue, :timelineItems, :nodes) || []
+      timeline_items = result.dig(:data, :repository, :issueOrPullRequest, :timelineItems, :nodes) || []
       timeline_items.map { |item| normalize_timeline_item_data(item) }.compact
     rescue => error
       Rails.logger.debug "Failed to fetch timeline: #{error.message}"
@@ -545,6 +628,7 @@ module Github
     # :reek:DuplicateMethodCall - issue.user accessed for both login and avatar
     def normalize_issue_data(issue)
       author = issue.user
+      pull_request = issue[:pull_request]
       {
         number: issue.number,
         title: issue.title,
@@ -556,7 +640,10 @@ module Github
         assignees: issue.assignees.map { |assignee| { login: assignee.login, avatar_url: assignee.avatar_url } },
         comments_count: issue.comments,
         created_at: issue.created_at,
-        updated_at: issue.updated_at
+        updated_at: issue.updated_at,
+        pull_request: pull_request.present?,
+        draft: issue[:draft].present?,
+        merged_at: pull_request && pull_request[:merged_at]
       }
     end
 
@@ -705,6 +792,40 @@ module Github
           avatar_url: item.dig(:author, :avatarUrl),
           body: item[:body],
           author_association: item[:authorAssociation]
+        }
+      when "MergedEvent"
+        {
+          type: "merged",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          merge_ref_name: item[:mergeRefName]
+        }
+      when "ReadyForReviewEvent"
+        {
+          type: "ready_for_review",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login)
+        }
+      when "ReviewRequestedEvent"
+        reviewer = item[:requestedReviewer] || {}
+        {
+          type: "review_requested",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:actor, :login),
+          reviewer: reviewer[:login] || reviewer[:name]
+        }
+      when "PullRequestReview"
+        {
+          type: "review",
+          id: item[:id],
+          created_at: Time.parse(item[:createdAt]),
+          actor: item.dig(:author, :login),
+          avatar_url: item.dig(:author, :avatarUrl),
+          review_state: item[:state],
+          body: item[:body]
         }
       else
         nil

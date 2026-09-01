@@ -1,0 +1,47 @@
+# Herb configuration for HTML+ERB templates.
+# https://herb-tools.dev/configuration
+#
+# `version` pins the ruleset. Without it a Herb upgrade silently enables new
+# rules and turns CI red on templates nobody touched, which is exactly how the
+# disabled rules below ambushed us. Bump this deliberately and deal with the
+# fallout in its own change.
+version: 0.10.3
+
+linter:
+  enabled: true
+
+  rules:
+    # Everything below is pre-existing debt in templates that predate this
+    # config, not anything a current change introduced. Each needs a real fix
+    # rather than a reformat, so they are off for now to keep the linter
+    # meaningful instead of permanently failing. Re-enable one at a time.
+
+    # 15 offenses, all in app/views/layouts/application.html.erb. Satisfying
+    # this means introducing a Content-Security-Policy with a nonce source and
+    # threading it through every script tag - a security change that deserves
+    # its own review, not a drive-by.
+    html-require-script-nonce:
+      enabled: false
+
+    # 5 offenses in a single partial. Fixing it means converting the ivars to
+    # locals and updating every render site that feeds it.
+    erb-no-instance-variables-in-partials:
+      enabled: false
+
+    # 2 offenses. Both wrap trusted markdown output, but confirming that and
+    # narrowing to a sanitizer is a correctness review of its own.
+    erb-no-unsafe-raw:
+      enabled: false
+
+    # 1 informational offense.
+    erb-no-commented-out-output-tags:
+      enabled: false
+
+    # 1 offense.
+    erb-no-output-in-attribute-position:
+      enabled: false
+
+formatter:
+  enabled: false
+  indentWidth: 2
+  maxLineLength: 80

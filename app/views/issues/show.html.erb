@@ -13,7 +13,7 @@
           <h1 class="text-2xl sm:text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white break-words">
             <%= @issue.title %>
             <%= link_to "##{@issue.number}",
-                "https://#{@repository.github_domain}/#{@repository.owner}/#{@repository.name}/issues/#{@issue.number}",
+                github_item_url,
                 target: "_blank",
                 rel: "noopener noreferrer",
                 class: "text-gray-500 dark:text-gray-400 font-normal hover:text-gray-700 dark:hover:text-gray-300 hover:underline" %>
@@ -22,17 +22,17 @@
 
         <!-- State badge (always visible) -->
         <div class="hidden lg:flex items-center">
-          <%= render IssueStateComponent.new(state: @issue.state, show_text: true) %>
+          <%= render IssueStateComponent.new(state: @issue.display_state, show_text: true) %>
         </div>
 
         <!-- Mobile: State, Assignee, and Labels on one line (hidden on lg and up) -->
         <div class="lg:hidden mt-4">
           <div class="flex flex-wrap items-center gap-1.5">
-            <%= render IssueStateComponent.new(state: @issue.state, show_text: true) %>
+            <%= render IssueStateComponent.new(state: @issue.display_state, show_text: true) %>
             <% if @issue.assignees.present? %>
               <% @issue.assignees.each do |assignee| %>
                 <% assignee_login = assignee["login"] || assignee[:login] %>
-                <%= link_to repository_issues_path(@repository, q: "is:issue state:open assignee:#{assignee_login}"), class: "inline-flex items-center gap-1 hover:opacity-70 transition-opacity ml-2" do %>
+                <%= link_to list_index_path(@repository, q: "#{default_list_query} assignee:#{assignee_login}"), class: "inline-flex items-center gap-1 hover:opacity-70 transition-opacity ml-2" do %>
                   <%= render AvatarComponent.new(
                     src: assignee["avatar_url"] || assignee[:avatar_url],
                     alt: assignee_login,
@@ -112,7 +112,7 @@
                   <div class="space-y-2">
                     <% @issue.assignees.each do |assignee| %>
                       <% assignee_login = assignee["login"] || assignee[:login] %>
-                      <%= link_to repository_issues_path(@repository, q: "is:issue state:open assignee:#{assignee_login}"), class: "flex items-center gap-2 hover:opacity-70 transition-opacity" do %>
+                      <%= link_to list_index_path(@repository, q: "#{default_list_query} assignee:#{assignee_login}"), class: "flex items-center gap-2 hover:opacity-70 transition-opacity" do %>
                         <%= render AvatarComponent.new(
                           src: assignee["avatar_url"] || assignee[:avatar_url],
                           alt: assignee_login,
@@ -169,7 +169,7 @@
                       <dt class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0"><%= t('issues.show.refreshed_label') %></dt>
                       <dd class="text-xs text-gray-900 dark:text-gray-200 text-right flex items-center gap-1 justify-end">
                         <%= time_ago_tag(@issue.cached_at) %>
-                        <%= button_to refresh_repository_issue_path(@repository, @issue.number, debug: params[:debug]), method: :post, class: "inline-flex items-center text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-500 cursor-pointer" do %>
+                        <%= button_to list_item_refresh_path(@repository, @issue.number, debug: params[:debug]), method: :post, class: "inline-flex items-center text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-500 cursor-pointer" do %>
                           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                           </svg>

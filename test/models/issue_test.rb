@@ -171,4 +171,51 @@ class IssueTest < ActiveSupport::TestCase
     issues = Issue.authored_by("")
     assert_equal Issue.count, issues.count
   end
+
+  # Pull request support
+
+  test "issues_only excludes pull requests" do
+    results = Issue.issues_only
+    assert_includes results, issues(:one)
+    assert_not_includes results, issues(:pull_request)
+  end
+
+  test "pull_requests_only excludes issues" do
+    results = Issue.pull_requests_only
+    assert_includes results, issues(:pull_request)
+    assert_not_includes results, issues(:one)
+  end
+
+  test "of_type filters by pr or issue" do
+    assert_includes Issue.of_type("pr"), issues(:pull_request)
+    assert_includes Issue.of_type("issue"), issues(:one)
+    assert_not_includes Issue.of_type("issue"), issues(:pull_request)
+  end
+
+  test "of_type returns all records when type is blank" do
+    assert_equal Issue.count, Issue.of_type(nil).count
+    assert_equal Issue.count, Issue.of_type("").count
+  end
+
+  test "merged? is true only when merged_at is set" do
+    assert issues(:merged_pull_request).merged?
+    assert_not issues(:pull_request).merged?
+  end
+
+  test "draft? is true only for draft pull requests" do
+    assert issues(:draft_pull_request).draft?
+    assert_not issues(:pull_request).draft?
+
+    # A plain issue is never a draft, even if the column is set
+    issue = issues(:one)
+    issue.draft = true
+    assert_not issue.draft?
+  end
+
+  test "display_state reflects merged, draft, and plain states" do
+    assert_equal "merged", issues(:merged_pull_request).display_state
+    assert_equal "draft", issues(:draft_pull_request).display_state
+    assert_equal "open", issues(:pull_request).display_state
+    assert_equal "closed", issues(:two).display_state
+  end
 end

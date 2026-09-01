@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
-# Component for displaying a GitHub issue card in list view
+# Component for displaying a GitHub issue (or pull request) card in list view
 # :reek:TooManyMethods - Component breaks down rendering into focused, single-responsibility methods
 class IssueCardComponent < ViewComponent::Base
-  def initialize(issue:, repository:)
+  def initialize(issue:, repository:, list_scope: :issues)
     @issue = issue
     @repository = repository
+    @list_scope = list_scope
   end
 
   def call
@@ -22,6 +23,26 @@ class IssueCardComponent < ViewComponent::Base
 
   private
 
+  # Pull requests always link to /pulls/:number, issues to /issues/:number
+  def detail_path
+    number = @issue.number
+
+    if @issue.pull_request?
+      helpers.repository_pull_path(@repository, number)
+    else
+      helpers.repository_issue_path(@repository, number)
+    end
+  end
+
+  # Filter links stay within the list currently being viewed
+  def list_path(query)
+    if @list_scope.to_sym == :pulls
+      helpers.repository_pulls_path(@repository, q: query)
+    else
+      helpers.repository_issues_path(@repository, q: query)
+    end
+  end
+
   def issue_header
     tag.div(class: "flex items-start gap-2") do
       safe_join([
@@ -34,7 +55,7 @@ class IssueCardComponent < ViewComponent::Base
 
   def issue_icon
     tag.div(class: "flex-shrink-0 flex items-center mr-1") do
-      render IssueStateComponent.new(state: @issue.state)
+      render IssueStateComponent.new(state: @issue.display_state)
     end
   end
 
@@ -58,7 +79,7 @@ class IssueCardComponent < ViewComponent::Base
   end
 
   def issue_title
-    link_to repository_issue_path(@repository, @issue.number),
+    link_to detail_path,
             class: "text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-500 hover:underline break-words" do
       @issue.title
     end
@@ -73,7 +94,8 @@ class IssueCardComponent < ViewComponent::Base
         render IssueLabelComponent.new(
           label: label,
           repository: @repository,
-          query: helpers.params[:q]
+          query: helpers.params[:q],
+          list_scope: @list_scope
         )
       end.join.html_safe
     end
@@ -125,7 +147,7 @@ class IssueCardComponent < ViewComponent::Base
         query_without_assignee = current_query.gsub(/\bassignee:("[^"]*"|\S+)/i, "").gsub(/\s+/, " ").strip
         new_query = query_without_assignee.present? ? "#{query_without_assignee} assignee:#{login} " : "assignee:#{login} "
 
-        link_to helpers.repository_issues_path(@repository, q: new_query), class: "relative group block" do
+        link_to list_path(new_query), class: "relative group block" do
           safe_join([
             render(AvatarComponent.new(
               src: avatar_url,
@@ -172,7 +194,7 @@ class IssueCardComponent < ViewComponent::Base
     new_query = query_without_author.present? ? "#{query_without_author} author:#{author_login} " : "author:#{author_login} "
 
     tag.span do
-      concat link_to(author_login, helpers.repository_issues_path(@repository, q: new_query), class: "font-medium hover:text-gray-700 dark:hover:text-gray-300")
+      concat link_to(author_login, list_path(new_query), class: "font-medium hover:text-gray-700 dark:hover:text-gray-300")
       concat " opened "
       concat helpers.time_ago_tag(created_at)
     end

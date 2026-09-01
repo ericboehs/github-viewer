@@ -38,7 +38,7 @@ Uses modern Rails features including Solid libraries (Cache, Queue, Cable) and i
 
 ### Modern Rails Stack
 - **Rails 8.1.0** with modern asset pipeline (Propshaft)
-- **Ruby 3.4.7**
+- **Ruby 4.0.6**
 - **SQLite3** for all environments including production
 - **Octokit 10.0+** for GitHub REST and GraphQL API integration
 - **ImportMap** for JavaScript (no Node.js bundling)
@@ -73,7 +73,7 @@ The application uses separate SQLite databases:
 #### Models
 - **User**: Authentication + encrypted GitHub token + domain (github.com or GHE)
 - **Repository**: Per-user tracked repos (owner, name, metadata, cached_at)
-- **Issue**: Cached issues with full metadata (number, title, state, body, labels, assignees, cached_at)
+- **Issue**: Cached issues *and pull requests* with full metadata (number, title, state, body, labels, assignees, cached_at, pull_request, draft, merged_at)
 - **IssueComment**: Issue comments with author info and markdown body
 
 #### ViewComponents for GitHub UI (`app/components/`)
@@ -227,15 +227,27 @@ All core features from the PRD are fully implemented and tested:
 
 5. **Advanced Search & Filtering**
     - Dual search modes (local SQLite + GitHub API)
-    - GitHub query syntax parser (is:, state:, label:, assignee:, sort:)
+    - GitHub query syntax parser (is:, state:, type:, label:, assignee:, sort:)
     - Automatic mode switching based on query qualifiers
     - Filter dropdowns with keyboard navigation
     - Active filters display with removal chips
 
+6. **Pull Request Viewing**
+    - `/repositories/:id/pulls` list and `/repositories/:id/pulls/:number` detail
+    - Reuses the issue list/show views via the `IssueScoped` + `IssueListable`
+      concerns (GitHub models PRs as issues); `PullsController` only overrides
+      `list_scope`, which forces an `is:pr` qualifier
+    - `issues.pull_request` / `draft` / `merged_at` columns distinguish PRs in
+      the local cache; `Issue#display_state` drives open/closed/merged/draft badges
+    - PR-specific timeline events (merged, ready for review, review requested,
+      reviews) via the GraphQL `issueOrPullRequest` field
+    - Issues / Pull requests tabs on the list page
+    - Proxy-style URLs mirror GitHub: `/owner/repo/pull/123`
+
 ### 🔮 Potential Future Enhancements
 
 See PRD.md for complete list of Phase 2 features including:
-- Pull request viewing
+- Pull request diffs, files changed, and review threads
 - Real-time WebSocket updates
 - Background sync jobs
 - Issue creation/editing (write operations)
