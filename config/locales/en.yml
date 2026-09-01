@@ -107,6 +107,17 @@ en:
       profile: Your Profile
       sign_out: Sign out
   pulls:
+    commits:
+      committed: committed
+      empty: This pull request has no commits.
+      no_message: (no commit message)
+    errors:
+      no_token: No GitHub token configured for %{domain}.
+    files:
+      binary_file: Binary file not shown.
+      diff_too_large: This diff is too large to display.
+      empty: This pull request does not change any files.
+      truncated: GitHub only returns the first 300 changed files, so this list may be incomplete.
     index:
       empty:
         description: Try adjusting your search filters.
@@ -120,6 +131,11 @@ en:
     show:
       back_to_list: Back to Pull requests
       title: 'Pull request #%{number}'
+    tabs:
+      aria_label: Pull request sections
+      commits: Commits
+      conversation: Conversation
+      files: Files changed
   repositories:
     create:
       error: 'Failed to add repository: %{error}'

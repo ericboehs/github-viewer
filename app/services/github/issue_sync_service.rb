@@ -83,13 +83,31 @@ module Github
           issue = upsert_issue(issue_data, cached: with_comments)
 
           # Fetch and sync comments
-          sync_issue_comments(client, issue, issue_data[:number]) if with_comments
+          if with_comments
+            sync_issue_comments(client, issue, issue_data[:number])
+            sync_pull_request_stats(client, issue)
+          end
 
           synced_count += 1
         end
       end
 
       synced_count
+    end
+
+    # Diff statistics live on the pull request endpoint, not the issue one, so
+    # they cost an extra request. Only single-issue refreshes pay it, and only
+    # for pull requests; a failure leaves whatever we already had, since stale
+    # counts on a tab beat blanking them out.
+    # :reek:UtilityFunction - issue encapsulates its own persistence
+    # :reek:FeatureEnvy - Reads the stats payload onto the issue, so it necessarily touches both
+    def sync_pull_request_stats(client, issue)
+      return unless issue.pull_request?
+
+      stats = client.fetch_pull_request(repository.owner, repository.name, issue.number)
+      return if stats.is_a?(Hash) && stats[:error]
+
+      issue.update!(stats.slice(:commits_count, :changed_files_count, :additions, :deletions))
     end
 
     # :reek:UtilityFunction - Data transformation and persistence helper

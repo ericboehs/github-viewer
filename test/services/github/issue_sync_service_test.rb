@@ -419,6 +419,77 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     assert_equal 0, @repository.issues.count
   end
 
+  # Pull request diff statistics
+
+  test "should sync diff statistics for a single pull request" do
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 7)
+    mock_client = create_mock_client_with_single_issue(7, pull_request: true)
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    assert service.call[:success]
+
+    pull = @repository.issues.find_by(number: 7)
+
+    assert_equal 12, pull.commits_count
+    assert_equal 3, pull.changed_files_count
+    assert_equal 608, pull.additions
+    assert_equal 42, pull.deletions
+  end
+
+  # The extra request only makes sense for pull requests; issues have no diff.
+  test "should not call the pull request endpoint for a plain issue" do
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 7)
+    mock_client = create_mock_client_with_single_issue(7)
+    mock_client.define_singleton_method(:fetch_pull_request) do |*_args|
+      raise "fetch_pull_request should not be called for an issue"
+    end
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    assert service.call[:success]
+    assert_nil @repository.issues.find_by(number: 7).commits_count
+  end
+
+  # Stale counts on a tab beat blanking them out, so a failed stats fetch must
+  # not clobber what we already had, nor fail the whole sync.
+  test "should keep existing diff statistics when the pull request endpoint errors" do
+    @repository.issues.create!(
+      number: 7, title: "Existing", state: "open", pull_request: true, commits_count: 5, additions: 100
+    )
+
+    service = Github::IssueSyncService.new(user: @user, repository: @repository, issue_number: 7)
+    mock_client = create_mock_client_with_single_issue(7, pull_request: true)
+    mock_client.define_singleton_method(:fetch_pull_request) do |*_args|
+      { error: "Rate limit exceeded" }
+    end
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    assert service.call[:success]
+
+    pull = @repository.issues.find_by(number: 7)
+
+    assert_equal 5, pull.commits_count
+    assert_equal 100, pull.additions
+  end
+
+  # Bulk syncs already skip comments to stay fast; an extra request per pull
+  # request would undo that.
+  test "should not fetch diff statistics during a bulk sync" do
+    service = Github::IssueSyncService.new(user: @user, repository: @repository)
+    test_context = self
+    mock_client = Object.new
+    mock_client.define_singleton_method(:fetch_issues) do |_owner, _repo_name, state:, max_issues: nil|
+      [ test_context.sample_issue_data(7).merge(pull_request: true) ]
+    end
+    mock_client.define_singleton_method(:rate_limit_info) { nil }
+    mock_client.define_singleton_method(:fetch_pull_request) do |*_args|
+      raise "fetch_pull_request should not be called during a bulk sync"
+    end
+    Github::ApiClient.stubs(:new).returns(mock_client)
+
+    assert service.call[:success]
+    assert_nil @repository.issues.find_by(number: 7).commits_count
+  end
+
   # Test helper methods
 
   def create_mock_client_with_issues_and_comments
@@ -451,14 +522,17 @@ class Github::IssueSyncServiceTest < ActiveSupport::TestCase
     mock_client
   end
 
-  def create_mock_client_with_single_issue(issue_number)
+  def create_mock_client_with_single_issue(issue_number, pull_request: false)
     test_context = self
     mock_client = Object.new
     mock_client.define_singleton_method(:fetch_issue) do |_owner, _repo_name, _issue_number|
-      test_context.sample_issue_data(_issue_number)
+      test_context.sample_issue_data(_issue_number).merge(pull_request: pull_request)
     end
     mock_client.define_singleton_method(:fetch_issue_comments) do |_owner, _repo_name, _issue_number|
       []
+    end
+    mock_client.define_singleton_method(:fetch_pull_request) do |_owner, _repo_name, _issue_number|
+      { commits_count: 12, changed_files_count: 3, additions: 608, deletions: 42 }
     end
     mock_client.define_singleton_method(:rate_limit_info) do
       nil

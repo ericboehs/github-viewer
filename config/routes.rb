@@ -25,6 +25,9 @@ Rails.application.routes.draw do
       end
       member do
         post :refresh
+        # Mirrors GitHub's own /pull/:number/commits and /files sub-pages
+        get :commits
+        get :files
       end
     end
   end

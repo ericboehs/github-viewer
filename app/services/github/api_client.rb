@@ -115,6 +115,44 @@ module Github
       { error: ERROR_SAML_PROTECTED }
     end
 
+    # Pull request specific metadata: diff statistics and merge state. These
+    # live on the pull request endpoint rather than the issue endpoint, which is
+    # why they need a separate call even though we already have the issue.
+    def fetch_pull_request(owner, repo_name, number)
+      with_rate_limiting do
+        normalize_pull_request_data(@client.pull_request("#{owner}/#{repo_name}", number))
+      end
+    rescue Octokit::NotFound
+      { error: ERROR_ISSUE_NOT_FOUND }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
+    def fetch_pull_request_commits(owner, repo_name, number)
+      with_rate_limiting do
+        commits = @client.pull_request_commits("#{owner}/#{repo_name}", number)
+        commits.map { |commit| normalize_commit_data(commit) }
+      end
+    rescue Octokit::NotFound
+      { error: ERROR_ISSUE_NOT_FOUND }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
+    # GitHub caps this endpoint at 300 files and omits `patch` for binary files
+    # and for any diff it considers too large, so callers must treat a missing
+    # patch as normal rather than as an error.
+    def fetch_pull_request_files(owner, repo_name, number)
+      with_rate_limiting do
+        files = @client.pull_request_files("#{owner}/#{repo_name}", number)
+        files.map { |file| normalize_pull_request_file_data(file) }
+      end
+    rescue Octokit::NotFound
+      { error: ERROR_ISSUE_NOT_FOUND }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
     def fetch_labels(owner, repo_name)
       with_rate_limiting do
         @client.labels("#{owner}/#{repo_name}", per_page: 100)
@@ -644,6 +682,56 @@ module Github
         pull_request: pull_request.present?,
         draft: issue[:draft].present?,
         merged_at: pull_request && pull_request[:merged_at]
+      }
+    end
+
+    # :reek:UtilityFunction - Data transformation helper
+    def normalize_pull_request_data(pull)
+      {
+        commits_count: pull[:commits],
+        changed_files_count: pull[:changed_files],
+        additions: pull[:additions],
+        deletions: pull[:deletions],
+        merged_at: pull[:merged_at],
+        draft: pull[:draft].present?
+      }
+    end
+
+    # :reek:UtilityFunction - Data transformation helper
+    # :reek:TooManyStatements - Flattens a nested commit payload
+    def normalize_commit_data(commit)
+      details = commit[:commit]
+      author_details = details[:author]
+      github_author = commit[:author]
+      message = details[:message].to_s
+
+      {
+        sha: commit[:sha],
+        # Git commit messages are a subject line, a blank line, then the body.
+        # Split rather than truncate so the list can show the subject and let
+        # the body expand.
+        subject: message.split("\n", 2).first.to_s,
+        body: message.split("\n\n", 2).second.to_s.strip,
+        # The git author and the GitHub account are different things and either
+        # can be missing: unlinked email addresses have no GitHub user, and
+        # avatars only exist for the latter.
+        author_name: author_details && author_details[:name],
+        author_login: github_author && github_author[:login],
+        author_avatar_url: github_author && github_author[:avatar_url],
+        authored_at: author_details && author_details[:date]
+      }
+    end
+
+    # :reek:UtilityFunction - Data transformation helper
+    def normalize_pull_request_file_data(file)
+      {
+        filename: file[:filename],
+        previous_filename: file[:previous_filename],
+        status: file[:status],
+        additions: file[:additions],
+        deletions: file[:deletions],
+        changes: file[:changes],
+        patch: file[:patch]
       }
     end
 
