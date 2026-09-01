@@ -26,9 +26,20 @@ module GithubViewer
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
-    # Active Record Encryption configuration
-    config.active_record.encryption.primary_key = ENV["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"]
-    config.active_record.encryption.deterministic_key = ENV["ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY"]
-    config.active_record.encryption.key_derivation_salt = ENV["ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT"]
+    # Active Record Encryption keys.
+    #
+    # These normally live in credentials, which production can already read via
+    # RAILS_MASTER_KEY. Rails merges `config.active_record.encryption` over the
+    # credentials values, so assigning nil here would blank out a perfectly good
+    # credentials entry and leave every encrypted attribute unreadable. Only
+    # override when the variable is actually set.
+    {
+      primary_key: "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY",
+      deterministic_key: "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY",
+      key_derivation_salt: "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT"
+    }.each do |setting, variable|
+      value = ENV[variable]
+      config.active_record.encryption.public_send("#{setting}=", value) if value.present?
+    end
   end
 end
