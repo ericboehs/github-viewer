@@ -94,7 +94,11 @@ group :test do
   gem "axe-core-capybara"
 
   # Code coverage tracking
-  gem "simplecov", require: false
+  # Pinned to 0.22.x: SimpleCov 1.x reshapes coverage/index.html, which
+  # bin/coverage parses for its per-file report, and renames add_filter,
+  # add_group and track_files. No advisory forces the bump, so it can happen
+  # deliberately alongside reworking bin/coverage to read .last_run.json.
+  gem "simplecov", "~> 0.22.0", require: false
 
   # Mocking and stubbing for tests [https://github.com/freerange/mocha]
   gem "mocha"
