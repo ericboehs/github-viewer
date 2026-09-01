@@ -10,6 +10,14 @@ class User < ApplicationRecord
   validates :email_address, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :password, length: { minimum: 8 }, if: -> { new_record? || !password.nil? }
 
+  # The usable token for a domain, or nil when none is stored or the stored one
+  # cannot be decrypted. Callers already handle a missing token, so an
+  # unreadable one degrades the same way instead of raising mid-request.
+  def github_token_for(domain)
+    token = github_tokens.find_by(domain: domain)
+    token if token&.readable?
+  end
+
   def avatar_url(size: 40)
     require "digest"
     hash = Digest::MD5.hexdigest(email_address.downcase)

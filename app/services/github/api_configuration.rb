@@ -26,5 +26,25 @@ module Github
 
     # GraphQL query limits
     GRAPHQL_PAGE_SIZE = 100
+
+    # HTTP timeouts (in seconds).
+    #
+    # Without these, a GitHub Enterprise host that accepts a connection but
+    # never answers pins the request until Net::HTTP's 60s default. In
+    # development that is a whole Puma thread, so a single hung dropdown fetch
+    # stalls every other request behind it.
+    OPEN_TIMEOUT = 5
+    READ_TIMEOUT = 15
+
+    # Assignable users
+    #
+    # The dropdown shows 20 rows and searches server-side, so paging through an
+    # entire enterprise org (tens of thousands of members) to build the list is
+    # pure waste. Cap what we will walk in one sync.
+    MAX_ASSIGNABLE_USER_PAGES = 5
+
+    # How long a cached assignable-user list stays authoritative before the
+    # next request refreshes it in the background.
+    ASSIGNABLE_USERS_TTL = 12.hours
   end
 end

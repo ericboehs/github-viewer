@@ -89,7 +89,7 @@ class RepositoriesController < ApplicationController
     selected = params[:selected]
 
     # Fetch collaborators from GitHub REST API
-    github_token = Current.user.github_tokens.find_by(domain: repository.github_domain)
+    github_token = Current.user.github_token_for(repository.github_domain)
     unless github_token
       render json: { error: "No GitHub token found for #{repository.github_domain}" }, status: :unauthorized
       return
@@ -180,7 +180,7 @@ class RepositoriesController < ApplicationController
     query = params[:q]
 
     # Fetch labels from GitHub API
-    github_token = user.github_tokens.find_by(domain: domain)
+    github_token = user.github_token_for(domain)
     unless github_token
       render json: { error: "No GitHub token found for #{domain}" }, status: :unauthorized
       return

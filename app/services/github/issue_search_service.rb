@@ -64,7 +64,7 @@ module Github
     # :reek:UncommunicativeVariableName - 'e' is Rails convention for exception
     def github_search
       domain = repository.github_domain
-      github_token = user.github_tokens.find_by(domain: domain)
+      github_token = user.github_token_for(domain)
       return { success: false, error: missing_token_error } unless github_token
 
       client = Github::ApiClient.new(token: github_token.token, domain: domain)

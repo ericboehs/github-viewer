@@ -106,7 +106,7 @@ module IssueShowable
   # page degrades around rather than failing on.
   def github_client
     domain = @repository.github_domain
-    github_token = Current.user.github_tokens.find_by(domain: domain)
+    github_token = Current.user.github_token_for(domain)
     return unless github_token
 
     Github::ApiClient.new(token: github_token.token, domain: domain)
