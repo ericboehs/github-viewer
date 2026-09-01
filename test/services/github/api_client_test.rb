@@ -1719,7 +1719,10 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     "fetch_issues" => { octokit: :issues, args: [ "rails", "rails" ] },
     "fetch_issue" => { octokit: :issue, args: [ "rails", "rails", 1 ] },
     "fetch_issue_comments" => { octokit: :issue_comments, args: [ "rails", "rails", 1 ] },
-    "fetch_labels" => { octokit: :labels, args: [ "rails", "rails" ] }
+    "fetch_labels" => { octokit: :labels, args: [ "rails", "rails" ] },
+    "fetch_pull_request" => { octokit: :pull_request, args: [ "rails", "rails", 1 ] },
+    "fetch_pull_request_commits" => { octokit: :pull_request_commits, args: [ "rails", "rails", 1 ] },
+    "fetch_pull_request_files" => { octokit: :pull_request_files, args: [ "rails", "rails", 1 ] }
   }.each do |method, config|
     test "#{method} surfaces SAML protected errors" do
       stub_octokit_failure(config[:octokit], Octokit::SAMLProtected)
@@ -1804,7 +1807,195 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "boom", @client.fetch_assignable_users("rails", "rails")[:error]
   end
 
+  # Pull request endpoints
+
+  test "fetch_pull_request returns the diff statistics the issue endpoint omits" do
+    stub_octokit(:pull_request, {
+      commits: 12,
+      changed_files: 3,
+      additions: 608,
+      deletions: 42,
+      merged_at: nil,
+      draft: false
+    })
+
+    result = @client.fetch_pull_request("rails", "rails", 1)
+
+    assert_equal 12, result[:commits_count]
+    assert_equal 3, result[:changed_files_count]
+    assert_equal 608, result[:additions]
+    assert_equal 42, result[:deletions]
+    refute result[:draft]
+  end
+
+  test "fetch_pull_request reports a missing pull request" do
+    stub_octokit_failure(:pull_request, Octokit::NotFound)
+
+    assert_equal "Issue not found", @client.fetch_pull_request("rails", "rails", 1)[:error]
+  end
+
+  test "fetch_pull_request_commits flattens the nested commit payload" do
+    stub_octokit(:pull_request_commits, [ {
+      sha: "abc1234def",
+      commit: {
+        message: "Fix the thing\n\nBecause it was broken.\nTwice.",
+        author: { name: "Eric Boehs", date: "2025-01-02T03:04:05Z" }
+      },
+      author: { login: "ericboehs", avatar_url: "https://example.com/a.png" }
+    } ])
+
+    commit = @client.fetch_pull_request_commits("rails", "rails", 1).first
+
+    assert_equal "abc1234def", commit[:sha]
+    assert_equal "Fix the thing", commit[:subject]
+    assert_equal "Because it was broken.\nTwice.", commit[:body]
+    assert_equal "Eric Boehs", commit[:author_name]
+    assert_equal "ericboehs", commit[:author_login]
+    assert_equal "https://example.com/a.png", commit[:author_avatar_url]
+  end
+
+  test "fetch_pull_request_commits handles a subject-only message" do
+    stub_octokit(:pull_request_commits, [ {
+      sha: "abc",
+      commit: { message: "Just a subject", author: { name: "Eric", date: nil } },
+      author: nil
+    } ])
+
+    commit = @client.fetch_pull_request_commits("rails", "rails", 1).first
+
+    assert_equal "Just a subject", commit[:subject]
+    assert_equal "", commit[:body]
+  end
+
+  # Commits authored from an email address with no linked GitHub account have
+  # git metadata but no `author`, which must not blow up the normalizer.
+  test "fetch_pull_request_commits tolerates a commit with no GitHub account" do
+    stub_octokit(:pull_request_commits, [ {
+      sha: "abc",
+      commit: { message: "Unlinked", author: { name: "Somebody", date: nil } },
+      author: nil
+    } ])
+
+    commit = @client.fetch_pull_request_commits("rails", "rails", 1).first
+
+    assert_nil commit[:author_login]
+    assert_nil commit[:author_avatar_url]
+    assert_equal "Somebody", commit[:author_name]
+  end
+
+  test "fetch_pull_request_files normalizes each changed file" do
+    stub_octokit(:pull_request_files, [ {
+      filename: "app/models/issue.rb",
+      previous_filename: "app/models/old.rb",
+      status: "renamed",
+      additions: 2,
+      deletions: 1,
+      changes: 3,
+      patch: "@@ -1 +1 @@"
+    } ])
+
+    file = @client.fetch_pull_request_files("rails", "rails", 1).first
+
+    assert_equal "app/models/issue.rb", file[:filename]
+    assert_equal "app/models/old.rb", file[:previous_filename]
+    assert_equal "renamed", file[:status]
+    assert_equal 3, file[:changes]
+    assert_equal "@@ -1 +1 @@", file[:patch]
+  end
+
+  # GitHub omits `patch` for binary files and oversized diffs. That is normal,
+  # not an error, so it has to survive normalization as a nil.
+  test "fetch_pull_request_files keeps a missing patch as nil" do
+    stub_octokit(:pull_request_files, [ {
+      filename: "logo.png", status: "added", additions: 0, deletions: 0, changes: 0
+    } ])
+
+    assert_nil @client.fetch_pull_request_files("rails", "rails", 1).first[:patch]
+  end
+
+  test "fetch_pull_request_files reports a missing pull request" do
+    stub_octokit_failure(:pull_request_files, Octokit::NotFound)
+
+    assert_equal "Issue not found", @client.fetch_pull_request_files("rails", "rails", 1)[:error]
+  end
+
+  test "fetch_pull_request_commits reports a missing pull request" do
+    stub_octokit_failure(:pull_request_commits, Octokit::NotFound)
+
+    assert_equal "Issue not found", @client.fetch_pull_request_commits("rails", "rails", 1)[:error]
+  end
+
+  test "fetch_file_contents decodes the base64 blob GitHub returns" do
+    stub_octokit(:contents, {
+      path: "README.md", size: 12, encoding: "base64", content: Base64.encode64("# Hello\nworld")
+    })
+
+    result = @client.fetch_file_contents("rails", "rails", "README.md", ref: "abc123")
+
+    assert_equal "# Hello\nworld", result[:content]
+    assert_equal "README.md", result[:path]
+    assert_equal 12, result[:size]
+    refute result[:binary]
+  end
+
+  # Anything that is not valid UTF-8 cannot be shown as text and must not be
+  # passed through into the response.
+  test "fetch_file_contents flags a binary blob instead of returning bytes" do
+    stub_octokit(:contents, {
+      path: "logo.png", size: 4, encoding: "base64", content: Base64.encode64("\x89PNG\xFF\xFE".b)
+    })
+
+    result = @client.fetch_file_contents("rails", "rails", "logo.png", ref: "abc123")
+
+    assert result[:binary]
+    assert_nil result[:content]
+  end
+
+  # GitHub reports a blob it declined to inline with encoding "none".
+  test "fetch_file_contents reports a blob GitHub refused to inline" do
+    stub_octokit(:contents, { path: "big.csv", size: 2_000_000, encoding: "none", content: "" })
+
+    assert_equal "File is too large to display",
+      @client.fetch_file_contents("rails", "rails", "big.csv", ref: "abc123")[:error]
+  end
+
+  # Over 1 MB the endpoint answers 403 rather than a size field.
+  test "fetch_file_contents treats a forbidden response as too large" do
+    stub_octokit_failure(:contents, Octokit::Forbidden)
+
+    assert_equal "File is too large to display",
+      @client.fetch_file_contents("rails", "rails", "big.bin", ref: "abc123")[:error]
+  end
+
+  test "fetch_file_contents reports a missing file" do
+    stub_octokit_failure(:contents, Octokit::NotFound)
+
+    assert_equal "File not found",
+      @client.fetch_file_contents("rails", "rails", "nope.rb", ref: "abc123")[:error]
+  end
+
+  # A directory answers with an array of entries, which no file view can show.
+  test "fetch_file_contents rejects a directory path" do
+    stub_octokit(:contents, [ { path: "app/models/issue.rb" } ])
+
+    assert_equal "File not found",
+      @client.fetch_file_contents("rails", "rails", "app/models", ref: "abc123")[:error]
+  end
+
+  test "fetch_pull_request exposes the head SHA so files can be read at that revision" do
+    stub_octokit(:pull_request, { commits: 1, head: { sha: "deadbeef" } })
+
+    assert_equal "deadbeef", @client.fetch_pull_request("rails", "rails", 1)[:head_sha]
+  end
+
   private
+
+  def stub_octokit(octokit_method, value)
+    mock_client = OpenStruct.new
+    mock_client.define_singleton_method(octokit_method) { |*_args| value }
+    mock_client.define_singleton_method(:rate_limit) { nil }
+    @client.instance_variable_set(:@client, mock_client)
+  end
 
   def stub_octokit_failure(octokit_method, error_class)
     mock_client = OpenStruct.new

@@ -1,0 +1,40 @@
+<div class="mb-4 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
+    <div class="flex min-w-0 items-center gap-2">
+      <span class="rounded px-1.5 py-0.5 text-xs font-medium <%= status_classes %>"><%= status %></span>
+      <span class="truncate font-mono text-sm text-gray-900 dark:text-gray-100" title="<%= filename %>">
+        <% if previous_filename %>
+          <span class="text-gray-500 dark:text-gray-400"><%= previous_filename %> &rarr;</span>
+        <% end %>
+        <% if viewable? %>
+          <%= link_to filename, file_path, class: "text-blue-600 hover:underline dark:text-blue-400" %>
+        <% else %>
+          <%= filename %>
+        <% end %>
+      </span>
+    </div>
+
+    <div class="flex flex-shrink-0 items-center gap-2 text-xs font-semibold">
+      <span class="text-green-600 dark:text-green-500">+<%= number_with_delimiter(additions) %></span>
+      <span class="text-red-600 dark:text-red-500">&minus;<%= number_with_delimiter(deletions) %></span>
+    </div>
+  </div>
+
+  <% if no_patch_reason %>
+    <p class="px-4 py-3 text-sm italic text-gray-500 dark:text-gray-400"><%= no_patch_reason %></p>
+  <% else %>
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse font-mono text-xs">
+        <tbody>
+          <% rows.each do |row| %>
+            <tr class="<%= line_classes(row[:kind]) %>">
+              <td class="w-12 select-none border-r border-gray-200 px-2 py-0.5 text-right align-top text-gray-400 dark:border-gray-700 dark:text-gray-500"><%= row[:old_number] %></td>
+              <td class="w-12 select-none border-r border-gray-200 px-2 py-0.5 text-right align-top text-gray-400 dark:border-gray-700 dark:text-gray-500"><%= row[:new_number] %></td>
+              <td class="whitespace-pre-wrap break-all px-3 py-0.5 text-gray-900 dark:text-gray-200"><%= row[:text] %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>

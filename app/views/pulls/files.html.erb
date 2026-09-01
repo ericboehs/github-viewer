@@ -1,0 +1,31 @@
+<% content_for :title, "Files changed · #{@issue.title} ##{@issue.number} - #{@repository.full_name}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <%= render 'issues/item_header', current_tab: :files %>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <% if @files.any? %>
+          <%# GitHub caps this endpoint at 300 files, so say so rather than %>
+          <%# letting a large pull request look quietly truncated. %>
+          <% if @files.size >= 300 %>
+            <p class="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300">
+              <%= t('pulls.files.truncated') %>
+            </p>
+          <% end %>
+
+          <% @files.each do |file| %>
+            <%= render FileDiffComponent.new(file: file, repository: @repository, issue: @issue) %>
+          <% end %>
+        <% else %>
+          <p class="rounded-lg border border-gray-200 px-4 py-6 text-center text-sm italic text-gray-500 dark:border-gray-700 dark:text-gray-400">
+            <%= t('pulls.files.empty') %>
+          </p>
+        <% end %>
+      </div>
+    </main>
+  </div>
+</div>

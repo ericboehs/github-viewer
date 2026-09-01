@@ -9,6 +9,57 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
+  # Return-to-after-authenticating
+
+  test "should return to the page the user was trying to reach" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com", owner: "rails", name: "rails",
+      full_name: "rails/rails", url: "https://github.com/rails/rails"
+    )
+
+    get repository_issues_url(repository)
+
+    assert_redirected_to new_session_url
+
+    post session_url, params: { email_address: @user.email_address, password: "password123" }
+
+    assert_redirected_to repository_issues_url(repository)
+  end
+
+  # Regression: background `fetch` calls keep firing on an open page after the
+  # session expires. Storing a JSON endpoint as the return-to location meant
+  # the next successful sign-in dumped the user on a raw JSON blob instead of
+  # the page they were looking at.
+  test "should not return to a JSON endpoint after signing in" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com", owner: "rails", name: "rails",
+      full_name: "rails/rails", url: "https://github.com/rails/rails"
+    )
+
+    get assignable_users_repository_url(repository), as: :json
+
+    assert_redirected_to new_session_url
+
+    post session_url, params: { email_address: @user.email_address, password: "password123" }
+
+    assert_redirected_to root_url
+  end
+
+  test "should not return to a page requested by a background XHR" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com", owner: "rails", name: "rails",
+      full_name: "rails/rails", url: "https://github.com/rails/rails"
+    )
+
+    get repository_issues_url(repository), headers: { "X-Requested-With" => "XMLHttpRequest" }
+
+    assert_redirected_to new_session_url
+
+    post session_url, params: { email_address: @user.email_address, password: "password123" }
+
+    assert_redirected_to root_url
+  end
+
   test "should get new" do
     get new_session_url
     assert_response :success

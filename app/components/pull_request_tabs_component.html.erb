@@ -1,0 +1,24 @@
+<nav class="mt-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700" aria-label="<%= t('pulls.tabs.aria_label') %>">
+  <div class="flex gap-6">
+    <% tabs.each do |tab| %>
+      <%= link_to tab[:path],
+          class: "-mb-px flex items-center gap-2 border-b-2 px-1 pb-2 text-sm font-medium #{tab[:active] ? PullRequestTabsComponent::ACTIVE_CLASSES : PullRequestTabsComponent::INACTIVE_CLASSES}",
+          "aria-current": (tab[:active] ? "page" : nil) do %>
+        <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="<%= tab[:icon] %>" />
+        </svg>
+        <span><%= tab[:label] %></span>
+        <% if tab[:count] %>
+          <span class="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"><%= number_with_delimiter(tab[:count]) %></span>
+        <% end %>
+      <% end %>
+    <% end %>
+  </div>
+
+  <% if diffstat? %>
+    <div class="hidden sm:flex items-center gap-2 pb-2 text-xs font-semibold">
+      <span class="text-green-600 dark:text-green-500">+<%= number_with_delimiter(additions) %></span>
+      <span class="text-red-600 dark:text-red-500">&minus;<%= number_with_delimiter(deletions) %></span>
+    </div>
+  <% end %>
+</nav>

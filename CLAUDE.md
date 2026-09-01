@@ -73,11 +73,12 @@ The application uses separate SQLite databases:
 #### Models
 - **User**: Authentication + encrypted GitHub token + domain (github.com or GHE)
 - **Repository**: Per-user tracked repos (owner, name, metadata, cached_at)
-- **Issue**: Cached issues *and pull requests* with full metadata (number, title, state, body, labels, assignees, cached_at, pull_request, draft, merged_at)
+- **Issue**: Cached issues *and pull requests* with full metadata (number, title, state, body, labels, assignees, cached_at, pull_request, draft, merged_at). Pull requests additionally cache diff statistics (commits_count, changed_files_count, additions, deletions) fetched from the pull request endpoint on single-issue sync
 - **IssueComment**: Issue comments with author info and markdown body
 
 #### ViewComponents for GitHub UI (`app/components/`)
 - **Issue components**: IssueCardComponent, IssueLabelComponent, IssueStateComponent, IssueCommentComponent
+- **Pull request components**: PullRequestTabsComponent (Conversation/Commits/Files changed sub-nav), CommitListItemComponent, FileDiffComponent (unified diff parsing and rendering), FileContentComponent (file viewer with markdown rendering and a Rendered/Source toggle)
 - **Filter components**: FilterDropdown namespace (BaseComponent, ButtonComponent, MenuComponent, SearchComponent, ItemComponent)
 - **Auth components**: Auth namespace (FormContainerComponent, InputComponent, ButtonComponent, LinkComponent)
 - **Common components**: AvatarComponent (with Gravatar fallback), AlertComponent, UserPageComponent

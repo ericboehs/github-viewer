@@ -13,39 +13,55 @@ module IssueShowable
   private
 
   # :reek:TooManyStatements - Orchestrates sync, project fields, and timeline
-  # :reek:NilCheck - Explicit nil check required to detect uncached issues
   # :reek:DuplicateMethodCall - @issue and @repository accessed for readability
   def load_and_display_issue
+    return unless load_issue_record
+
+    load_project_fields_and_timeline
+
+    # Show rate limit info if debug mode
+    show_debug_rate_limit(@sync_result) if params[:debug] == "true"
+
+    render "issues/show"
+  end
+
+  # Finds the issue, syncing from the API when it is missing or stale.
+  #
+  # Returns false once it has issued a redirect, so every caller has to bail
+  # out on a falsey result rather than carrying on to render.
+  # :reek:TooManyStatements - Orchestrates the sync and its several failure modes
+  # :reek:NilCheck - Explicit nil check required to detect uncached issues
+  # :reek:DuplicateMethodCall - @issue and @repository accessed for readability
+  def load_issue_record
     issue_number = @issue_number || params[:id].to_i
     @issue = @repository.issues.find_by(number: issue_number)
 
     # Fetch from API if issue doesn't exist, has never been cached, or is stale
-    sync_result = nil
+    @sync_result = nil
     if @issue.nil? || @issue.cached_at.nil? || @issue.cached_at < 5.minutes.ago
-      sync_result = Github::IssueSyncService.new(
+      @sync_result = Github::IssueSyncService.new(
         user: Current.user,
         repository: @repository,
         issue_number: issue_number
       ).call
 
-      if sync_result[:success]
+      if @sync_result[:success]
         @issue = @repository.issues.find_by!(number: issue_number)
       elsif @issue.nil?
-        flash[:alert] = t("issues.errors.issue_not_found", error: sync_result[:error])
-        redirect_to issue_not_found_redirect_path and return
+        flash[:alert] = t("issues.errors.issue_not_found", error: @sync_result[:error])
+        redirect_to issue_not_found_redirect_path
+        return false
       else
-        flash.now[:alert] = "Could not refresh issue data: #{sync_result[:error]}. Showing cached version."
+        flash.now[:alert] = "Could not refresh issue data: #{@sync_result[:error]}. Showing cached version."
       end
     end
 
-    redirect_to canonical_item_path and return if scope_mismatch?
+    if scope_mismatch?
+      redirect_to canonical_item_path
+      return false
+    end
 
-    load_project_fields_and_timeline
-
-    # Show rate limit info if debug mode
-    show_debug_rate_limit(sync_result) if params[:debug] == "true"
-
-    render "issues/show"
+    true
   end
 
   # GitHub serves issues and pull requests from separate URL spaces and 302s
@@ -69,10 +85,8 @@ module IssueShowable
   # :reek:TooManyStatements - Fetches project fields and timeline from API
   # :reek:DuplicateMethodCall - @repository and @issue accessed for API calls
   def load_project_fields_and_timeline
-    domain = @repository.github_domain
-    github_token = Current.user.github_tokens.find_by(domain: domain)
-    if github_token
-      client = Github::ApiClient.new(token: github_token.token, domain: domain)
+    client = github_client
+    if client
       repo_owner = @repository.owner
       repo_name = @repository.name
       number = @issue.number
@@ -86,6 +100,16 @@ module IssueShowable
       @project_items = []
       @timeline_items = comments_to_timeline_items(@issue.issue_comments)
     end
+  end
+
+  # Nil when the user has no token for this repository's host, which the show
+  # page degrades around rather than failing on.
+  def github_client
+    domain = @repository.github_domain
+    github_token = Current.user.github_tokens.find_by(domain: domain)
+    return unless github_token
+
+    Github::ApiClient.new(token: github_token.token, domain: domain)
   end
 
   # Consolidate label events that occur at the same time by the same actor
