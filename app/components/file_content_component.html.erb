@@ -2,7 +2,7 @@
   <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
     <span class="truncate font-mono text-sm text-gray-900 dark:text-gray-100" title="<%= path %>"><%= path %></span>
     <span class="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
-      <%= number_to_human_size(size) %><%= " · #{pluralize(lines.size, t('pulls.file.line'))}" unless binary? || empty? %>
+      <%= number_to_human_size(size) %><%= " · #{pluralize(line_count, t('pulls.file.line'))}" unless binary? || empty? %>
     </span>
   </div>
 
@@ -15,17 +15,11 @@
       <%= helpers.render_markdown(content) %>
     </div>
   <% else %>
-    <div class="overflow-x-auto">
-      <table class="w-full border-collapse font-mono text-xs">
-        <tbody>
-          <% lines.each_with_index do |line, index| %>
-            <tr>
-              <td class="w-12 select-none border-r border-gray-200 px-2 py-0.5 text-right align-top text-gray-400 dark:border-gray-700 dark:text-gray-500"><%= index + 1 %></td>
-              <td class="whitespace-pre-wrap break-all px-3 py-0.5 text-gray-900 dark:text-gray-200"><%= line %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+    <%# One code block rather than a cell per line: a string or heredoc that
+        spans lines can only be highlighted correctly as a whole. Prism's
+        line-numbers plugin draws the gutter. %>
+    <div class="overflow-x-auto text-xs" data-controller="syntax-highlight">
+      <pre class="line-numbers !m-0 !rounded-none !border-0 !bg-transparent"><code class="<%= code_classes %>" data-syntax-highlight-target="code"><%= content %></code></pre>
     </div>
   <% end %>
 </div>

@@ -31,7 +31,7 @@ class FileContentComponentTest < ViewComponent::TestCase
   test "renders non-markdown files as numbered source" do
     render_inline(build_component(path: "app/models/issue.rb", content: "class Issue\nend"))
 
-    assert_selector "table tbody tr", count: 2
+    assert_selector "pre.line-numbers code.language-ruby"
     assert_text "class Issue"
     assert_no_selector "div.markdown"
   end
@@ -41,7 +41,7 @@ class FileContentComponentTest < ViewComponent::TestCase
   test "shows markdown source when raw is requested" do
     render_inline(build_component(path: "README.md", content: "# Title", raw: true))
 
-    assert_selector "table tbody tr", count: 1
+    assert_selector "pre.line-numbers code.language-markdown"
     assert_text "# Title"
     assert_no_selector "div.markdown h1"
   end
@@ -67,12 +67,13 @@ class FileContentComponentTest < ViewComponent::TestCase
     assert_no_selector "table"
   end
 
-  # Splitting with a -1 limit keeps trailing blank lines, so the line count
-  # matches what an editor would show.
-  test "keeps trailing blank lines in the source view" do
-    component = build_component(path: "trailing.rb", content: "one\ntwo\n")
-
-    assert_equal [ "one", "two", "" ], component.lines
+  # A trailing newline terminates the last line rather than starting an empty
+  # one, so the header count matches the gutter Prism draws.
+  test "does not count a trailing newline as an extra line" do
+    assert_equal 2, build_component(path: "trailing.rb", content: "one\ntwo\n").line_count
+    assert_equal 2, build_component(path: "trailing.rb", content: "one\ntwo").line_count
+    assert_equal 3, build_component(path: "trailing.rb", content: "one\ntwo\n\n").line_count
+    assert_equal 0, build_component(path: "trailing.rb", content: "").line_count
   end
 
   test "shows the file path and human readable size" do
@@ -90,5 +91,26 @@ class FileContentComponentTest < ViewComponent::TestCase
       path: path,
       raw: raw
     )
+  end
+
+  test "maps known extensions to a Prism language" do
+    assert_equal "ruby", build_component(path: "app/models/issue.rb", content: "x").language
+    assert_equal "yaml", build_component(path: "config/deploy.yml", content: "x").language
+    assert_equal "markup", build_component(path: "index.html", content: "x").language
+    assert_equal "hcl", build_component(path: "main.tf", content: "x").language
+  end
+
+  # Some files carry their language in the name rather than an extension.
+  test "maps known filenames to a Prism language" do
+    assert_equal "ruby", build_component(path: "Gemfile", content: "x").language
+    assert_equal "docker", build_component(path: "docker/Dockerfile", content: "x").language
+  end
+
+  # Guessing wrong is worse than not colouring at all.
+  test "leaves an unknown extension unhighlighted" do
+    component = build_component(path: "notes.xyz", content: "x")
+
+    assert_nil component.language
+    assert_equal "language-none", component.code_classes
   end
 end

@@ -9,6 +9,31 @@ class FileContentComponent < ViewComponent::Base
   # Extensions CommonMarker should be given rather than showing raw source.
   MARKDOWN_EXTENSIONS = %w[md markdown mdown mkd mkdn].freeze
 
+  # File extension to Prism language, for the languages the layout loads.
+  # Anything absent renders as plain text rather than guessing wrong.
+  LANGUAGES = {
+    "rb" => "ruby", "rake" => "ruby", "gemspec" => "ruby", "ru" => "ruby",
+    "erb" => "erb",
+    "js" => "javascript", "mjs" => "javascript", "cjs" => "javascript", "jsx" => "jsx",
+    "ts" => "typescript", "tsx" => "tsx",
+    "py" => "python",
+    "sh" => "bash", "bash" => "bash", "zsh" => "bash",
+    "yml" => "yaml", "yaml" => "yaml",
+    "json" => "json",
+    "sql" => "sql",
+    "css" => "css", "scss" => "css",
+    "html" => "markup", "xml" => "markup", "svg" => "markup",
+    "go" => "go",
+    "tf" => "hcl", "hcl" => "hcl",
+    "md" => "markdown", "markdown" => "markdown"
+  }.freeze
+
+  # Filenames with no useful extension that still have an obvious language.
+  FILENAME_LANGUAGES = {
+    "gemfile" => "ruby", "rakefile" => "ruby", "guardfile" => "ruby",
+    "dockerfile" => "docker", "makefile" => "makefile"
+  }.freeze
+
   # Callers outside the component need this to decide whether a Rendered/Source
   # toggle is worth offering.
   def self.markdown?(path)
@@ -35,6 +60,15 @@ class FileContentComponent < ViewComponent::Base
     self.class.markdown?(path)
   end
 
+  # The Prism language class for the source view, or nil to leave it plain.
+  def language
+    LANGUAGES[extension] || FILENAME_LANGUAGES[File.basename(path).downcase]
+  end
+
+  def code_classes
+    language ? "language-#{language}" : "language-none"
+  end
+
   def render_markdown?
     markdown? && !@raw
   end
@@ -47,9 +81,13 @@ class FileContentComponent < ViewComponent::Base
     file[:content].to_s
   end
 
-  # Source view needs the lines split anyway, and an empty file has none.
-  def lines
-    content.split("\n", -1)
+  # Lines as the gutter counts them: a trailing newline terminates the last
+  # line rather than starting a new empty one.
+  def line_count
+    return 0 if empty?
+
+    newlines = content.count("\n")
+    content.end_with?("\n") ? newlines : newlines + 1
   end
 
   def size
