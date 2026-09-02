@@ -121,11 +121,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
   private
 
   def sign_in
-    visit new_session_path
-    fill_in "Email address", with: @user.email_address
-    fill_in "Password", with: "password123"
-    # Submit form via JS to avoid flaky Selenium button clicks on CI
-    page.execute_script("document.querySelector('form').submit()")
+    sign_in_as(@user)
     assert_text "Repositories", wait: 10
   end
 end

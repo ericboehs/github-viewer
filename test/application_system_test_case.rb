@@ -14,3 +14,33 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     assert(audit_result.passed?, audit_result.failure_message)
   end
 end
+
+module SignInAsSystem
+  # Capybara's fill_in can return before Selenium has registered the value,
+  # which under load submits the form with an empty field and lands back on
+  # the sign-in page. Setting the value and then verifying it — falling back
+  # to writing the attribute directly — makes the submit never half-empty.
+  def sign_in_as(user, password: "password123")
+    visit new_session_path
+    fill_session_field("Email address", user.email_address)
+    fill_session_field("Password", password)
+    click_button "Sign in"
+  end
+
+  private
+
+  def fill_session_field(locator, value)
+    field = find_field(locator)
+    field.set(value)
+    return if field.value == value
+
+    page.execute_script(
+      "arguments[0].value = arguments[1];" \
+      "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));",
+      field, value
+    )
+    assert_equal value, field.value, "could not set the #{locator} field"
+  end
+end
+
+ApplicationSystemTestCase.include SignInAsSystem

@@ -90,3 +90,13 @@ module ActiveSupport
     # Add more helper methods to be used by all tests here...
   end
 end
+
+# Shared sign-in for integration-style tests. Every controller test used to
+# define its own copy of this method.
+module SignInAsIntegration
+  def sign_in_as(user, password: "password123")
+    post session_url, params: { email_address: user.email_address, password: password }
+  end
+end
+
+ActionDispatch::IntegrationTest.include SignInAsIntegration if defined?(ActionDispatch::IntegrationTest)

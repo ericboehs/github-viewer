@@ -86,10 +86,6 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
   private
 
-  def sign_in_as(user)
-    post session_url, params: { email_address: user.email_address, password: "password123" }
-  end
-
   # Regression: the profile page rendered a masked preview by decrypting the
   # token, so an unreadable one 500ed the only page that can remove it.
   test "profile still renders when a token cannot be decrypted" do

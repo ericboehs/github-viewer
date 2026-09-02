@@ -452,8 +452,4 @@ class PullsControllerTest < ActionDispatch::IntegrationTest
   def sample_file_contents
     { path: "README.md", size: 42, binary: false, content: "# Hello\n\nSome text." }
   end
-
-  def sign_in_as(user)
-    post session_url, params: { email_address: user.email_address, password: "password123" }
-  end
 end

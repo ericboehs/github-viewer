@@ -167,10 +167,7 @@ class RepositoriesTest < ApplicationSystemTestCase
   private
 
   def sign_in
-    visit new_session_path
-    fill_in "Email address", with: @user.email_address
-    fill_in "Password", with: "password123"
-    click_button "Sign in"
+    sign_in_as(@user)
     # Wait for redirect to complete
     assert_current_path root_path
   end
