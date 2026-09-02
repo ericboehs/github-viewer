@@ -35,6 +35,15 @@ class FileContentComponent < ViewComponent::Base
     self.class.markdown?(path)
   end
 
+  # The Prism language class for the source view, or nil to leave it plain.
+  def language
+    SourceLanguage.for(path)
+  end
+
+  def code_classes
+    language ? "language-#{language}" : "language-none"
+  end
+
   def render_markdown?
     markdown? && !@raw
   end
@@ -47,9 +56,13 @@ class FileContentComponent < ViewComponent::Base
     file[:content].to_s
   end
 
-  # Source view needs the lines split anyway, and an empty file has none.
-  def lines
-    content.split("\n", -1)
+  # Lines as the gutter counts them: a trailing newline terminates the last
+  # line rather than starting a new empty one.
+  def line_count
+    return 0 if empty?
+
+    newlines = content.count("\n")
+    content.end_with?("\n") ? newlines : newlines + 1
   end
 
   def size

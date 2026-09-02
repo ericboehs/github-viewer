@@ -96,24 +96,39 @@ class FileDiffComponent < ViewComponent::Base
       when /\A@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/
         old_line = Regexp.last_match(1).to_i
         new_line = Regexp.last_match(2).to_i
-        { kind: :hunk, text: line, old_number: nil, new_number: nil }
+        { kind: :hunk, marker: "", code: line, old_number: nil, new_number: nil }
       when /\A\+/
-        row = { kind: :addition, text: line, old_number: nil, new_number: new_line }
+        row = { kind: :addition, marker: "+", code: line[1..], old_number: nil, new_number: new_line }
         new_line += 1
         row
       when /\A-/
-        row = { kind: :deletion, text: line, old_number: old_line, new_number: nil }
+        row = { kind: :deletion, marker: "-", code: line[1..], old_number: old_line, new_number: nil }
         old_line += 1
         row
       else
         # Anything else is context, including the "\ No newline at end of file"
         # marker, which advances neither counter but is harmless to number.
-        row = { kind: :context, text: line, old_number: old_line, new_number: new_line }
+        row = { kind: :context, **split_context(line), old_number: old_line, new_number: new_line }
         old_line += 1
         new_line += 1
         row
       end
     end
+  end
+
+  # A context line carries a leading space that is part of the diff format, not
+  # the source. Anything else (a bare blank line, the no-newline marker) is
+  # passed through untouched.
+  #
+  # :reek:UtilityFunction - Parses one line of diff syntax
+  def split_context(line)
+    line.start_with?(" ") ? { marker: " ", code: line[1..] } : { marker: "", code: line }
+  end
+
+  # The Prism language for this file's contents, or nil to leave it plain.
+  # Hunk headers are diff syntax rather than source, so they stay unhighlighted.
+  def language
+    SourceLanguage.for(filename)
   end
 
   # :reek:UtilityFunction - Maps a parsed line kind to its styling; belongs
