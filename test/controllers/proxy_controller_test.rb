@@ -20,6 +20,56 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user)
   end
 
+  # A proxy URL names someone's private repository, so it must never be
+  # reachable without signing in.
+  test "should require authentication for a blob URL" do
+    delete session_url
+
+    get "/va.ghe.com/software/eert/blob/main/README.md"
+
+    assert_redirected_to new_session_path
+  end
+
+  # Pasting a GitHub file URL against this host should land on the file
+  # browser rather than 404.
+  test "should redirect a blob URL to the file browser" do
+    repo = create_repo("va.ghe.com", "software", "eert")
+
+    get "/va.ghe.com/software/eert/blob/main/projects/vapo/README.md"
+
+    assert_redirected_to repository_tree_path(repo, path: "projects/vapo/README.md", ref: "main")
+  end
+
+  test "should redirect a tree URL to the file browser" do
+    repo = create_repo("github.com", "rails", "rails")
+
+    get "/rails/rails/tree/main/app/models"
+
+    assert_redirected_to repository_tree_path(repo, path: "app/models", ref: "main")
+  end
+
+  # The repository is created on demand for a blob URL exactly as it is for an
+  # issue URL, so a link to a repository you have never opened still works.
+  test "should sync an unknown repository named by a blob URL" do
+    Github::RepositorySyncService.any_instance.stubs(:call).returns(
+      { success: true, repository: create_repo("github.com", "rails", "new-repo") }
+    )
+
+    get "/rails/new-repo/blob/main/README.md"
+
+    assert_response :redirect
+    assert_match(/\/tree/, response.location)
+  end
+
+  test "should refuse a blob URL for a domain with no token" do
+    @ghe_token.destroy
+
+    get "/va.ghe.com/software/eert/blob/main/README.md"
+
+    assert_redirected_to root_path
+    assert_match(/No GitHub token/, flash[:alert])
+  end
+
   # Path parsing tests - two-segment (owner/repo) defaults to github.com
   test "should view issue via owner/repo path defaulting to github.com" do
     repo = create_repo("github.com", "rails", "rails")
@@ -94,7 +144,7 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
   test "should redirect with error for invalid URL format" do
     get "/just-one-segment/issues/123"
     assert_redirected_to root_path
-    assert_match /Invalid issue URL/, flash[:alert]
+    assert_match /Invalid GitHub URL/, flash[:alert]
   end
 
   test "should not match paths without issues segment" do
@@ -151,7 +201,7 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
   test "should reject three-segment path without dot in first segment" do
     get "/org/sub/repo/issues/1"
     assert_redirected_to root_path
-    assert_match /Invalid issue URL/, flash[:alert]
+    assert_match /Invalid GitHub URL/, flash[:alert]
   end
 
   # Path parsing rejections
@@ -159,38 +209,19 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
   test "should redirect on paths that are too short" do
     get "/rails/issues/1"
     assert_redirected_to root_path
-    assert_match(/Invalid issue URL format/, flash[:alert])
+    assert_match(/Invalid GitHub URL format/, flash[:alert])
   end
 
   test "should redirect on zero issue numbers" do
     get "/rails/rails/issues/0"
     assert_redirected_to root_path
-    assert_match(/Invalid issue URL format/, flash[:alert])
-  end
-
-  # The catch-all route only forwards /issues/N and /pull/N, so these
-  # rejections are exercised directly against the parser.
-  test "parse_proxy_path rejects unsupported path kinds" do
-    controller = ProxyController.new
-    assert_nil controller.send(:parse_proxy_path, "rails/rails/discussions/1")
-  end
-
-  test "parse_proxy_path rejects blank paths" do
-    controller = ProxyController.new
-    assert_nil controller.send(:parse_proxy_path, "")
-  end
-
-  test "parse_proxy_path maps pull paths to the pulls scope" do
-    controller = ProxyController.new
-    parsed = controller.send(:parse_proxy_path, "rails/rails/pull/9")
-    assert_equal IssueScoped::PULLS_SCOPE, parsed[:scope]
-    assert_equal 9, parsed[:issue_number]
+    assert_match(/Invalid GitHub URL format/, flash[:alert])
   end
 
   test "should redirect on paths with too many segments" do
     get "/a/b/c/d/issues/1"
     assert_redirected_to root_path
-    assert_match(/Invalid issue URL format/, flash[:alert])
+    assert_match(/Invalid GitHub URL format/, flash[:alert])
   end
 
   test "should redirect when the repository cannot be found on GitHub" do

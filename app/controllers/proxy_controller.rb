@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
-# Provides on-demand issue viewing via proxy-style URLs
+# Provides on-demand viewing via proxy-style URLs that mirror GitHub's own
 # e.g., /va.ghe.com/software/eert/issues/185
 # e.g., /rails/rails/issues/123 (defaults to github.com)
 # e.g., /rails/rails/pull/123 (pull requests)
+# e.g., /va.ghe.com/software/eert/blob/main/README.md (files and directories)
 # :reek:TooManyStatements - Controller orchestrates path parsing, repo sync, and issue fetch
 # :reek:InstanceVariableAssumption - Controller sets instance variables for views
 # :reek:TooManyInstanceVariables - Proxy needs domain, owner, repo_name, issue_number, repository
@@ -11,9 +12,9 @@ class ProxyController < ApplicationController
   include IssueShowable
 
   def show
-    parsed = parse_proxy_path(params[:path])
+    parsed = ProxyPath.parse(params[:path])
     unless parsed
-      redirect_to root_path, alert: "Invalid issue URL format. Expected: domain/owner/repo/issues/123 or owner/repo/issues/123"
+      redirect_to root_path, alert: "Invalid GitHub URL format. Expected: domain/owner/repo/issues/123 or domain/owner/repo/blob/ref/path"
       return
     end
 
@@ -34,6 +35,10 @@ class ProxyController < ApplicationController
     @repository = find_or_create_repository(current_user)
     return unless @repository
 
+    # A blob or tree URL has no issue to load; it is just a way of naming a
+    # path, so hand off to the file browser.
+    return redirect_to repository_tree_path(@repository, path: parsed[:path], ref: parsed[:ref]) if parsed[:kind] == :tree
+
     # Fetch and display the issue using shared concern
     load_and_display_issue
   end
@@ -47,40 +52,6 @@ class ProxyController < ApplicationController
 
   def issue_not_found_redirect_path
     root_path
-  end
-
-  # :reek:UtilityFunction - Pure path parsing function
-  # :reek:DuplicateMethodCall - Accessing repo_segments indices for readability
-  # :reek:TooManyStatements - Parses domain, owner, repo, kind, and number
-  def parse_proxy_path(path)
-    return nil if path.blank?
-
-    segments = path.split("/")
-
-    # Need at least owner/repo/issues/number (4 segments)
-    return nil unless segments.length >= 4
-    kind = segments[-2]
-    return nil unless kind.in?(%w[issues pull])
-
-    issue_number = segments[-1].to_i
-    return nil if issue_number <= 0
-
-    scope = kind == "pull" ? IssueScoped::PULLS_SCOPE : IssueScoped::ISSUES_SCOPE
-
-    # Remove /issues/number from segments
-    repo_segments = segments[0..-3]
-    first_segment = repo_segments[0]
-
-    case repo_segments.length
-    when 2
-      # owner/repo -> default github.com
-      { domain: "github.com", owner: first_segment, name: repo_segments[1], issue_number: issue_number, scope: scope }
-    when 3
-      if first_segment.include?(".")
-        # domain/owner/repo
-        { domain: first_segment, owner: repo_segments[1], name: repo_segments[2], issue_number: issue_number, scope: scope }
-      end
-    end
   end
 
   # :reek:TooManyStatements - Orchestrates lookup and sync fallback
