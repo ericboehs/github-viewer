@@ -122,4 +122,40 @@ class FileDiffComponentTest < ViewComponent::TestCase
       patch: "@@ -1,2 +1,3 @@\n context\n+added\n-removed"
     }.merge(overrides)
   end
+
+  # The +/- is diff syntax, not source. Leaving it attached makes Prism lex the
+  # first token of every changed line wrong.
+  test "splits the diff marker from the code" do
+    patch = "@@ -1,2 +1,2 @@\n-old_value = 1\n+new_value = 2\n unchanged = 3"
+    rows = FileDiffComponent.new(file: file_data(patch: patch)).rows
+
+    assert_equal [ "", "-", "+", " " ], rows.map { |row| row[:marker] }
+    assert_equal [
+      "@@ -1,2 +1,2 @@", "old_value = 1", "new_value = 2", "unchanged = 3"
+    ], rows.map { |row| row[:code] }
+  end
+
+  # A bare blank line and the no-newline marker have no leading space to strip.
+  test "passes through lines with no diff marker" do
+    patch = "@@ -1,1 +1,1 @@\n\n\\ No newline at end of file"
+    rows = FileDiffComponent.new(file: file_data(patch: patch)).rows
+
+    assert_equal [ "", "", "" ], rows.map { |row| row[:marker] }
+    assert_equal "\\ No newline at end of file", rows.last[:code]
+  end
+
+  test "derives the Prism language from the filename" do
+    assert_equal "ruby", FileDiffComponent.new(file: file_data).language
+    assert_nil FileDiffComponent.new(file: file_data(filename: "notes.xyz")).language
+  end
+
+  test "marks code lines for highlighting but not hunk headers" do
+    patch = "@@ -1,1 +1,1 @@\n+x = 1"
+    render_inline(FileDiffComponent.new(file: file_data(patch: patch)))
+
+    assert_selector "[data-syntax-highlight-language-value=ruby]"
+    # One target: the added line, not the hunk header.
+    assert_selector "[data-syntax-highlight-target=line]", count: 1, text: "x = 1"
+    assert_text "@@ -1,1 +1,1 @@"
+  end
 end

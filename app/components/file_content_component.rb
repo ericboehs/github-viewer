@@ -9,31 +9,6 @@ class FileContentComponent < ViewComponent::Base
   # Extensions CommonMarker should be given rather than showing raw source.
   MARKDOWN_EXTENSIONS = %w[md markdown mdown mkd mkdn].freeze
 
-  # File extension to Prism language, for the languages the layout loads.
-  # Anything absent renders as plain text rather than guessing wrong.
-  LANGUAGES = {
-    "rb" => "ruby", "rake" => "ruby", "gemspec" => "ruby", "ru" => "ruby",
-    "erb" => "erb",
-    "js" => "javascript", "mjs" => "javascript", "cjs" => "javascript", "jsx" => "jsx",
-    "ts" => "typescript", "tsx" => "tsx",
-    "py" => "python",
-    "sh" => "bash", "bash" => "bash", "zsh" => "bash",
-    "yml" => "yaml", "yaml" => "yaml",
-    "json" => "json",
-    "sql" => "sql",
-    "css" => "css", "scss" => "css",
-    "html" => "markup", "xml" => "markup", "svg" => "markup",
-    "go" => "go",
-    "tf" => "hcl", "hcl" => "hcl",
-    "md" => "markdown", "markdown" => "markdown"
-  }.freeze
-
-  # Filenames with no useful extension that still have an obvious language.
-  FILENAME_LANGUAGES = {
-    "gemfile" => "ruby", "rakefile" => "ruby", "guardfile" => "ruby",
-    "dockerfile" => "docker", "makefile" => "makefile"
-  }.freeze
-
   # Callers outside the component need this to decide whether a Rendered/Source
   # toggle is worth offering.
   def self.markdown?(path)
@@ -62,7 +37,7 @@ class FileContentComponent < ViewComponent::Base
 
   # The Prism language class for the source view, or nil to leave it plain.
   def language
-    LANGUAGES[extension] || FILENAME_LANGUAGES[File.basename(path).downcase]
+    SourceLanguage.for(path)
   end
 
   def code_classes

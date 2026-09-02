@@ -23,14 +23,17 @@
   <% if no_patch_reason %>
     <p class="px-4 py-3 text-sm italic text-gray-500 dark:text-gray-400"><%= no_patch_reason %></p>
   <% else %>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto" data-controller="syntax-highlight" data-syntax-highlight-language-value="<%= language %>">
       <table class="w-full border-collapse font-mono text-xs">
         <tbody>
           <% rows.each do |row| %>
             <tr class="<%= line_classes(row[:kind]) %>">
               <td class="w-12 select-none border-r border-gray-200 px-2 py-0.5 text-right align-top text-gray-400 dark:border-gray-700 dark:text-gray-500"><%= row[:old_number] %></td>
               <td class="w-12 select-none border-r border-gray-200 px-2 py-0.5 text-right align-top text-gray-400 dark:border-gray-700 dark:text-gray-500"><%= row[:new_number] %></td>
-              <td class="whitespace-pre-wrap break-all px-3 py-0.5 text-gray-900 dark:text-gray-200"><%= row[:text] %></td>
+              <%# The +/- marker is diff syntax, so it is kept out of the span
+                  Prism is given: leaving it in makes the first token of every
+                  changed line lex wrong. %>
+              <td class="whitespace-pre-wrap break-all px-3 py-0.5 text-gray-900 dark:text-gray-200"><%= row[:marker] %><% if row[:kind] == :hunk %><%= row[:code] %><% else %><span data-syntax-highlight-target="line"><%= row[:code] %></span><% end %></td>
             </tr>
           <% end %>
         </tbody>
