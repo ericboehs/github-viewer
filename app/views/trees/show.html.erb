@@ -1,0 +1,54 @@
+<% content_for :title, "#{@path.presence || t('trees.show.files')} · #{@repository.full_name}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 mb-4">
+      <%= render 'shared/flash_messages' %>
+    </div>
+
+    <header class="mb-6">
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <h1 class="text-2xl sm:text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+          <%= @repository.full_name %>
+        </h1>
+
+        <%= render 'shared/repository_tabs', repository: @repository, current: :code %>
+      </div>
+    </header>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <%= render TreeBreadcrumbComponent.new(repository: @repository, path: @path, ref: @ref) %>
+
+          <%# Markdown is the only thing with two useful presentations. %>
+          <% if @contents[:type] == :file && @contents[:binary].blank? && FileContentComponent.markdown?(@path) %>
+            <div class="inline-flex overflow-hidden rounded-md border border-gray-300 text-sm dark:border-gray-600">
+              <% [[t('pulls.file.rendered'), nil], [t('pulls.file.source'), 'source']].each do |label, display| %>
+                <% active = params[:display].presence == display %>
+                <%= link_to label,
+                    repository_tree_path(@repository, path: @path, ref: @ref, display: display),
+                    class: "px-3 py-1 #{active ? 'bg-gray-200 font-medium text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}",
+                    "aria-current": (active ? "page" : nil) %>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <% if @ref %>
+          <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            <%= t('trees.show.at_ref', ref: @ref) %>
+          </p>
+        <% end %>
+
+        <% if @contents[:type] == :directory %>
+          <%= render DirectoryListingComponent.new(entries: @contents[:entries], repository: @repository, path: @path, ref: @ref) %>
+        <% elsif @contents[:type] == :file %>
+          <%= render FileContentComponent.new(file: @contents, path: @path, raw: params[:display] == 'source') %>
+        <% end %>
+      </div>
+    </main>
+  </div>
+</div>

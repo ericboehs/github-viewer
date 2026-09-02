@@ -42,16 +42,8 @@
           <% end %>
         </div>
 
-        <!-- Issues / Pull requests tabs -->
-        <nav class="mt-4 flex gap-6 border-b border-gray-200 dark:border-gray-700" aria-label="<%= t('navigation.repository_tabs') %>">
-          <% [[:issues, repository_issues_path(@repository), t('issues.index.title')],
-              [:pulls, repository_pulls_path(@repository), t('pulls.index.title')]].each do |scope, path, label| %>
-            <% active = list_scope == scope %>
-            <%= link_to label, path,
-                class: "-mb-px border-b-2 px-1 pb-2 text-sm font-medium #{active ? 'border-emerald-500 text-gray-900 dark:text-white' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}",
-                "aria-current": (active ? "page" : nil) %>
-          <% end %>
-        </nav>
+        <!-- Repository tabs -->
+        <%= render 'shared/repository_tabs', repository: @repository, current: list_scope %>
       </div>
     </header>
 

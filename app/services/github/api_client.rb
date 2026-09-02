@@ -174,6 +174,31 @@ module Github
       { error: ERROR_SAML_PROTECTED }
     end
 
+    # Lists a directory or reads a file. GitHub answers the same endpoint with
+    # an array for a directory and an object for a file, so the result carries a
+    # :type and the caller never has to infer it from the shape.
+    #
+    # A blank ref means the repository's default branch.
+    # :reek:LongParameterList - Mirrors the GitHub contents endpoint
+    def fetch_contents(owner, repo_name, path = "", ref: nil)
+      options = { path: path }
+      options[:ref] = ref if ref.present?
+
+      with_rate_limiting do
+        contents = @client.contents("#{owner}/#{repo_name}", **options)
+        next { type: :directory, entries: normalize_directory_entries(contents) } if contents.is_a?(Array)
+
+        file = normalize_file_contents(contents)
+        file[:error] ? file : file.merge(type: :file)
+      end
+    rescue Octokit::NotFound
+      { error: ERROR_FILE_NOT_FOUND }
+    rescue Octokit::Forbidden
+      { error: ERROR_FILE_TOO_LARGE }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
     def fetch_labels(owner, repo_name)
       with_rate_limiting do
         @client.labels("#{owner}/#{repo_name}", per_page: 100)
@@ -801,6 +826,15 @@ module Github
         binary: !decoded.valid_encoding?,
         content: decoded.valid_encoding? ? decoded : nil
       }
+    end
+
+    # Directories first, then files, each alphabetically. That is the order a
+    # file browser is expected to show, and not the order the API returns.
+    # :reek:UtilityFunction - Data transformation helper
+    def normalize_directory_entries(entries)
+      entries.map { |entry|
+        { name: entry[:name], path: entry[:path], type: entry[:type], size: entry[:size] }
+      }.sort_by { |entry| [ entry[:type] == "dir" ? 0 : 1, entry[:name].to_s.downcase ] }
     end
 
     # :reek:UtilityFunction - Data transformation helper

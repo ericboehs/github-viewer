@@ -2101,6 +2101,74 @@ class Github::ApiClientTest < ActiveSupport::TestCase
   end
 
   # GitHub reports a blob it declined to inline with encoding "none".
+  # One endpoint serves both shapes, so the result says which one came back
+  # rather than leaving the caller to sniff it.
+  test "fetch_contents tags a directory listing" do
+    stub_octokit(:contents, [
+      { name: "README.md", path: "README.md", type: "file", size: 12 },
+      { name: "app", path: "app", type: "dir", size: 0 }
+    ])
+
+    result = @client.fetch_contents("rails", "rails", "")
+
+    assert_equal :directory, result[:type]
+    assert_equal %w[app README.md], result[:entries].map { |entry| entry[:name] }
+  end
+
+  # Directories first, then files, each alphabetically and case-insensitively.
+  test "fetch_contents sorts directories ahead of files" do
+    stub_octokit(:contents, [
+      { name: "zebra.rb", path: "zebra.rb", type: "file", size: 1 },
+      { name: "Gemfile", path: "Gemfile", type: "file", size: 1 },
+      { name: "lib", path: "lib", type: "dir", size: 0 },
+      { name: "App", path: "App", type: "dir", size: 0 }
+    ])
+
+    assert_equal %w[App lib Gemfile zebra.rb],
+      @client.fetch_contents("rails", "rails", "")[:entries].map { |entry| entry[:name] }
+  end
+
+  test "fetch_contents tags a file and decodes it" do
+    stub_octokit(:contents, {
+      path: "README.md", size: 12, encoding: "base64", content: Base64.encode64("# Hi")
+    })
+
+    result = @client.fetch_contents("rails", "rails", "README.md")
+
+    assert_equal :file, result[:type]
+    assert_equal "# Hi", result[:content]
+  end
+
+  # An unreadable blob is an error, not a file with a :type.
+  test "fetch_contents does not tag an error as a file" do
+    stub_octokit(:contents, { path: "big.csv", size: 2_000_000, encoding: "none", content: "" })
+
+    result = @client.fetch_contents("rails", "rails", "big.csv")
+
+    assert_equal "File is too large to display", result[:error]
+    assert_nil result[:type]
+  end
+
+  test "fetch_contents omits a blank ref so GitHub uses the default branch" do
+    captured = nil
+    mock_client = OpenStruct.new
+    mock_client.define_singleton_method(:contents) { |_repo, **options| captured = options; [] }
+    mock_client.define_singleton_method(:rate_limit) { nil }
+    @client.instance_variable_set(:@client, mock_client)
+
+    @client.fetch_contents("rails", "rails", "app")
+    assert_equal({ path: "app" }, captured)
+
+    @client.fetch_contents("rails", "rails", "app", ref: "main")
+    assert_equal({ path: "app", ref: "main" }, captured)
+  end
+
+  test "fetch_contents reports a missing path" do
+    stub_octokit_failure(:contents, Octokit::NotFound)
+
+    assert_equal "File not found", @client.fetch_contents("rails", "rails", "nope")[:error]
+  end
+
   test "fetch_file_contents reports a blob GitHub refused to inline" do
     stub_octokit(:contents, { path: "big.csv", size: 2_000_000, encoding: "none", content: "" })
 

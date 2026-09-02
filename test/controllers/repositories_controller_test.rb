@@ -493,6 +493,19 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert_includes JSON.parse(response.body)["error"], "Failed to fetch labels"
   end
 
+  # GitHub lands you on Code, not Issues; the tabs cover the rest.
+  test "index links a repository to its file browser" do
+    repository = @user.repositories.create!(
+      github_domain: "github.com", owner: "rails", name: "rails", full_name: "rails/rails"
+    )
+
+    get repositories_path
+
+    assert_select "a[href=?]", repository_tree_path(repository), text: /rails\/rails/
+  end
+
+  private
+
   private
 
   def create_repository

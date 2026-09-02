@@ -184,6 +184,18 @@ en:
     refresh:
       error: 'Failed to refresh repository: %{error}'
       success: Repository refreshed successfully.
+  trees:
+    breadcrumb:
+      label: "File path"
+    listing:
+      caption: "Directory contents"
+      empty: "This directory is empty."
+      parent: "Parent directory"
+    show:
+      code: "Code"
+      files: "Files"
+      at_ref: "Viewing at %{ref}"
+      no_token: "No GitHub token configured for %{domain}. Add one in your profile to browse files."
   users:
     avatar:
       gravatar_description: Avatar from Gravatar
