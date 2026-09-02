@@ -49,5 +49,12 @@ Rails.application.routes.draw do
   root "dashboard#index"
 
   # Proxy-style issue viewing: /va.ghe.com/software/eert/issues/185 or /rails/rails/issues/123
-  get "*path", to: "proxy#show", constraints: ->(req) { req.path.match?(%r{/(issues|pull)/\d+\z}) }
+  # Proxy URLs mirror GitHub's own, so a pasted link lands on the matching page
+  # here: /issues/1 and /pull/1 on the issue view, /blob/ and /tree/ on the file
+  # browser.
+  # `format: false` because a file path ends in an extension that Rails would
+  # otherwise strip as a response format, turning README.md into README.
+  get "*path", to: "proxy#show", format: false, constraints: ->(req) {
+    req.path.match?(%r{/(issues|pull)/\d+\z}) || req.path.match?(%r{/(blob|tree)/[^/]+})
+  }
 end
