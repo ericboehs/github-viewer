@@ -1,0 +1,45 @@
+<% content_for :title, "#{@path.presence || t('trees.show.files')} · #{@repository.full_name}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <main class="py-6">
+    <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+      <%= render 'shared/flash_messages' %>
+
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <%= render TreeBreadcrumbComponent.new(repository: @repository, path: @path, ref: @ref) %>
+
+        <div class="flex items-center gap-3">
+          <%# Markdown is the only thing with two useful presentations. %>
+          <% if @contents[:type] == :file && @contents[:binary].blank? && FileContentComponent.markdown?(@path) %>
+            <div class="inline-flex overflow-hidden rounded-md border border-gray-300 text-sm dark:border-gray-600">
+              <% [[t('pulls.file.rendered'), nil], [t('pulls.file.source'), 'source']].each do |label, display| %>
+                <% active = params[:display].presence == display %>
+                <%= link_to label,
+                    repository_tree_path(@repository, path: @path, ref: @ref, display: display),
+                    class: "px-3 py-1 #{active ? 'bg-gray-200 font-medium text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}",
+                    "aria-current": (active ? "page" : nil) %>
+              <% end %>
+            </div>
+          <% end %>
+
+          <%= link_to t('trees.show.back_to_issues'), repository_issues_path(@repository),
+              class: "text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200" %>
+        </div>
+      </div>
+
+      <% if @ref %>
+        <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          <%= t('trees.show.at_ref', ref: @ref) %>
+        </p>
+      <% end %>
+
+      <% if @contents[:type] == :directory %>
+        <%= render DirectoryListingComponent.new(entries: @contents[:entries], repository: @repository, path: @path, ref: @ref) %>
+      <% elsif @contents[:type] == :file %>
+        <%= render FileContentComponent.new(file: @contents, path: @path, raw: params[:display] == 'source') %>
+      <% end %>
+    </div>
+  </main>
+</div>

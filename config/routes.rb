@@ -11,6 +11,7 @@ Rails.application.routes.draw do
       get :assignable_users
       get :labels
     end
+    resource :tree, only: [ :show ]
     resources :issues, only: [ :index, :show ] do
       collection do
         post :refresh

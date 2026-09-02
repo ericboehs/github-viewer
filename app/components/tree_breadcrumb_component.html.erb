@@ -1,0 +1,16 @@
+<nav class="flex flex-wrap items-center gap-1 text-sm" aria-label="<%= t("trees.breadcrumb.label") %>">
+  <%= link_to repository.name,
+              helpers.repository_tree_path(repository, ref: ref),
+              class: "font-semibold text-blue-600 hover:underline dark:text-blue-400" %>
+
+  <% crumbs.each_with_index do |(segment, crumb_path), index| %>
+    <span class="text-gray-400 dark:text-gray-500">/</span>
+    <% if leaf?(index) %>
+      <span class="font-semibold text-gray-900 dark:text-gray-100" aria-current="page"><%= segment %></span>
+    <% else %>
+      <%= link_to segment,
+                  helpers.repository_tree_path(repository, path: crumb_path, ref: ref),
+                  class: "text-blue-600 hover:underline dark:text-blue-400" %>
+    <% end %>
+  <% end %>
+</nav>
