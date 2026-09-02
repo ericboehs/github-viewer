@@ -38,10 +38,12 @@ module Github
 
     # Assignable users
     #
-    # The dropdown shows 20 rows and searches server-side, so paging through an
-    # entire enterprise org (tens of thousands of members) to build the list is
-    # pure waste. Cap what we will walk in one sync.
-    MAX_ASSIGNABLE_USER_PAGES = 5
+    # The synced list is a warm cache for the dropdown, not the source of
+    # truth: a search that comes up short falls back to GitHub's own
+    # server-side matching. Cap what one sync will walk so a huge enterprise
+    # org cannot turn a background refresh into an all-day job. This runs in
+    # the background, so it can afford to be generous.
+    MAX_ASSIGNABLE_USER_PAGES = 30
 
     # How long a cached assignable-user list stays authoritative before the
     # next request refreshes it in the background.

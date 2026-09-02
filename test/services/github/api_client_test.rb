@@ -2154,4 +2154,61 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     mock_client.define_singleton_method(:rate_limit) { nil }
     @client.instance_variable_set(:@client, mock_client)
   end
+
+  # Tests for search_assignable_users
+
+  test "should search assignable users server-side in one page" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      @body = body
+      {
+        data: { repository: { assignableUsers: {
+          nodes: [ { login: "zed", avatarUrl: "https://example.com/zed.png" } ]
+        } } }
+      }
+    end
+    def mock_client.captured_body = @body
+    def mock_client.rate_limit = nil
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.search_assignable_users("rails", "rails", "zed", limit: 20)
+
+    assert_equal [ "zed" ], result.map { |user| user[:login] }
+    sent = JSON.parse(mock_client.captured_body)
+    assert_equal "zed", sent.dig("variables", "query")
+    assert_equal 20, sent.dig("variables", "first")
+  end
+
+  test "should return no assignable users when the search errors" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      raise Octokit::Error.new(method: :post, url: "x", status: 500)
+    end
+    def mock_client.rate_limit = nil
+    @client.instance_variable_set(:@client, mock_client)
+
+    assert_equal [], @client.search_assignable_users("rails", "rails", "zed")
+  end
+
+  # A huge enterprise org would otherwise page forever.
+  test "should stop paging assignable users at the configured cap" do
+    mock_client = OpenStruct.new
+    def mock_client.post(path, body)
+      @calls = (@calls || 0) + 1
+      {
+        data: { repository: { assignableUsers: {
+          nodes: [ { login: "user#{@calls}", avatarUrl: nil } ],
+          pageInfo: { hasNextPage: true, endCursor: "cursor#{@calls}" }
+        } } }
+      }
+    end
+    def mock_client.calls = @calls
+    def mock_client.rate_limit = nil
+    @client.instance_variable_set(:@client, mock_client)
+
+    result = @client.fetch_assignable_users("rails", "rails")
+
+    assert_equal Github::ApiConfiguration::MAX_ASSIGNABLE_USER_PAGES, mock_client.calls
+    assert_equal Github::ApiConfiguration::MAX_ASSIGNABLE_USER_PAGES, result.length
+  end
 end

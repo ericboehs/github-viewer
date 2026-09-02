@@ -179,12 +179,21 @@ export default class extends Controller {
       button.appendChild(spacer)
     }
 
-    // Avatar
-    const avatar = document.createElement('img')
-    avatar.src = contributor.avatar_url
-    avatar.alt = contributor.login
-    avatar.className = 'size-6 rounded-full'
-    avatar.loading = 'lazy'
+    // Avatar. A pinned user who is not in the synced list has no avatar URL,
+    // so fall back to initials the way AvatarComponent does rather than
+    // requesting "null" and rendering a broken image.
+    let avatar
+    if (contributor.avatar_url) {
+      avatar = document.createElement('img')
+      avatar.src = contributor.avatar_url
+      avatar.alt = contributor.login
+      avatar.className = 'size-6 rounded-full'
+      avatar.loading = 'lazy'
+    } else {
+      avatar = document.createElement('div')
+      avatar.className = 'size-6 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs uppercase flex-shrink-0'
+      avatar.textContent = (contributor.login || '?').charAt(0)
+    }
 
     // Login text
     const loginText = document.createElement('span')

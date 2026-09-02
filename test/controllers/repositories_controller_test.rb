@@ -228,306 +228,200 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     assert flash[:alert].include?("Invalid token")
   end
 
-  test "should return assignable users as JSON" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
+  # Assignable users (filter dropdown data source)
+  #
+  # Served from the locally synced repository_assignable_users table. These
+  # used to mock the REST API, which is exactly what made the endpoint slow.
 
-    # Mock GitHub API response
-    mock_current_user = OpenStruct.new(login: "current_user", avatar_url: "https://example.com/current.png")
-    mock_users = [
-      OpenStruct.new(login: "alice", avatar_url: "https://example.com/alice.png"),
-      OpenStruct.new(login: "bob", avatar_url: "https://example.com/bob.png"),
-      OpenStruct.new(login: "charlie", avatar_url: "https://example.com/charlie.png")
-    ]
+  def repo_with_assignees(*logins, synced_at: Time.current)
+    repository = @user.repositories.create!(
+      github_domain: "github.com", owner: "rails", name: "rails",
+      full_name: "rails/rails", cached_at: 1.minute.ago
+    )
+    logins.each do |login|
+      repository.repository_assignable_users.create!(
+        login: login, avatar_url: "https://example.com/#{login}.png"
+      )
+    end
+    repository.repository_assignable_users.update_all(updated_at: synced_at)
+    repository
+  end
+
+  # No token means no viewer to pin and no sync to run; the stored list is
+  # still perfectly searchable.
+  def stub_no_viewer
+    @user.github_tokens.destroy_all
+    Rails.cache.clear
+  end
+
+  def stub_viewer_login(login)
+    Rails.cache.clear
+    @user.github_tokens.find_or_create_by!(domain: "github.com") { |t| t.token = "ghp_test_token" }
     mock_client = mock
-    mock_client.stubs(:user).returns(mock_current_user)
-    mock_client.stubs(:repository_assignees).returns(mock_users)
+    mock_client.stubs(:user).returns(OpenStruct.new(login: login))
     mock_api_client = mock
     mock_api_client.stubs(:client).returns(mock_client)
+    mock_api_client.stubs(:search_assignable_users).returns([])
     Github::ApiClient.stubs(:new).returns(mock_api_client)
+  end
+
+  test "should return assignable users as JSON" do
+    repository = repo_with_assignees("alice", "bob", "charlie")
+    stub_no_viewer
 
     get assignable_users_repository_url(repository), as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
-    assert_equal 4, json.length
-    # Current user should be first, then others alphabetically
-    assert_equal "current_user", json.first["login"]
-    assert_equal [ "alice", "bob", "charlie", "current_user" ], json.map { |u| u["login"] }.sort
+    assert_equal [ "alice", "bob", "charlie" ], json.map { |u| u["login"] }
   end
 
   test "should search assignable users by query" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
-
-    # Mock GitHub API response
-    mock_current_user = OpenStruct.new(login: "current_user", avatar_url: "https://example.com/current.png")
-    mock_users = [
-      OpenStruct.new(login: "alice", avatar_url: "https://example.com/alice.png"),
-      OpenStruct.new(login: "bob", avatar_url: "https://example.com/bob.png"),
-      OpenStruct.new(login: "charlie", avatar_url: "https://example.com/charlie.png")
-    ]
-    mock_client = mock
-    mock_client.stubs(:user).returns(mock_current_user)
-    mock_client.stubs(:repository_assignees).returns(mock_users)
-    mock_api_client = mock
-    mock_api_client.stubs(:client).returns(mock_client)
-    Github::ApiClient.stubs(:new).returns(mock_api_client)
+    repository = repo_with_assignees("alice", "bob", "charlie")
+    stub_no_viewer
 
     get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
-    # Only alice matches search ("current_user" doesn't contain "ali")
-    assert_equal 1, json.length
-    assert_equal "alice", json.first["login"]
+    assert_equal [ "alice" ], json.map { |u| u["login"] }
   end
 
   test "should limit results to 20 users" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
-
-    # Mock GitHub API response with 25 users
-    mock_current_user = OpenStruct.new(login: "current_user", avatar_url: "https://example.com/current.png")
-    mock_users = 25.times.map do |i|
-      OpenStruct.new(
-        login: "user#{i.to_s.rjust(2, '0')}",
-        avatar_url: "https://example.com/user#{i}.png"
-      )
-    end
-    mock_client = mock
-    mock_client.stubs(:user).returns(mock_current_user)
-    mock_client.stubs(:repository_assignees).returns(mock_users)
-    mock_api_client = mock
-    mock_api_client.stubs(:client).returns(mock_client)
-    Github::ApiClient.stubs(:new).returns(mock_api_client)
+    repository = repo_with_assignees(*25.times.map { |i| "user#{i.to_s.rjust(2, '0')}" })
+    stub_no_viewer
 
     get assignable_users_repository_url(repository), as: :json
 
     assert_response :success
-    json = JSON.parse(response.body)
-    assert_equal 20, json.length
-    # Current user should be first
-    assert_equal "current_user", json.first["login"]
+    assert_equal 20, JSON.parse(response.body).length
   end
 
   test "should preserve avatar tokens for GHE URLs" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
-
-    # Mock GitHub API response with token in URL (needed for GHE)
-    mock_current_user = OpenStruct.new(login: "current_user", avatar_url: "https://example.com/current.png?token=xyz789")
-    mock_users = [
-      OpenStruct.new(login: "alice", avatar_url: "https://example.com/alice.png?token=abc123")
-    ]
-    mock_client = mock
-    mock_client.stubs(:user).returns(mock_current_user)
-    mock_client.stubs(:repository_assignees).returns(mock_users)
-    mock_api_client = mock
-    mock_api_client.stubs(:client).returns(mock_client)
-    Github::ApiClient.stubs(:new).returns(mock_api_client)
+    repository = repo_with_assignees("alice")
+    repository.repository_assignable_users
+              .find_by(login: "alice")
+              .update!(avatar_url: "https://example.com/alice.png?token=abc123")
+    stub_no_viewer
 
     get assignable_users_repository_url(repository), as: :json
 
-    assert_response :success
     json = JSON.parse(response.body)
-    assert_equal 2, json.length
-    # Current user should be first with token preserved
-    assert_equal "current_user", json.first["login"]
-    assert_equal "https://example.com/current.png?token=xyz789", json.first["avatar_url"]
-    # Alice should be second with token preserved
-    assert_equal "alice", json.second["login"]
-    assert_equal "https://example.com/alice.png?token=abc123", json.second["avatar_url"]
+    assert_equal "https://example.com/alice.png?token=abc123", json.first["avatar_url"]
   end
 
-  test "should include selected user even when search doesn't match" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
+  test "should include selected user even when search does not match" do
+    repository = repo_with_assignees("alice", "bob")
+    stub_no_viewer
 
-    # Mock GitHub API response with multiple users
-    mock_current_user = OpenStruct.new(login: "current_user", avatar_url: "https://example.com/current.png")
-    mock_users = [
-      OpenStruct.new(login: "alice", avatar_url: "https://example.com/alice.png"),
-      OpenStruct.new(login: "bob", avatar_url: "https://example.com/bob.png"),
-      OpenStruct.new(login: "charlie", avatar_url: "https://example.com/charlie.png")
-    ]
-    mock_client = mock
-    mock_client.stubs(:user).returns(mock_current_user)
-    mock_client.stubs(:repository_assignees).returns(mock_users)
-    mock_api_client = mock
-    mock_api_client.stubs(:client).returns(mock_client)
-    Github::ApiClient.stubs(:new).returns(mock_api_client)
-
-    # Search for "ali" with "bob" selected
-    # Bob doesn't match "ali" but should still be included (and appear first because selected)
-    # Current user doesn't match search so won't be included
     get assignable_users_repository_url(repository), params: { q: "ali", selected: "bob" }, as: :json
 
-    assert_response :success
     json = JSON.parse(response.body)
-    assert_equal 2, json.length # bob (selected) + alice (matches search)
-    assert_equal "bob", json.first["login"] # Selected user appears first
-    assert_equal "alice", json.second["login"] # Matching user appears second
+    assert_equal "bob", json.first["login"]
+    assert_equal [ "bob", "alice" ], json.map { |u| u["login"] }
   end
 
-  test "should return error when no github token exists" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
+  test "should include a selected user who is not in the synced list" do
+    repository = repo_with_assignees("alice")
+    stub_no_viewer
 
-    # Don't create a github token for this test
-    @user.github_tokens.destroy_all
+    get assignable_users_repository_url(repository), params: { selected: "ghost" }, as: :json
+
+    json = JSON.parse(response.body)
+    assert_equal "ghost", json.first["login"]
+    assert_nil json.first["avatar_url"]
+  end
+
+  test "should pin the viewer above other matches" do
+    repository = repo_with_assignees("alice", "current_user")
+    stub_viewer_login("current_user")
 
     get assignable_users_repository_url(repository), as: :json
 
-    assert_response :unauthorized
     json = JSON.parse(response.body)
-    assert json["error"].include?("No GitHub token found")
+    assert_equal "current_user", json.first["login"]
+    assert_equal [ "current_user", "alice" ], json.map { |u| u["login"] }
   end
 
-  test "should handle selected user not found on GitHub" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
+  test "should not duplicate the viewer when they are selected" do
+    repository = repo_with_assignees("alice", "current_user")
+    stub_viewer_login("current_user")
 
-    mock_current_user = OpenStruct.new(login: "current_user", avatar_url: "https://example.com/current.png")
-    mock_users = [
-      OpenStruct.new(login: "alice", avatar_url: "https://example.com/alice.png")
-    ]
-    mock_client = mock
-    mock_client.stubs(:user).with().returns(mock_current_user)
-    mock_client.stubs(:user).with("nonexistent_user").raises(Octokit::NotFound.new)
-    mock_client.stubs(:repository_assignees).returns(mock_users)
-    mock_api_client = mock
-    mock_api_client.stubs(:client).returns(mock_client)
-    Github::ApiClient.stubs(:new).returns(mock_api_client)
+    get assignable_users_repository_url(repository), params: { selected: "current_user" }, as: :json
 
-    get assignable_users_repository_url(repository), params: { selected: "nonexistent_user" }, as: :json
-
-    assert_response :success
     json = JSON.parse(response.body)
-    # Should return current_user + alice, but not the nonexistent selected user
-    assert_equal 2, json.length
+    assert_equal 1, json.count { |u| u["login"] == "current_user" }
     assert_equal "current_user", json.first["login"]
   end
 
-  test "should add current user when not in search results" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
+  test "should not pin the viewer when they do not match the query" do
+    repository = repo_with_assignees("alice", "current_user")
+    stub_viewer_login("current_user")
 
-    mock_current_user = OpenStruct.new(login: "zzzuser", avatar_url: "https://example.com/zzz.png")
-    mock_users = [
-      OpenStruct.new(login: "alice", avatar_url: "https://example.com/alice.png"),
-      OpenStruct.new(login: "bob", avatar_url: "https://example.com/bob.png")
-    ]
-    mock_client = mock
-    mock_client.stubs(:user).returns(mock_current_user)
-    mock_client.stubs(:repository_assignees).returns(mock_users)
-    mock_api_client = mock
-    mock_api_client.stubs(:client).returns(mock_client)
-    Github::ApiClient.stubs(:new).returns(mock_api_client)
-
-    # Search for "ali" - current user "zzzuser" won't match and should NOT be included
     get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
 
-    assert_response :success
-    json = JSON.parse(response.body)
-    assert_equal 1, json.length
-    assert_equal "alice", json.first["login"] # Only matching user
+    assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
   end
 
-  test "should not duplicate current user when they are selected" do
+  # Never block a request on a full sync; search tops up from the API instead.
+  test "should sync in the background when nothing has been synced yet" do
     repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
+      github_domain: "github.com", owner: "rails", name: "rails",
+      full_name: "rails/rails", cached_at: 1.minute.ago
     )
-
-    mock_current_user = OpenStruct.new(login: "current_user", avatar_url: "https://example.com/current.png")
-    mock_users = [
-      OpenStruct.new(login: "alice", avatar_url: "https://example.com/alice.png"),
-      OpenStruct.new(login: "current_user", avatar_url: "https://example.com/current.png")
-    ]
-    mock_client = mock
-    mock_client.stubs(:user).returns(mock_current_user)
-    mock_client.stubs(:repository_assignees).returns(mock_users)
-    mock_api_client = mock
-    mock_api_client.stubs(:client).returns(mock_client)
-    Github::ApiClient.stubs(:new).returns(mock_api_client)
-
-    # Select current_user - should only appear once
-    get assignable_users_repository_url(repository), params: { selected: "current_user" }, as: :json
-
-    assert_response :success
-    json = JSON.parse(response.body)
-    assert_equal 2, json.length
-    assert_equal "current_user", json.first["login"] # Current user appears once
-    assert_equal "alice", json.second["login"]
-    # Make sure current_user doesn't appear twice
-    assert_equal 1, json.count { |u| u["login"] == "current_user" }
-  end
-
-  test "should handle API errors gracefully" do
-    repository = @user.repositories.create!(
-      github_domain: "github.com",
-      owner: "rails",
-      name: "rails",
-      full_name: "rails/rails",
-      cached_at: 1.minute.ago
-    )
-
-    mock_client = mock
-    mock_client.stubs(:user).raises(StandardError.new("API Error"))
-    mock_api_client = mock
-    mock_api_client.stubs(:client).returns(mock_client)
-    Github::ApiClient.stubs(:new).returns(mock_api_client)
+    stub_no_viewer
+    SyncRepositoryAssignableUsersJob.expects(:perform_now).never
+    SyncRepositoryAssignableUsersJob.expects(:perform_later).with(repository.id).once
 
     get assignable_users_repository_url(repository), as: :json
 
-    assert_response :internal_server_error
-    json = JSON.parse(response.body)
-    assert json["error"].include?("Failed to fetch assignable users")
+    assert_response :success
   end
+
+  test "should refresh a stale list in the background" do
+    repository = repo_with_assignees("alice", synced_at: 2.days.ago)
+    stub_no_viewer
+    SyncRepositoryAssignableUsersJob.expects(:perform_later).with(repository.id).once
+
+    get assignable_users_repository_url(repository), as: :json
+
+    assert_response :success
+    assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
+  end
+
+  test "should not resync a fresh list" do
+    repository = repo_with_assignees("alice")
+    stub_no_viewer
+    SyncRepositoryAssignableUsersJob.expects(:perform_now).never
+    SyncRepositoryAssignableUsersJob.expects(:perform_later).never
+
+    get assignable_users_repository_url(repository), as: :json
+
+    assert_response :success
+  end
+
+  # A failed sync must not take out the dropdown.
+  test "should still serve stored users when the sync fails" do
+    repository = repo_with_assignees("alice", synced_at: 2.days.ago)
+    stub_no_viewer
+    SyncRepositoryAssignableUsersJob.stubs(:perform_later).raises(StandardError, "boom")
+
+    get assignable_users_repository_url(repository), as: :json
+
+    assert_response :success
+    assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
+  end
+
+  test "should serve the stored list even without a token" do
+    repository = repo_with_assignees("alice")
+    stub_no_viewer
+
+    get assignable_users_repository_url(repository), as: :json
+
+    assert_response :success
+    assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
+  end
+
 
   # Labels endpoint (filter dropdown data source)
 
@@ -619,5 +513,70 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
   def sign_in_as(user)
     post session_url, params: { email_address: user.email_address, password: "password123" }
+  end
+
+  # The synced list is only as complete as the sync got, so a short local
+  # result set falls back to GitHub's own matching.
+  test "should top up a thin local search from the API" do
+    repository = repo_with_assignees("alice")
+    # Only a truncated sync warrants the extra round-trip.
+    Github::AssignableUserSearch.any_instance.stubs(:complete?).returns(false)
+    @user.github_tokens.find_or_create_by!(domain: "github.com") { |t| t.token = "ghp_test_token" }
+    Rails.cache.clear
+    mock_client = mock
+    mock_client.stubs(:user).returns(OpenStruct.new(login: "nobody", avatar_url: nil))
+    api = mock
+    api.stubs(:client).returns(mock_client)
+    api.expects(:search_assignable_users)
+      .with("rails", "rails", "zed", limit: 20)
+      .returns([ { login: "zed", avatar_url: "https://example.com/zed.png" } ])
+    Github::ApiClient.stubs(:new).returns(api)
+
+    get assignable_users_repository_url(repository), params: { q: "zed" }, as: :json
+
+    assert_equal [ "zed" ], JSON.parse(response.body).map { |u| u["login"] }
+  end
+
+  test "should not hit the API when the local search is already full" do
+    repository = repo_with_assignees(*20.times.map { |i| "dev#{i.to_s.rjust(2, '0')}" })
+    stub_no_viewer
+    Github::ApiClient.expects(:new).never
+
+    get assignable_users_repository_url(repository), params: { q: "dev" }, as: :json
+
+    assert_equal 20, JSON.parse(response.body).length
+  end
+
+  # An ordinary repo's synced list is everyone, so a narrow match is not a
+  # reason to ask GitHub again.
+  test "should not hit the API when the synced list is already complete" do
+    repository = repo_with_assignees("alice", "bob")
+    stub_no_viewer
+    Github::ApiClient.expects(:new).never
+
+    get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
+
+    assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
+  end
+
+  test "should not hit the API when there is no query" do
+    repository = repo_with_assignees("alice")
+    stub_no_viewer
+    Github::ApiClient.expects(:new).never
+
+    get assignable_users_repository_url(repository), as: :json
+
+    assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
+  end
+
+  test "should fall back to local results when the API search fails" do
+    repository = repo_with_assignees("alice")
+    stub_no_viewer
+    Github::AssignableUserSearch.any_instance.stubs(:complete?).returns(false)
+
+    get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
+
+    assert_response :success
+    assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
   end
 end
