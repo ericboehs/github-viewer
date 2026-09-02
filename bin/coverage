@@ -1,227 +1,283 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'bundler/inline'
+# Generates the coverage report from SimpleCov's .resultset.json instead of
+# scraping coverage/index.html. The resultset is a supported artifact whose
+# format is stable across SimpleCov versions, while index.html markup is not
+# (SimpleCov 1.x reshaped it, which broke the old HTML parser - see #41).
+#
+# Overall numbers are computed here (pooled across files) rather than read
+# from .last_run.json, because that file stores the mean of per-file
+# percentages, which can differ by 0.01 from the pooled numbers the HTML
+# report shows (observed: 96.04 vs 96.05).
 
-gemfile do
-  source 'https://rubygems.org'
-  gem 'nokogiri'
-end
+require "json"
+require "time"
 
-require 'set'
+RESULTSET_PATH = File.join(Dir.pwd, "coverage", ".resultset.json")
+MERGE_TIMEOUT = 600 # seconds; matches SimpleCov's default merge_timeout
+MAX_FILES_SHOWN = 50
 
-# Path to the SimpleCov HTML report
-coverage_file = File.join(Dir.pwd, 'coverage', 'index.html')
-
-unless File.exist?(coverage_file)
-  puts "❌ No coverage report found at #{coverage_file}"
-  puts 'Run tests first: bin/rails test'
-  exit 1
-end
-
-# Parse the HTML file
-doc = Nokogiri::HTML(File.read(coverage_file))
-
-# Extract overall line coverage
-line_percent = doc.css('.covered_percent span').first&.text&.strip
-total_lines = doc.css('.t-line-summary b').first&.text&.strip
-covered_lines = doc.css('.t-line-summary .green b').first&.text&.strip
-missed_lines = doc.css('.t-line-summary .red b').first&.text&.strip
-
-# Extract overall branch coverage (first t-branch-summary is the overall stats)
-overall_branch_summary = doc.css('.t-branch-summary').first
-if overall_branch_summary
-  branch_percent = overall_branch_summary.css('span').last.text.strip.gsub(/[()]/, '')
-  branch_summary_spans = overall_branch_summary.css('span b')
-  overall_total_branches = branch_summary_spans[0]&.text&.strip
-  overall_covered_branches = branch_summary_spans[1]&.text&.strip
-  overall_missed_branches = branch_summary_spans[2]&.text&.strip
-else
-  # No branch coverage available
-  branch_percent = nil
-  overall_total_branches = nil
-  overall_covered_branches = nil
-  overall_missed_branches = nil
-end
-
-# Extract timestamp
-timestamp = doc.css('.timestamp .timeago').first&.attr('title')
-
-puts '## 📊 SimpleCov Coverage Report'
-puts "Generated: #{timestamp}"
-puts ''
-
-puts "### 📈 Line Coverage: #{line_percent}"
-puts "  ✅ #{covered_lines}/#{total_lines} lines covered"
-puts "  ❌ #{missed_lines} lines missed"
-puts ''
-
-if branch_percent
-  puts "### 🌳 Branch Coverage: #{branch_percent}"
-  puts "  ✅ #{overall_covered_branches}/#{overall_total_branches} branches covered"
-  puts "  ❌ #{overall_missed_branches} branches missed"
-  puts ''
-end
-
-# Show file-by-file breakdown if there are missed lines or branches
-if missed_lines.to_i.positive? || overall_missed_branches&.to_i&.positive?
-  # First, collect all files with missing coverage
-  files_with_issues = []
-  files_shown = Set.new
-
-  doc.css('tbody .t-file').each do |row|
-    file_name = row.css('.t-file__name a').first&.text&.strip
-    line_coverage = row.css('.t-file__coverage').first&.text&.strip
-    branch_coverage = row.css('.t-file__branch-coverage').first&.text&.strip
-
-    # Only include files that aren't 100% covered and haven't been seen yet
-    should_skip = files_shown.include?(file_name) ||
-                  (line_coverage == '100.00 %' && (!branch_coverage || branch_coverage == '100.00 %'))
-    next if should_skip
-
-    files_shown.add(file_name)
-    files_with_issues << row
+# Loads the resultset, keeping only the entries SimpleCov itself would merge:
+# those written within MERGE_TIMEOUT of the newest entry, so results from
+# earlier runs do not inflate the numbers.
+def recent_entries
+  unless File.exist?(RESULTSET_PATH)
+    warn "❌ No coverage resultset found at #{RESULTSET_PATH}"
+    warn "Run tests first: bin/rails test"
+    exit 1
   end
 
-  total_files_with_issues = files_with_issues.length
-  files_to_show = files_with_issues.take(50)
+  entries = JSON.parse(File.read(RESULTSET_PATH)).values
+  abort "❌ #{RESULTSET_PATH} contains no results" if entries.empty?
 
-  puts '### 📋 Files with missing coverage:'
-  puts ''
-  if total_files_with_issues > 50
-    puts "Showing top 50 of #{total_files_with_issues} files with missing coverage:"
-    puts ''
-  end
-
-  # rubocop:disable Metrics/BlockLength
-  files_to_show.each do |row|
-    file_name = row.css('.t-file__name a').first&.text&.strip
-    line_coverage = row.css('.t-file__coverage').first&.text&.strip
-    branch_coverage = row.css('.t-file__branch-coverage').first&.text&.strip
-    file_link = row.css('.t-file__name a').first&.attr('href')
-
-    # Extract detailed line information for this file
-    missed_lines = []
-    missed_branches = []
-    total_file_lines = 0
-    covered_file_lines = 0
-
-    if file_link
-      file_id = file_link.gsub('#', '')
-      file_section = doc.css("##{file_id}")
-
-      if file_section.any?
-        # Get the actual counts from SimpleCov's summary
-        line_summary = file_section.css('.t-line-summary')
-        if line_summary.any? # rubocop:disable Metrics/BlockNesting
-          summary_text = line_summary.text
-          # Extract numbers from text like "13 relevant lines. 12 lines covered and 1 lines missed."
-          total_file_lines = Regexp.last_match(1).to_i if summary_text.match(/(\d+)\s+relevant\s+lines/) # rubocop:disable Metrics/BlockNesting
-          covered_file_lines = Regexp.last_match(1).to_i if summary_text.match(/(\d+)\s+lines\s+covered/) # rubocop:disable Metrics/BlockNesting
-        end
-
-        # Find missed lines and branches
-        file_section.css('li').each do |line_item|
-          line_number = line_item.attr('data-linenumber')
-          line_class = line_item.attr('class')
-
-          if line_class&.include?('missed') && !line_class.include?('missed-branch') # rubocop:disable Metrics/BlockNesting
-            missed_lines << line_number
-          elsif line_class&.include?('missed-branch') # rubocop:disable Metrics/BlockNesting
-            missed_branches << line_number
-          end
-        end
-      end
-    end
-
-    # Format the line ranges more clearly
-    # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
-    def format_line_ranges(lines)
-      return '' if lines.empty?
-
-      ranges = []
-      current_range = [lines.first.to_i]
-
-      lines.map(&:to_i).sort[1..]&.each do |line|
-        if line == current_range.last + 1
-          current_range << line
-        else
-          ranges << format_range(current_range)
-          current_range = [line]
-        end
-      end
-      ranges << format_range(current_range)
-
-      "L#{ranges.join(', L')}"
-    end
-    # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
-
-    def format_range(range)
-      if range.length == 1
-        range.first.to_s
-      else
-        "#{range.first}-#{range.last}"
-      end
-    end
-
-    # Get branch counts from the file section
-    covered_branches = 0
-    total_branches = 0
-
-    if file_link
-      file_id = file_link.gsub('#', '')
-      file_section = doc.css("##{file_id}")
-      branch_summary = file_section.css('.t-branch-summary')
-
-      if branch_summary.any?
-        branch_spans = branch_summary.css('span b')
-        total_branches = branch_spans[0]&.text.to_i
-        covered_branches = branch_spans[1]&.text.to_i
-      end
-    end
-
-    branch_display = branch_coverage ? "Branch: #{branch_coverage}" : 'Branch: N/A'
-    puts "  #{file_name} (Line: #{line_coverage}, #{branch_display}):"
-
-    line_info = "📍 Lines: #{covered_file_lines}/#{total_file_lines}"
-    line_info += " (missed: #{format_line_ranges(missed_lines)})" unless missed_lines.empty?
-    puts "         #{line_info}"
-
-    if total_branches.positive?
-      branch_info = "🌿 Branches: #{covered_branches}/#{total_branches}"
-      branch_info += " (missed: #{format_line_ranges(missed_branches)})" unless missed_branches.empty?
-      puts "         #{branch_info}"
-    end
-
-    puts ''
-  end
-  # rubocop:enable Metrics/BlockLength
+  newest = entries.map { |entry| entry["timestamp"] }.max
+  entries.select { |entry| newest - entry["timestamp"] <= MERGE_TIMEOUT }
 end
 
-# Write to GitHub Actions job summary if available
-if ENV['GITHUB_STEP_SUMMARY']
-  File.open(ENV['GITHUB_STEP_SUMMARY'], 'a') do |f|
-    f.puts ''
-    f.puts '## 📊 Test Coverage Report'
-    f.puts ''
-    f.puts "**Line Coverage:** #{line_percent} (#{covered_lines}/#{total_lines} lines)"
-    f.puts ''
+# Merges per-file coverage across test processes. This mirrors SimpleCov's
+# own combiners (Combine::LinesCombiner / Combine::BranchesCombiner) so the
+# numbers match what SimpleCov reports. The LinesCombiner rule "nil + 0 =
+# nil" matters: a line only stays relevant when every process recorded it,
+# or when some process covered it - otherwise Ruby's nil (non-executable in
+# that process) drops it from the report.
+def merge_results(entries)
+  entries.reduce(nil) do |memo, entry|
+    coverage = entry["coverage"].select { |file, _data| file.start_with?(Dir.pwd) }
+    next coverage if memo.nil?
+    combine_coverage(memo, coverage)
+  end || {}
+end
 
-    if branch_percent
-      f.puts "**Branch Coverage:** #{branch_percent} (#{overall_covered_branches}/#{overall_total_branches} branches)"
-      f.puts ''
-    end
+def combine_coverage(coverage_a, coverage_b)
+  (coverage_a.keys | coverage_b.keys).each_with_object({}) do |file, combined|
+    combined[file] = combine_file_coverage(coverage_a[file], coverage_b[file])
+  end
+end
 
-    # Add visual indicators
-    line_pct_value = line_percent.gsub('%', '').to_f
-    branch_pct_value = branch_percent&.gsub('%', '')&.to_f
+# Mirrors SimpleCov's Combine.combine: a file (or criterion) missing on one
+# side keeps the other side verbatim. Never feed a missing side to zip as an
+# empty array - Array#zip truncates to the receiver's length and would
+# destroy the present side's data.
+def combine_file_coverage(coverage_a, coverage_b)
+  return coverage_a || coverage_b if coverage_a.nil? || coverage_b.nil?
 
-    if line_pct_value >= 95 && (!branch_pct_value || branch_pct_value >= 95)
-      f.puts '✅ Coverage meets quality thresholds'
-    elsif line_pct_value >= 80 && (!branch_pct_value || branch_pct_value >= 80)
-      f.puts '⚠️ Coverage is acceptable but could be improved'
+  {
+    "lines" => combine_lines(coverage_a["lines"], coverage_b["lines"]),
+    "branches" => combine_branches(hashify(coverage_a["branches"]), hashify(coverage_b["branches"]))
+  }
+end
+
+# Mirrors SimpleCov's LinesCombiner#merge_line_coverage.
+def combine_lines(lines_a, lines_b)
+  return lines_a || lines_b if lines_a.nil? || lines_b.nil?
+  lines_a.zip(lines_b).map do |first_val, second_val|
+    sum = first_val.to_i + second_val.to_i
+    if sum.zero? && (first_val.nil? || second_val.nil?)
+      nil
     else
-      f.puts '❌ Coverage is below recommended thresholds'
+      sum
     end
   end
 end
+
+# Mirrors SimpleCov's BranchesCombiner#combine: sum per branch, keep a
+# branch that only exists on one side.
+def combine_branches(branches_a, branches_b)
+  branches_a.merge(branches_b) do |_condition, branches_inside_a, branches_inside_b|
+    branches_inside_a.merge(branches_inside_b) { |_branch, count_a, count_b| count_a + count_b }
+  end
+end
+
+def hashify(value)
+  value.is_a?(Hash) ? value : {}
+end
+
+# Line and branch statistics for one file, mirroring SimpleCov's own
+# computation: irrelevant lines are null in the resultset and excluded, and
+# an empty file counts as fully covered.
+def file_stats(coverage)
+  line_hits = coverage["lines"]
+  relevant = line_hits.compact
+  covered_lines = relevant.count(&:positive?)
+  missed_lines = line_hits.each_index.select { |i| line_hits[i] == 0 }.map { |i| i + 1 }
+
+  branch_hits = coverage["branches"].values.flat_map(&:values)
+  missed_branches = coverage["branches"].flat_map { |condition, hits_by_branch|
+    condition_line = branch_line(condition)
+    hits_by_branch.select { |_branch, hits| hits.zero? }.map { |branch_key, _hits|
+      branch_start = branch_line(branch_key)
+      branch_start == condition_line ? branch_start : branch_start - 1
+    }
+  }.uniq.sort
+
+  {
+    lines_total: relevant.size,
+    lines_covered: covered_lines,
+    line_percent: percent(covered_lines, relevant.size),
+    missed_lines: missed_lines,
+    branches_total: branch_hits.size,
+    branches_covered: branch_hits.count(&:positive?),
+    branch_percent: branch_hits.empty? ? nil : percent(branch_hits.count(&:positive?), branch_hits.size),
+    missed_branches: missed_branches
+  }
+end
+
+# Extracts the line number from a resultset branch/condition key like
+# "[:then, 1, 194, 8, 194, 46]", where the third element is the start line.
+def branch_line(branch_key)
+  branch_key.split(",")[2].to_i
+end
+
+def percent(part, total)
+  return 100.0 if total.zero?
+  (part * 100.0 / total).round(2)
+end
+
+def overall_stats(files)
+  line_stats = files.values.map { |coverage| file_stats(coverage) }
+  covered_lines = line_stats.sum { |stats| stats[:lines_covered] }
+  total_lines = line_stats.sum { |stats| stats[:lines_total] }
+  covered_branches = line_stats.sum { |stats| stats[:branches_covered] }
+  total_branches = line_stats.sum { |stats| stats[:branches_total] }
+
+  {
+    covered_lines: covered_lines,
+    total_lines: total_lines,
+    line_percent: percent(covered_lines, total_lines),
+    missed_lines: total_lines - covered_lines,
+    covered_branches: covered_branches,
+    total_branches: total_branches,
+    branch_percent: total_branches.zero? ? nil : percent(covered_branches, total_branches),
+    missed_branches: total_branches - covered_branches
+  }
+end
+
+def format_line_ranges(lines)
+  return "" if lines.empty?
+
+  ranges = []
+  current_range = [ lines.first ]
+
+  lines.sort[1..]&.each do |line|
+    if line == current_range.last + 1
+      current_range << line
+    else
+      ranges << format_range(current_range)
+      current_range = [ line ]
+    end
+  end
+  ranges << format_range(current_range)
+
+  "L#{ranges.join(', L')}"
+end
+
+def format_range(range)
+  if range.length == 1
+    range.first.to_s
+  else
+    "#{range.first}-#{range.last}"
+  end
+end
+
+def format_percent(value)
+  format("%.2f %%", value)
+end
+
+def print_overall(overall, generated_at)
+  puts "## 📊 SimpleCov Coverage Report"
+  puts "Generated: #{generated_at}"
+  puts ""
+  puts "### 📈 Line Coverage: #{overall[:line_percent]}%"
+  puts "  ✅ #{overall[:covered_lines]}/#{overall[:total_lines]} lines covered"
+  puts "  ❌ #{overall[:missed_lines]} lines missed"
+  puts ""
+  return unless overall[:branch_percent]
+
+  puts "### 🌳 Branch Coverage: #{overall[:branch_percent]}%"
+  puts "  ✅ #{overall[:covered_branches]}/#{overall[:total_branches]} branches covered"
+  puts "  ❌ #{overall[:missed_branches]} branches missed"
+  puts ""
+end
+
+# Returns [path, stats] pairs for every file that is not fully covered,
+# worst first: by line coverage, then branch coverage, then path.
+def files_with_issues(files)
+  reports = files.map { |path, coverage| [ path, file_stats(coverage) ] }
+
+  reports.select! do |_path, stats|
+    stats[:line_percent] < 100.0 ||
+      (stats[:branches_total].positive? && stats[:branches_covered] < stats[:branches_total])
+  end
+
+  reports.sort_by! do |path, stats|
+    branch_percent = stats[:branch_percent] || 100.0
+    [ stats[:line_percent], branch_percent, path ]
+  end
+  reports
+end
+
+def print_file_details(reports)
+  puts "### 📋 Files with missing coverage:"
+  puts ""
+  if reports.size > MAX_FILES_SHOWN
+    puts "Showing top #{MAX_FILES_SHOWN} of #{reports.size} files with missing coverage:"
+    puts ""
+  end
+
+  reports.take(MAX_FILES_SHOWN).each do |path, stats|
+    print_single_file(path, stats)
+  end
+end
+
+def print_single_file(path, stats)
+  file_name = path.delete_prefix("#{Dir.pwd}/")
+  branch_display = stats[:branch_percent] ? format_percent(stats[:branch_percent]) : "N/A"
+  puts "  #{file_name} (Line: #{format_percent(stats[:line_percent])}, Branch: #{branch_display}):"
+
+  line_info = "📍 Lines: #{stats[:lines_covered]}/#{stats[:lines_total]}"
+  line_info += " (missed: #{format_line_ranges(stats[:missed_lines])})" unless stats[:missed_lines].empty?
+  puts "         #{line_info}"
+
+  return unless stats[:branches_total].positive?
+
+  branch_info = "🌿 Branches: #{stats[:branches_covered]}/#{stats[:branches_total]}"
+  branch_info += " (missed: #{format_line_ranges(stats[:missed_branches])})" unless stats[:missed_branches].empty?
+  puts "         #{branch_info}"
+  puts ""
+end
+
+def write_step_summary(overall)
+  File.open(ENV["GITHUB_STEP_SUMMARY"], "a") do |file|
+    file.puts ""
+    file.puts "## 📊 Test Coverage Report"
+    file.puts ""
+    file.puts "**Line Coverage:** #{overall[:line_percent]}% (#{overall[:covered_lines]}/#{overall[:total_lines]} lines)"
+    file.puts ""
+    if overall[:branch_percent]
+      file.puts "**Branch Coverage:** #{overall[:branch_percent]}% (#{overall[:covered_branches]}/#{overall[:total_branches]} branches)"
+      file.puts ""
+    end
+
+    if overall[:line_percent] >= 95 && (!overall[:branch_percent] || overall[:branch_percent] >= 95)
+      file.puts "✅ Coverage meets quality thresholds"
+    elsif overall[:line_percent] >= 80 && (!overall[:branch_percent] || overall[:branch_percent] >= 80)
+      file.puts "⚠️ Coverage is acceptable but could be improved"
+    else
+      file.puts "❌ Coverage is below recommended thresholds"
+    end
+  end
+end
+
+entries = recent_entries
+newest = entries.map { |entry| entry["timestamp"] }.max
+merged = merge_results(entries)
+abort "❌ #{RESULTSET_PATH} has no results for #{Dir.pwd}" if merged.empty?
+
+overall = overall_stats(merged)
+print_overall(overall, Time.at(newest).iso8601)
+
+reports = files_with_issues(merged)
+print_file_details(reports) if reports.any?
+
+write_step_summary(overall) if ENV["GITHUB_STEP_SUMMARY"]
