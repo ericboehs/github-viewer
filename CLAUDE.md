@@ -24,6 +24,19 @@ Uses modern Rails features including Solid libraries (Cache, Queue, Cable) and i
 - `bin/rails test:system` - Run system tests
 - `bin/setup` - Initial application setup
 
+### Signing In Locally
+
+Seeded credentials are `eric@boehs.com` / `password` (see `db/seeds.rb`).
+
+In **development**, a loopback request with no session is signed in
+automatically as the first user, so there is no form to fill in. This is gated
+on `Rails.env.development?` *and* `request.local?`, so it cannot apply to a
+deployed instance. Signing out sticks, rather than immediately signing you
+back in.
+
+- `DEV_AUTO_LOGIN=0` - exercise the real sign-in flow
+- `DEV_AUTO_LOGIN_EMAIL=someone@example.com` - auto sign in as a specific user
+
 ### Individual Quality Tools
 - `rubocop` - Ruby style checking (Rails Omakase style)
 - `rubocop -A` - Auto-fix Ruby style violations
