@@ -114,6 +114,17 @@ class TreesControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  # Reachable without hand-typing a URL, and reachable back out again.
+  test "offers the repository tabs with Code current" do
+    stub_contents directory([])
+
+    get repository_tree_path(@repository)
+
+    assert_select "a[aria-current=page]", text: "Code"
+    assert_select "a[href=?]", repository_issues_path(@repository), text: "Issues"
+    assert_select "a[href=?]", repository_pulls_path(@repository), text: "Pull requests"
+  end
+
   test "requires authentication" do
     delete session_path
 
