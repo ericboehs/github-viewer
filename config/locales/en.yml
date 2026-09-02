@@ -159,7 +159,6 @@ en:
       invalid_url: 'Invalid repository URL. Please use format: owner/repo or https://github.com/owner/repo'
     index:
       actions:
-        browse_files: Browse files
         refresh: Refresh
         remove: Remove
       empty:
