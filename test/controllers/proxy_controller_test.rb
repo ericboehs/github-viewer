@@ -20,6 +20,16 @@ class ProxyControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user)
   end
 
+  # A proxy URL names someone's private repository, so it must never be
+  # reachable without signing in.
+  test "should require authentication for a blob URL" do
+    delete session_url
+
+    get "/va.ghe.com/software/eert/blob/main/README.md"
+
+    assert_redirected_to new_session_path
+  end
+
   # Pasting a GitHub file URL against this host should land on the file
   # browser rather than 404.
   test "should redirect a blob URL to the file browser" do
