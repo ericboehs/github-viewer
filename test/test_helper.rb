@@ -13,27 +13,27 @@ SimpleCov.start "rails" do
   minimum_coverage_by_file 90
 
   # Add filters for files/directories to exclude from coverage
-  add_filter "/spec/"
-  add_filter "/config/"
-  add_filter "/vendor/"
-  add_filter "/db/"
-  add_filter "/bin/"
-  add_filter "/test/"
-  add_filter "app/channels/application_cable/connection.rb"
-  add_filter "app/jobs/application_job.rb"
+  skip "/spec/"
+  skip "/config/"
+  skip "/vendor/"
+  skip "/db/"
+  skip "/bin/"
+  skip "/test/"
+  skip "app/channels/application_cable/connection.rb"
+  skip "app/jobs/application_job.rb"
 
   # Group coverage results for better organization
-  add_group "Controllers", "app/controllers"
-  add_group "Models", "app/models"
-  add_group "Services", "app/services"
-  add_group "Jobs", "app/jobs"
-  add_group "Helpers", "app/helpers"
-  add_group "Mailers", "app/mailers"
-  add_group "Channels", "app/channels"
-  add_group "Libraries", "lib/"
+  group "Controllers", "app/controllers"
+  group "Models", "app/models"
+  group "Services", "app/services"
+  group "Jobs", "app/jobs"
+  group "Helpers", "app/helpers"
+  group "Mailers", "app/mailers"
+  group "Channels", "app/channels"
+  group "Libraries", "lib/"
 
   # Use Rails' default profile with some modifications
-  track_files "{app,lib}/**/*.rb"
+  cover "{app,lib}/**/*.rb"
 
   # Set up formatters
   formatter SimpleCov::Formatter::MultiFormatter.new([
