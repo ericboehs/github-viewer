@@ -485,6 +485,36 @@ module Github
 
     # Fetch assignable users via GraphQL
     # Returns users who can be assigned to issues in the repository
+    # Server-side search across every assignable user, in one page.
+    #
+    # The synced list is a cache and, for a large enterprise org, necessarily a
+    # partial one: paging all of it is what made the dropdown take a minute.
+    # This asks GitHub to do the matching instead, so a name that was never
+    # synced is still findable, at the cost of one bounded round-trip.
+    # :reek:LongParameterList - Repo coordinates plus the search and its bound
+    def search_assignable_users(owner, repo_name, search, limit: 20)
+      query = <<~GRAPHQL
+        query($owner: String!, $name: String!, $first: Int!, $query: String) {
+          repository(owner: $owner, name: $name) {
+            assignableUsers(first: $first, query: $query) {
+              nodes {
+                login
+                avatarUrl
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      variables = { owner: owner, name: repo_name, first: limit, query: search.to_s }
+      result = graphql_query(query, variables)
+      return [] if result[:error]
+
+      nodes = result.dig(:data, :repository, :assignableUsers, :nodes) || []
+
+      nodes.map { |node| normalize_assignable_user_data(node) }
+    end
+
     def fetch_assignable_users(owner, repo_name)
       query = <<~GRAPHQL
         query($owner: String!, $name: String!, $first: Int!, $after: String) {
@@ -506,8 +536,13 @@ module Github
       all_users = []
       has_next_page = true
       after_cursor = nil
+      pages = 0
 
-      while has_next_page
+      # An enterprise org can have tens of thousands of assignable members.
+      # The dropdown shows twenty of them, so walking every page is pure cost;
+      # stop after a sensible number and let search cover the rest.
+      while has_next_page && pages < ApiConfiguration::MAX_ASSIGNABLE_USER_PAGES
+        pages += 1
         variables = {
           owner: owner,
           name: repo_name,
@@ -619,7 +654,15 @@ module Github
 
     # :reek:DuplicateMethodCall - domain checked once for equality
     def build_client
-      client_options = { access_token: @token }
+      client_options = {
+        access_token: @token,
+        connection_options: {
+          request: {
+            open_timeout: ApiConfiguration::OPEN_TIMEOUT,
+            timeout: ApiConfiguration::READ_TIMEOUT
+          }
+        }
+      }
 
       # Support GitHub Enterprise by setting custom API endpoint
       unless @domain == "github.com"
