@@ -55,17 +55,22 @@ def combine_coverage(coverage_a, coverage_b)
   end
 end
 
+# Mirrors SimpleCov's Combine.combine: a file (or criterion) missing on one
+# side keeps the other side verbatim. Never feed a missing side to zip as an
+# empty array - Array#zip truncates to the receiver's length and would
+# destroy the present side's data.
 def combine_file_coverage(coverage_a, coverage_b)
-  lines_a = Array(coverage_a&.fetch("lines", nil))
-  lines_b = Array(coverage_b&.fetch("lines", nil))
+  return coverage_a || coverage_b if coverage_a.nil? || coverage_b.nil?
+
   {
-    "lines" => combine_lines(lines_a, lines_b),
-    "branches" => combine_branches(hashify(coverage_a&.fetch("branches", nil)), hashify(coverage_b&.fetch("branches", nil)))
+    "lines" => combine_lines(coverage_a["lines"], coverage_b["lines"]),
+    "branches" => combine_branches(hashify(coverage_a["branches"]), hashify(coverage_b["branches"]))
   }
 end
 
 # Mirrors SimpleCov's LinesCombiner#merge_line_coverage.
 def combine_lines(lines_a, lines_b)
+  return lines_a || lines_b if lines_a.nil? || lines_b.nil?
   lines_a.zip(lines_b).map do |first_val, second_val|
     sum = first_val.to_i + second_val.to_i
     if sum.zero? && (first_val.nil? || second_val.nil?)
