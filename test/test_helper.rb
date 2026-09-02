@@ -9,8 +9,9 @@ SimpleCov.start "rails" do
   # Set minimum coverage percentage
   minimum_coverage line: 95, branch: 95
 
-  # Set coverage percentage precision
-  minimum_coverage_by_file 90
+  # Set per-file coverage minimum (replaces minimum_coverage_by_file,
+  # deprecated in SimpleCov 1.x)
+  coverage(:line) { minimum_per_file 90 }
 
   # Add filters for files/directories to exclude from coverage
   skip "/spec/"
