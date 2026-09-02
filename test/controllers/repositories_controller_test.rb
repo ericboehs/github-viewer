@@ -524,10 +524,6 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     Github::ApiClient.stubs(:new).returns(mock_api_client)
   end
 
-  def sign_in_as(user)
-    post session_url, params: { email_address: user.email_address, password: "password123" }
-  end
-
   # The synced list is only as complete as the sync got, so a short local
   # result set falls back to GitHub's own matching.
   test "should top up a thin local search from the API" do
