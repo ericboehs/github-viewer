@@ -24,12 +24,16 @@ class FileDiffComponent < ViewComponent::Base
     context: ""
   }.freeze
 
-  attr_reader :file, :repository, :issue
+  attr_reader :file, :repository, :issue, :ref
 
-  def initialize(file:, repository: nil, issue: nil)
+  # `issue` for a pull request's diff, `ref` for a commit's: both name a
+  # revision at which the whole file can be read, they just have different
+  # viewers behind them.
+  def initialize(file:, repository: nil, issue: nil, ref: nil)
     @file = file
     @repository = repository
     @issue = issue
+    @ref = ref
     super()
   end
 
@@ -64,11 +68,13 @@ class FileDiffComponent < ViewComponent::Base
   # A removed file has no contents at the head revision, so there is nothing
   # for the viewer to show and the name stays unlinked.
   def viewable?
-    repository.present? && issue.present? && status != "removed"
+    repository.present? && (issue.present? || ref.present?) && status != "removed"
   end
 
   def file_path
-    repo_pull_file_path(repository, issue.number, filename)
+    return repo_pull_file_path(repository, issue.number, filename) if issue
+
+    repo_blob_path(repository, path: filename, ref: ref)
   end
 
   # Explains an absent patch rather than rendering a blank panel, since the two

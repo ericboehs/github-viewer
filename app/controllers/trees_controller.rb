@@ -6,6 +6,7 @@
 # :reek:InstanceVariableAssumption - Controller sets instance variables for the view
 class TreesController < ApplicationController
   include RepositoryScoped
+  include LiveGithubData
 
   before_action :set_repository
 
@@ -25,27 +26,7 @@ class TreesController < ApplicationController
 
   # A missing token or an API error leaves the page renderable: the breadcrumb
   # and an alert, rather than an exception.
-  # :reek:TooManyStatements - Resolves a client, calls it, and sorts success from failure
   def load_contents
-    client = github_client
-    return flash_error(t(".no_token", domain: @repository.github_domain)) unless client
-
-    result = client.fetch_contents(@repository.owner, @repository.name, @path, ref: @ref)
-    error = result[:error]
-
-    error ? flash_error(error) : result
-  end
-
-  def flash_error(message)
-    flash.now[:alert] = message
-    {}
-  end
-
-  def github_client
-    domain = @repository.github_domain
-    github_token = Current.user.github_token_for(domain)
-    return unless github_token
-
-    Github::ApiClient.new(token: github_token.token, domain: domain)
+    fetch_live(fallback: {}) { |client, owner, name| client.fetch_contents(owner, name, @path, ref: @ref) }
   end
 end

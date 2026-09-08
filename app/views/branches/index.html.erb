@@ -1,0 +1,65 @@
+<% content_for :title, "#{t('branches.index.title')} · #{@repository.full_name}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 mb-4">
+      <%= render 'shared/flash_messages' %>
+    </div>
+
+    <%= render 'shared/repository_header', repository: @repository, current: :branches %>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <% if @branches.any? %>
+          <div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-[#0E1116]">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <caption class="sr-only"><%= t('branches.index.caption') %></caption>
+              <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"><%= t('branches.index.name') %></th>
+                  <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"><%= t('branches.index.commit') %></th>
+                  <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"><%= t('branches.index.history') %></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                <% @branches.each do |branch| %>
+                  <% name = branch[:name] %>
+                  <tr>
+                    <td class="px-4 py-2">
+                      <%= link_to name, repo_tree_path(@repository, ref: name),
+                          class: "font-mono text-sm font-medium text-blue-600 hover:underline dark:text-blue-400" %>
+                      <% if name == @repository.default_branch %>
+                        <span class="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"><%= t('branches.index.default') %></span>
+                      <% end %>
+                      <% if branch[:protected] %>
+                        <span class="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"><%= t('branches.index.protected') %></span>
+                      <% end %>
+                    </td>
+                    <td class="px-4 py-2">
+                      <%= link_to branch[:sha].to_s.first(7), repo_commit_path(@repository, branch[:sha]),
+                          class: "font-mono text-xs text-gray-600 hover:underline dark:text-gray-400" %>
+                    </td>
+                    <td class="px-4 py-2 text-right">
+                      <%= link_to t('branches.index.commits'), repo_commits_path(@repository, ref: name),
+                          class: "text-sm text-blue-600 hover:underline dark:text-blue-400" %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+
+          <%= render 'shared/pagination',
+                previous_path: (repo_branches_path(@repository, page: @page - 1) if @page > 1),
+                next_path: (repo_branches_path(@repository, page: @page + 1) if @more_pages) %>
+        <% else %>
+          <p class="rounded-lg border border-gray-200 px-4 py-6 text-center text-sm italic text-gray-500 dark:border-gray-700 dark:text-gray-400">
+            <%= t('branches.index.empty') %>
+          </p>
+        <% end %>
+      </div>
+    </main>
+  </div>
+</div>

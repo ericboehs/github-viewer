@@ -14,6 +14,7 @@
 class PullsController < ApplicationController
   include IssueListable
   include IssueShowable
+  include LiveGithubData
 
   # `load_issue_record` redirects when the record is missing or is not actually
   # a pull request, which halts the callback chain for these three actions.
@@ -24,11 +25,11 @@ class PullsController < ApplicationController
   end
 
   def commits
-    @commits = load_tab_data { |client, owner, name| client.fetch_pull_request_commits(owner, name, @issue.number) }
+    @commits = fetch_live(fallback: []) { |client, owner, name| client.fetch_pull_request_commits(owner, name, @issue.number) }
   end
 
   def files
-    @files = load_tab_data { |client, owner, name| client.fetch_pull_request_files(owner, name, @issue.number) }
+    @files = fetch_live(fallback: []) { |client, owner, name| client.fetch_pull_request_files(owner, name, @issue.number) }
   end
 
   # Views one file's full contents at the revision under review, reached by
@@ -36,7 +37,7 @@ class PullsController < ApplicationController
   # URL, exactly as GitHub spells it.
   def file
     @path = params[:path].to_s
-    @file = load_tab_data(fallback: nil) { |client, owner, name| fetch_file_at_head(client, owner, name) }
+    @file = fetch_live { |client, owner, name| fetch_file_at_head(client, owner, name) }
   end
 
   private
@@ -52,24 +53,5 @@ class PullsController < ApplicationController
     return pull if pull[:error]
 
     client.fetch_file_contents(owner, name, @path, ref: pull[:head_sha])
-  end
-
-  # Every tab fetches live and fails the same way, so they share the plumbing:
-  # no token or an error payload yields the fallback plus a flash, leaving the
-  # page to render its header, tabs and empty state instead of blowing up.
-  # :reek:TooManyStatements - Resolves a client, calls it, and sorts success from failure
-  def load_tab_data(fallback: [])
-    client = github_client
-    return flash_tab_error(t("pulls.errors.no_token", domain: @repository.github_domain), fallback) unless client
-
-    result = yield(client, @repository.owner, @repository.name)
-    error = result.is_a?(Hash) && result[:error]
-
-    error ? flash_tab_error(error, fallback) : result
-  end
-
-  def flash_tab_error(message, fallback)
-    flash.now[:alert] = message
-    fallback
   end
 end

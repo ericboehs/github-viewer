@@ -1,0 +1,14 @@
+<%# Older/Newer paging for the views that read straight from GitHub.
+    Those endpoints report no total, so there are no page numbers to offer:
+    `next_path` is nil once a page comes back short. %>
+<% if previous_path || next_path %>
+  <nav class="mt-4 flex justify-center gap-2" aria-label="<%= t('pagination.label') %>">
+    <% [[t('pagination.newer'), previous_path], [t('pagination.older'), next_path]].each do |label, path| %>
+      <% if path %>
+        <%= link_to label, path, class: "rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-gray-100 dark:border-gray-600 dark:text-blue-400 dark:hover:bg-gray-800" %>
+      <% else %>
+        <span class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-400 dark:border-gray-700 dark:text-gray-600"><%= label %></span>
+      <% end %>
+    <% end %>
+  </nav>
+<% end %>

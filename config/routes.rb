@@ -6,6 +6,9 @@ Rails.application.routes.draw do
   resources :users, only: [ :new, :create ]
   resources :github_tokens, only: [ :create, :destroy ]
 
+  # Paste a GitHub URL, land on the same page here. See GithubLink.
+  get "go", to: "jump#show", as: :jump
+
   # Managing the list of tracked repositories. Viewing one happens under its
   # GitHub-shaped URL instead - see below.
   resources :repositories, only: [ :index, :new, :create, :destroy ]
@@ -74,6 +77,15 @@ Rails.application.routes.draw do
     # renders the file, as GitHub's does.
     get "tree/:ref(/*path)", to: "trees#show", as: :gh_tree
     get "blob/:ref/*path", to: "trees#show", as: :gh_blob
+
+    get "branches", to: "branches#index", as: :gh_branches
+    # A glob so that refs containing slashes - `release/2025-01`,
+    # `dependabot/bundler/rails-8.1.0` - survive the round trip. Nothing follows
+    # the ref here, so there is nothing for the extra segments to be confused
+    # with, and the scope's single-segment constraint has to be lifted to let
+    # the glob do its job.
+    get "commits(/*ref)", to: "commits#index", as: :gh_commits, constraints: { ref: %r{.+} }
+    get "commit/:sha", to: "commits#show", as: :gh_commit
   end
 
   # The repository root, which GitHub renders as its default branch's tree.
@@ -112,4 +124,8 @@ Rails.application.routes.draw do
 
   direct(:repo_tree) { |repository, options| RepositoryUrls.tree_path(self, repository, options) }
   direct(:repo_blob) { |repository, options| RepositoryUrls.blob_path(self, repository, options) }
+
+  direct(:repo_branches) { |repository, options| gh_branches_path(**RepositoryUrls.segments(repository), **options) }
+  direct(:repo_commits) { |repository, options| RepositoryUrls.commits_path(self, repository, options) }
+  direct(:repo_commit) { |repository, sha, options| gh_commit_path(**RepositoryUrls.segments(repository), sha: sha, **options) }
 end

@@ -43,7 +43,9 @@
           <% end %>
         </div>
       </div>
-      <div class="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+      <div class="absolute inset-y-0 right-0 flex items-center gap-3 pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+        <%= render 'shared/jump_form' %>
+
         <!-- Profile dropdown -->
         <div class="relative">
           <div>
@@ -68,6 +70,9 @@
   <!-- Mobile menu, show/hide based on menu state. -->
   <div class="hidden sm:hidden" id="mobile-menu" data-navbar-target="mobileMenu">
     <div class="space-y-1 px-2 pt-2 pb-3">
+      <div class="px-1 pb-2">
+        <%= render 'shared/jump_form', mobile: true %>
+      </div>
       <!-- Light mode: "bg-emerald-50 border-emerald-500 text-emerald-700", Dark mode: "bg-gray-900 text-white" -->
       <% if current_page?(root_path) %>
         <%= link_to root_path, class: "block border-l-4 border-emerald-500 bg-emerald-50 dark:bg-gray-900 py-2 pl-3 pr-4 text-base font-medium text-emerald-700 dark:text-white dark:border-none dark:rounded-md hover:bg-emerald-50 dark:hover:bg-gray-900" do %>

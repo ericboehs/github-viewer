@@ -26,8 +26,31 @@ en:
       page_title: Sign Up
     users:
       create_success: Account created successfully! Please sign in.
+  branches:
+    index:
+      caption: Branches
+      commit: Commit
+      commits: Commits
+      default: Default
+      empty: This repository has no branches.
+      history: History
+      name: Branch
+      protected: Protected
+      title: Branches
   buttons:
     cancel: Cancel
+  commits:
+    index:
+      empty: No commits found.
+      on_ref_html: Commits on %{ref}
+      title: Commits
+    show:
+      browse_files: Browse files at this commit
+      changed_files:
+        one: 1 changed file
+        other: "%{count} changed files"
+      empty: This commit does not change any files.
+      truncated: GitHub only returns the first 300 changed files, so this list may be incomplete.
   dashboard:
     page_title: Dashboard
     recently_updated_heading: Recently Updated Repositories
@@ -90,6 +113,9 @@ en:
       title: 'Issue #%{number}'
       updated_label: Updated
     sync_error: 'Failed to sync issues: %{error}'
+  jump:
+    show:
+      unrecognized: That does not look like a GitHub repository URL.
   mailer:
     password_reset:
       body_html: You can reset your password within the next 15 minutes on
@@ -98,6 +124,9 @@ en:
       reset_link_text: this password reset page
   navigation:
     dashboard: Dashboard
+    jump:
+      label: Go to a GitHub URL
+      placeholder: Paste a GitHub URL...
     mobile_menu:
       open: Open main menu
     repositories: Repositories
@@ -106,13 +135,15 @@ en:
       open: Open user menu
       profile: Your Profile
       sign_out: Sign out
+  pagination:
+    label: Pagination
+    newer: Newer
+    older: Older
   pulls:
     commits:
       committed: committed
       empty: This pull request has no commits.
       no_message: (no commit message)
-    errors:
-      no_token: No GitHub token configured for %{domain}.
     file:
       back_to_files: Back to Files changed
       empty: This file is empty.
@@ -197,7 +228,6 @@ en:
       code: "Code"
       files: "Files"
       at_ref: "Viewing at %{ref}"
-      no_token: "No GitHub token configured for %{domain}. Add one in your profile to browse files."
   users:
     avatar:
       gravatar_description: Avatar from Gravatar

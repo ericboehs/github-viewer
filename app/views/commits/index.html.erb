@@ -1,0 +1,41 @@
+<% content_for :title, "#{t('commits.index.title')} · #{@repository.full_name}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 mb-4">
+      <%= render 'shared/flash_messages' %>
+    </div>
+
+    <%= render 'shared/repository_header', repository: @repository, current: :commits %>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <% if @ref %>
+          <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            <%= t('commits.index.on_ref_html', ref: link_to(@ref, repo_tree_path(@repository, ref: @ref), class: 'font-mono text-blue-600 hover:underline dark:text-blue-400')) %>
+          </p>
+        <% end %>
+
+        <% if @commits.any? %>
+          <div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-[#0E1116]">
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+              <% @commits.each do |commit| %>
+                <%= render CommitListItemComponent.new(commit: commit, repository: @repository) %>
+              <% end %>
+            </div>
+          </div>
+
+          <%= render 'shared/pagination',
+                previous_path: (repo_commits_path(@repository, ref: @ref, page: @page - 1) if @page > 1),
+                next_path: (repo_commits_path(@repository, ref: @ref, page: @page + 1) if @more_pages) %>
+        <% else %>
+          <p class="rounded-lg border border-gray-200 px-4 py-6 text-center text-sm italic text-gray-500 dark:border-gray-700 dark:text-gray-400">
+            <%= t('commits.index.empty') %>
+          </p>
+        <% end %>
+      </div>
+    </main>
+  </div>
+</div>

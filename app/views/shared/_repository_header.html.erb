@@ -1,0 +1,10 @@
+<%# Title and tab bar shared by every page about a repository. %>
+<header class="mb-6">
+  <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+    <h1 class="text-2xl sm:text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+      <%= repository.full_name %>
+    </h1>
+
+    <%= render 'shared/repository_tabs', repository: repository, current: current %>
+  </div>
+</header>

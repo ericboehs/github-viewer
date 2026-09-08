@@ -51,4 +51,25 @@ class RepositoryUrlsTest < ActiveSupport::TestCase
   test "keeps query parameters" do
     assert_equal "/rails/rails/issues?q=is%3Aopen", repo_issues_path(repository, q: "is:open")
   end
+
+  # A tree URL is ref-then-path, so a ref with a slash in it would read as one
+  # segment of ref and the rest as path. Percent-encoding keeps it whole, and
+  # Rails unescapes it on the way back in.
+  test "escapes the slashes in a ref" do
+    repo = repository
+
+    assert_equal "/rails/rails/tree/release%2F2025-01", repo_tree_path(repo, ref: "release/2025-01")
+    assert_equal "/rails/rails/blob/release%2F2025-01/README.md",
+                repo_blob_path(repo, ref: "release/2025-01", path: "README.md")
+  end
+
+  # A commits URL ends with the ref, so there is nothing for the extra segments
+  # to be confused with and the slashes can stay as they are.
+  test "leaves the slashes in a commits ref alone" do
+    assert_equal "/rails/rails/commits/release/2025-01", repo_commits_path(repository, ref: "release/2025-01")
+  end
+
+  test "falls back to the default branch for a commits path with no ref" do
+    assert_equal "/rails/rails/commits/main", repo_commits_path(repository(default_branch: "main"))
+  end
 end

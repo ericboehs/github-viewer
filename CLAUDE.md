@@ -268,11 +268,29 @@ All core features from the PRD are fully implemented and tested:
       `repo_issues_path(repository, q: ...)`, `repo_blob_path(repository, path:, ref:)`
     - `RepositoryScoped` resolves the `(:github_domain)/:owner/:repo` segments
       into a Repository, syncing it from the API the first time it is visited
+    - Refs containing slashes (`dependabot/bundler/rails-8.1.0`) are
+      percent-encoded in tree and blob paths, which are ref-then-path; commits
+      paths end with the ref and keep the slashes as they are
+
+8. **Branches, Commit History and Commit Diffs**
+    - `/owner/repo/branches`, `/owner/repo/commits/:ref`, `/owner/repo/commit/:sha`,
+      all reachable from the repository tab bar
+    - Read live from the API rather than cached, via the `LiveGithubData`
+      concern shared with the file browser and the pull request tabs
+    - Paged with Older/Newer through `PagedListing`: these endpoints report no
+      total, so a full page is what implies another one
+
+9. **Jump to a GitHub URL**
+    - A box in the navbar takes a pasted GitHub URL and redirects to the same
+      page here; `GithubLink` does the parsing
+    - Accepts full URLs, host-less URLs, `owner/repo`, `owner/repo#123`, clone
+      URLs, and anything with a query string or fragment attached
+    - A URL naming a page this application does not serve (Actions, Wiki,
+      Settings) falls back to the repository root rather than a 404
 
 ### 🔮 Potential Future Enhancements
 
 See PRD.md for complete list of Phase 2 features including:
-- Pull request diffs, files changed, and review threads
 - Real-time WebSocket updates
 - Background sync jobs
 - Issue creation/editing (write operations)

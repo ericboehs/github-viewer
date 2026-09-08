@@ -9,6 +9,8 @@
 # The `direct` helpers at the bottom of config/routes.rb delegate here, so
 # controllers, views, components and tests all say `repo_pull_path(repo, 1)`
 # rather than spelling out two or three path segments at every call site.
+#
+# :reek:DataClump - The (context, repository, options) trio is the `direct` helper signature
 module RepositoryUrls
   # github.com is the implied host and is left out of the path, so a github.com
   # URL is exactly GitHub's own minus the scheme and host. Any other host is
@@ -19,6 +21,9 @@ module RepositoryUrls
   # repository's default branch. GitHub resolves it the same way it resolves a
   # branch name.
   FALLBACK_REF = "HEAD"
+
+  # Stands in for a ref while Rails generates a path; see escaping_ref.
+  REF_PLACEHOLDER = "ref-placeholder-2f9d1f"
 
   CONSTRAINTS = {
     # A host is recognised by having a dot in it, which is what keeps
@@ -32,6 +37,7 @@ module RepositoryUrls
     owner: %r{[^/]+},
     repo: %r{[^/]+},
     ref: %r{[^/]+},
+    sha: %r{[^/]+},
 
     # Kept numeric so that sibling routes such as `issues/refresh` cannot be
     # read as an issue named "refresh".
@@ -63,7 +69,9 @@ module RepositoryUrls
     # in it, which is how GitHub spells it too.
     return context.gh_repo_path(**place, **query) if ref.blank? && path.blank?
 
-    context.gh_tree_path(**place, ref: resolve_ref(repository, ref), path: path, **query)
+    escaping_ref(resolve_ref(repository, ref)) do |segment|
+      context.gh_tree_path(**place, ref: segment, path: path, **query)
+    end
   end
 
   # A file. GitHub distinguishes the two only by this word in the URL, and
@@ -74,7 +82,17 @@ module RepositoryUrls
     # With no path there is no file to name, so this is really a tree URL.
     return tree_path(context, repository, options) if path.blank?
 
-    context.gh_blob_path(**segments(repository), ref: resolve_ref(repository, ref), path: path, **query)
+    escaping_ref(resolve_ref(repository, ref)) do |segment|
+      context.gh_blob_path(**segments(repository), ref: segment, path: path, **query)
+    end
+  end
+
+  # A ref's history. Unlike a tree URL this one names no path, so the ref is
+  # free to contain slashes.
+  def commits_path(context, repository, options = {})
+    ref, _path, query = split(options)
+
+    context.gh_commits_path(**segments(repository), ref: resolve_ref(repository, ref), **query)
   end
 
   # Callers pass the ref and path alongside ordinary query parameters, in the
@@ -92,5 +110,20 @@ module RepositoryUrls
     ref.presence || repository.default_branch.presence || FALLBACK_REF
   end
 
-  private_class_method :split, :resolve_ref
+  # Tree and blob URLs put the ref in one path segment and the file path in the
+  # next, so a ref that itself contains slashes - `release/2025-01`,
+  # `dependabot/bundler/rails-8.1.0` - would leave the router no way to tell
+  # where one ends and the other begins. Percent-encoding the slashes keeps the
+  # ref to a single segment, and Rails unescapes it on the way back in, so the
+  # controller still sees the ref as written.
+  #
+  # The substitution happens after generation because url_for would escape the
+  # percent sign itself, turning %2F into %252F.
+  def escaping_ref(ref)
+    return yield(ref) unless ref.include?("/")
+
+    yield(REF_PLACEHOLDER).sub(REF_PLACEHOLDER, ref.gsub("/", "%2F"))
+  end
+
+  private_class_method :split, :resolve_ref, :escaping_ref
 end

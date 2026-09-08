@@ -1,0 +1,15 @@
+<%# Paste a GitHub URL, land on the same page here. See GithubLink.
+    Rendered twice - in the desktop bar and in the mobile menu - so the ids
+    have to differ, hence `mobile`. %>
+<% mobile = local_assigns.fetch(:mobile, false) %>
+<% field_id = mobile ? 'jump-input-mobile' : 'jump-input' %>
+
+<%= form_with url: jump_path, method: :get, class: (mobile ? 'block' : 'hidden sm:block') do |form| %>
+  <%= form.label :to, t('navigation.jump.label'), for: field_id, class: 'sr-only' %>
+  <%= form.search_field :to,
+      id: field_id,
+      placeholder: t('navigation.jump.placeholder'),
+      autocomplete: 'off',
+      spellcheck: 'false',
+      class: "#{mobile ? 'w-full' : 'w-56 lg:w-72'} rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400" %>
+<% end %>

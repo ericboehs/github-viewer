@@ -27,6 +27,7 @@ module Github
     ERROR_SAML_PROTECTED = "This repository requires SAML SSO authorization. Please authorize your personal access token with the organization. See: https://docs.github.com/en/enterprise-cloud@latest/authentication/authenticating-with-single-sign-on/authorizing-a-personal-access-token-for-use-with-single-sign-on"
     ERROR_INVALID_TOKEN = "Invalid GitHub token"
     ERROR_FILE_NOT_FOUND = "File not found"
+    ERROR_REF_NOT_FOUND = "Branch or commit not found"
     # GitHub's contents endpoint refuses to inline blobs over 1 MB and answers
     # with a 403 rather than a size field, so this is a distinct failure mode
     # from a missing file.
@@ -207,6 +208,57 @@ module Github
       []
     rescue Octokit::Unauthorized
       { error: ERROR_UNAUTHORIZED }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
+    # One page of the repository's branches. The endpoint reports a name and a
+    # head SHA and nothing else, so a branch's last commit date would cost a
+    # further call per branch and is left out.
+    # :reek:LongParameterList - Mirrors the GitHub branches endpoint
+    def fetch_branches(owner, repo_name, page: 1, per_page: ApiConfiguration::DEFAULT_PAGE_SIZE)
+      with_rate_limiting do
+        branches = without_auto_pagination do
+          @client.branches("#{owner}/#{repo_name}", page: page, per_page: per_page)
+        end
+        branches.map { |branch| normalize_branch_data(branch) }
+      end
+    rescue Octokit::NotFound
+      { error: ERROR_REPOSITORY_NOT_FOUND }
+    rescue Octokit::Unauthorized
+      { error: ERROR_UNAUTHORIZED }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
+    # One page of a ref's history, newest first. A blank ref means the
+    # repository's default branch.
+    # :reek:LongParameterList - Mirrors the GitHub commits endpoint
+    def fetch_commits(owner, repo_name, ref: nil, page: 1, per_page: ApiConfiguration::DEFAULT_PAGE_SIZE)
+      options = { page: page, per_page: per_page }
+      options[:sha] = ref if ref.present?
+
+      with_rate_limiting do
+        commits = without_auto_pagination { @client.commits("#{owner}/#{repo_name}", **options) }
+        commits.map { |commit| normalize_commit_data(commit) }
+      end
+    rescue Octokit::NotFound
+      { error: ERROR_REF_NOT_FOUND }
+    rescue Octokit::SAMLProtected
+      { error: ERROR_SAML_PROTECTED }
+    end
+
+    # One commit with its diff. As with a pull request's files, GitHub caps the
+    # list at 300 files and omits `patch` for binary and oversized diffs.
+    def fetch_commit(owner, repo_name, sha)
+      with_rate_limiting do
+        commit = @client.commit("#{owner}/#{repo_name}", sha)
+        normalize_commit_data(commit).merge(
+          files: commit[:files].to_a.map { |file| normalize_pull_request_file_data(file) }
+        )
+      end
+    rescue Octokit::NotFound
+      { error: ERROR_REF_NOT_FOUND }
     rescue Octokit::SAMLProtected
       { error: ERROR_SAML_PROTECTED }
     end
@@ -702,6 +754,17 @@ module Github
       @client.per_page = ApiConfiguration::DEFAULT_PAGE_SIZE
     end
 
+    # Octokit walks every page by default, which is right for a sync and wrong
+    # for anything the user is waiting on: a paged view wants the one page it
+    # asked for, not the repository's entire history.
+    def without_auto_pagination
+      original = @client.auto_paginate
+      @client.auto_paginate = false
+      yield
+    ensure
+      @client.auto_paginate = original
+    end
+
     # :reek:TooManyStatements - Complex retry logic with rate limit handling
     # :reek:DuplicateMethodCall - Repeated checks are part of retry logic
     # :reek:UncommunicativeVariableName - 'e' is Rails convention for exception
@@ -860,6 +923,15 @@ module Github
         author_login: github_author && github_author[:login],
         author_avatar_url: github_author && github_author[:avatar_url],
         authored_at: author_details && author_details[:date]
+      }
+    end
+
+    # :reek:UtilityFunction - Data transformation helper
+    def normalize_branch_data(branch)
+      {
+        name: branch[:name],
+        sha: branch[:commit] && branch[:commit][:sha],
+        protected: branch[:protected]
       }
     end
 

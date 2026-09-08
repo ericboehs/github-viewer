@@ -2074,6 +2074,126 @@ class Github::ApiClientTest < ActiveSupport::TestCase
     assert_equal "Issue not found", @client.fetch_pull_request_commits("rails", "rails", 1)[:error]
   end
 
+  test "fetch_branches normalizes each branch" do
+    stub_octokit(:branches, [ { name: "main", commit: { sha: "abc1234" }, protected: true } ])
+
+    branch = @client.fetch_branches("rails", "rails").first
+
+    assert_equal "main", branch[:name]
+    assert_equal "abc1234", branch[:sha]
+    assert branch[:protected]
+  end
+
+  test "fetch_branches reports a missing repository" do
+    stub_octokit_failure(:branches, Octokit::NotFound)
+
+    assert_equal "Repository not found", @client.fetch_branches("rails", "rails")[:error]
+  end
+
+  test "fetch_branches reports an unauthorized token" do
+    stub_octokit_failure(:branches, Octokit::Unauthorized)
+
+    assert_equal "Unauthorized - check your GitHub token", @client.fetch_branches("rails", "rails")[:error]
+  end
+
+  test "fetch_commits normalizes a page of history" do
+    stub_octokit(:commits, [ {
+      sha: "abc1234def",
+      commit: {
+        message: "Fix the thing\n\nBecause it was broken.",
+        author: { name: "Eric Boehs", date: "2025-01-02T03:04:05Z" }
+      },
+      author: { login: "ericboehs", avatar_url: "https://example.com/a.png" }
+    } ])
+
+    commit = @client.fetch_commits("rails", "rails", ref: "main").first
+
+    assert_equal "abc1234def", commit[:sha]
+    assert_equal "Fix the thing", commit[:subject]
+    assert_equal "Because it was broken.", commit[:body]
+  end
+
+  # A page of history is one page. Left to itself Octokit would walk every
+  # page, which for a busy repository is the entire project history.
+  test "fetch_commits asks for one page at a time" do
+    seen = nil
+    mock_client = OpenStruct.new
+    mock_client.define_singleton_method(:commits) do |*_args, **options|
+      seen = { auto_paginate: auto_paginate, options: options }
+      []
+    end
+    mock_client.define_singleton_method(:rate_limit) { nil }
+    mock_client.auto_paginate = true
+    @client.instance_variable_set(:@client, mock_client)
+
+    @client.fetch_commits("rails", "rails", ref: "main", page: 3, per_page: 25)
+
+    assert_equal false, seen[:auto_paginate]
+    assert_equal({ page: 3, per_page: 25, sha: "main" }, seen[:options])
+    assert mock_client.auto_paginate, "restores the client's own setting afterwards"
+  end
+
+  # No ref means the default branch, which GitHub resolves when we send no sha.
+  test "fetch_commits omits the ref when none is given" do
+    seen = nil
+    mock_client = OpenStruct.new
+    mock_client.define_singleton_method(:commits) { |*_args, **options| seen = options; [] }
+    mock_client.define_singleton_method(:rate_limit) { nil }
+    @client.instance_variable_set(:@client, mock_client)
+
+    @client.fetch_commits("rails", "rails")
+
+    assert_not seen.key?(:sha)
+  end
+
+  test "fetch_commits reports an unknown ref" do
+    stub_octokit_failure(:commits, Octokit::NotFound)
+
+    assert_equal "Branch or commit not found", @client.fetch_commits("rails", "rails", ref: "nope")[:error]
+  end
+
+  test "fetch_commits surfaces SAML protected errors" do
+    stub_octokit_failure(:commits, Octokit::SAMLProtected)
+
+    assert_includes @client.fetch_commits("rails", "rails")[:error], "SAML SSO authorization"
+  end
+
+  test "fetch_commit returns the commit with its changed files" do
+    stub_octokit(:commit, {
+      sha: "abc1234def",
+      commit: { message: "Fix the thing", author: { name: "Eric Boehs", date: nil } },
+      author: nil,
+      files: [ { filename: "a.rb", status: "modified", additions: 1, deletions: 1, changes: 2, patch: "@@" } ]
+    })
+
+    commit = @client.fetch_commit("rails", "rails", "abc1234def")
+
+    assert_equal "Fix the thing", commit[:subject]
+    assert_equal "a.rb", commit[:files].first[:filename]
+  end
+
+  # A merge commit with no conflicts changes nothing on its own, and GitHub
+  # sends no `files` key at all for it.
+  test "fetch_commit tolerates a commit with no files" do
+    stub_octokit(:commit, {
+      sha: "abc", commit: { message: "Merge", author: { name: "Eric", date: nil } }, author: nil
+    })
+
+    assert_empty @client.fetch_commit("rails", "rails", "abc")[:files]
+  end
+
+  test "fetch_commit reports an unknown sha" do
+    stub_octokit_failure(:commit, Octokit::NotFound)
+
+    assert_equal "Branch or commit not found", @client.fetch_commit("rails", "rails", "deadbeef")[:error]
+  end
+
+  test "fetch_commit surfaces SAML protected errors" do
+    stub_octokit_failure(:commit, Octokit::SAMLProtected)
+
+    assert_includes @client.fetch_commit("rails", "rails", "abc")[:error], "SAML SSO authorization"
+  end
+
   test "fetch_file_contents decodes the base64 blob GitHub returns" do
     stub_octokit(:contents, {
       path: "README.md", size: 12, encoding: "base64", content: Base64.encode64("# Hello\nworld")

@@ -23,16 +23,18 @@ class CommitListItemComponentTest < ViewComponent::TestCase
     assert_selector "a", text: "abc1234"
   end
 
-  test "links the sha to the commit on the repository's host" do
-    component = build_component
+  test "links the sha to the commit's own page here" do
+    render_inline(build_component)
 
-    assert_equal "https://github.com/rails/rails/commit/abc1234def5678", component.commit_url
+    assert_selector "a[href='/rails/rails/commit/abc1234def5678']", text: "abc1234"
   end
 
-  test "links to a GitHub Enterprise host for enterprise repositories" do
+  test "names the host for a GitHub Enterprise repository" do
     @repository.update!(github_domain: "va.ghe.com")
 
-    assert_match %r{\Ahttps://va\.ghe\.com/}, build_component.commit_url
+    render_inline(build_component)
+
+    assert_selector "a[href='/va.ghe.com/rails/rails/commit/abc1234def5678']"
   end
 
   # Git splits a message into a subject line and an optional body. Only the

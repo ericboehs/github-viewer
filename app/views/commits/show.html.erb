@@ -1,0 +1,74 @@
+<% short_sha = @sha.to_s.first(7) %>
+<% content_for :title, "#{@commit ? @commit[:subject] : short_sha} · #{@repository.full_name}@#{short_sha}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 mb-4">
+      <%= render 'shared/flash_messages' %>
+    </div>
+
+    <%= render 'shared/repository_header', repository: @repository, current: :commits %>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <% if @commit %>
+          <% files = @commit[:files] %>
+
+          <div class="mb-4 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-[#0E1116]">
+            <div class="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 break-words"><%= @commit[:subject] %></h2>
+
+              <% if @commit[:body].present? %>
+                <pre class="mt-2 whitespace-pre-wrap break-words font-mono text-xs text-gray-600 dark:text-gray-400"><%= @commit[:body] %></pre>
+              <% end %>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+              <% author = @commit[:author_login].presence || @commit[:author_name].presence %>
+              <% if @commit[:author_avatar_url] %>
+                <%= render AvatarComponent.new(src: @commit[:author_avatar_url], alt: author.to_s, size: :small) %>
+              <% end %>
+              <% if author %>
+                <span class="font-medium text-gray-700 dark:text-gray-300"><%= author %></span>
+              <% end %>
+              <% if @commit[:authored_at] %>
+                <span><%= t('pulls.commits.committed') %> <%= time_ago_tag(@commit[:authored_at]) %></span>
+              <% end %>
+              <span class="ml-auto flex items-center gap-3">
+                <%= link_to t('commits.show.browse_files'), repo_tree_path(@repository, ref: @sha),
+                    class: "text-blue-600 hover:underline dark:text-blue-400" %>
+                <span class="rounded border border-gray-300 px-2 py-1 font-mono text-gray-600 dark:border-gray-600 dark:text-gray-400"><%= short_sha %></span>
+              </span>
+            </div>
+          </div>
+
+          <% if files.any? %>
+            <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+              <%= t('commits.show.changed_files', count: files.size) %>
+              <span class="ml-2 font-semibold text-green-600 dark:text-green-500">+<%= number_with_delimiter(files.sum { |file| file[:additions].to_i }) %></span>
+              <span class="font-semibold text-red-600 dark:text-red-500">&minus;<%= number_with_delimiter(files.sum { |file| file[:deletions].to_i }) %></span>
+            </p>
+
+            <%# GitHub caps this endpoint at 300 files, so say so rather than %>
+            <%# letting a large commit look quietly truncated. %>
+            <% if files.size >= 300 %>
+              <p class="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300">
+                <%= t('commits.show.truncated') %>
+              </p>
+            <% end %>
+
+            <% files.each do |file| %>
+              <%= render FileDiffComponent.new(file: file, repository: @repository, ref: @sha) %>
+            <% end %>
+          <% else %>
+            <p class="rounded-lg border border-gray-200 px-4 py-6 text-center text-sm italic text-gray-500 dark:border-gray-700 dark:text-gray-400">
+              <%= t('commits.show.empty') %>
+            </p>
+          <% end %>
+        <% end %>
+      </div>
+    </main>
+  </div>
+</div>

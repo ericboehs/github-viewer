@@ -43,7 +43,9 @@ class CommitListItemComponent < ViewComponent::Base
     commit[:authored_at]
   end
 
-  def commit_url
-    "https://#{repository.github_domain}/#{repository.owner}/#{repository.name}/commit/#{sha}"
+  # The commit's own page here rather than GitHub's: everything on it - the
+  # diff, the tree at that revision - is something this application can show.
+  def commit_path
+    repo_commit_path(repository, sha)
   end
 end
