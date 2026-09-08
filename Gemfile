@@ -97,7 +97,7 @@ group :test do
   # SimpleCov 1.x is fine now that bin/coverage reads .resultset.json instead
   # of scraping coverage/index.html (whose markup 1.x reshaped). The 1.x API
   # renames (add_filter/add_group/track_files) are handled in test_helper.rb.
-  gem "simplecov", "~> 1.1", require: false
+  gem "simplecov", "~> 1.2", require: false
 
   # Mocking and stubbing for tests [https://github.com/freerange/mocha]
   gem "mocha"
