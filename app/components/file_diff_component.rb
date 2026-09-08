@@ -68,7 +68,7 @@ class FileDiffComponent < ViewComponent::Base
   end
 
   def file_path
-    file_repository_pull_path(repository, issue.number, path: filename)
+    repo_pull_file_path(repository, issue.number, filename)
   end
 
   # Explains an absent patch rather than rendering a blank panel, since the two

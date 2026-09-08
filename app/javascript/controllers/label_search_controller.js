@@ -5,7 +5,7 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static targets = ["search", "results", "loading"]
   static values = {
-    url: String,      // API endpoint URL (e.g., /repositories/1/labels)
+    url: String,      // API endpoint URL (e.g., /rails/rails/labels)
     selected: Array   // Currently selected label names
   }
 

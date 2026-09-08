@@ -154,7 +154,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
       cached_at: 10.minutes.ago
     )
 
-    post refresh_repository_url(repository)
+    post refresh_repo_path(repository)
 
     assert_redirected_to repositories_path
     assert flash[:alert] || flash[:notice]
@@ -174,7 +174,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
     Github::RepositorySyncService.expects(:new).returns(mock_service)
 
-    post refresh_repository_url(repository)
+    post refresh_repo_path(repository)
 
     assert_redirected_to repositories_path
     assert_equal I18n.t("repositories.refresh.success"), flash[:notice]
@@ -194,7 +194,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
     Github::RepositorySyncService.expects(:new).returns(mock_service)
 
-    post refresh_repository_url(repository)
+    post refresh_repo_path(repository)
 
     assert_redirected_to repositories_path
     assert flash[:alert].include?("API rate limit")
@@ -269,7 +269,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees("alice", "bob", "charlie")
     stub_no_viewer
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
@@ -280,7 +280,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees("alice", "bob", "charlie")
     stub_no_viewer
 
-    get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
+    get repo_assignable_users_path(repository), params: { q: "ali" }, as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
@@ -291,7 +291,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees(*25.times.map { |i| "user#{i.to_s.rjust(2, '0')}" })
     stub_no_viewer
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_response :success
     assert_equal 20, JSON.parse(response.body).length
@@ -304,7 +304,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
               .update!(avatar_url: "https://example.com/alice.png?token=abc123")
     stub_no_viewer
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     json = JSON.parse(response.body)
     assert_equal "https://example.com/alice.png?token=abc123", json.first["avatar_url"]
@@ -314,7 +314,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees("alice", "bob")
     stub_no_viewer
 
-    get assignable_users_repository_url(repository), params: { q: "ali", selected: "bob" }, as: :json
+    get repo_assignable_users_path(repository), params: { q: "ali", selected: "bob" }, as: :json
 
     json = JSON.parse(response.body)
     assert_equal "bob", json.first["login"]
@@ -325,7 +325,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees("alice")
     stub_no_viewer
 
-    get assignable_users_repository_url(repository), params: { selected: "ghost" }, as: :json
+    get repo_assignable_users_path(repository), params: { selected: "ghost" }, as: :json
 
     json = JSON.parse(response.body)
     assert_equal "ghost", json.first["login"]
@@ -336,7 +336,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees("alice", "current_user")
     stub_viewer_login("current_user")
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     json = JSON.parse(response.body)
     assert_equal "current_user", json.first["login"]
@@ -347,7 +347,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees("alice", "current_user")
     stub_viewer_login("current_user")
 
-    get assignable_users_repository_url(repository), params: { selected: "current_user" }, as: :json
+    get repo_assignable_users_path(repository), params: { selected: "current_user" }, as: :json
 
     json = JSON.parse(response.body)
     assert_equal 1, json.count { |u| u["login"] == "current_user" }
@@ -358,7 +358,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees("alice", "current_user")
     stub_viewer_login("current_user")
 
-    get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
+    get repo_assignable_users_path(repository), params: { q: "ali" }, as: :json
 
     assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
   end
@@ -373,7 +373,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     SyncRepositoryAssignableUsersJob.expects(:perform_now).never
     SyncRepositoryAssignableUsersJob.expects(:perform_later).with(repository.id).once
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_response :success
   end
@@ -383,7 +383,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     stub_no_viewer
     SyncRepositoryAssignableUsersJob.expects(:perform_later).with(repository.id).once
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_response :success
     assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
@@ -395,7 +395,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     SyncRepositoryAssignableUsersJob.expects(:perform_now).never
     SyncRepositoryAssignableUsersJob.expects(:perform_later).never
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_response :success
   end
@@ -406,7 +406,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     stub_no_viewer
     SyncRepositoryAssignableUsersJob.stubs(:perform_later).raises(StandardError, "boom")
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_response :success
     assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
@@ -416,7 +416,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = repo_with_assignees("alice")
     stub_no_viewer
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_response :success
     assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
@@ -432,7 +432,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
       OpenStruct.new(name: "enhancement", color: "a2eeef")
     ])
 
-    get labels_repository_url(repository), as: :json
+    get repo_labels_path(repository), as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
@@ -449,7 +449,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
       OpenStruct.new(name: "enhancement", color: "a2eeef")
     ])
 
-    get labels_repository_url(repository), params: { q: "B" }, as: :json
+    get repo_labels_path(repository), params: { q: "B" }, as: :json
 
     assert_response :success
     json = JSON.parse(response.body)
@@ -460,7 +460,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     repository = create_repository
     stub_labels_client(60.times.map { |i| OpenStruct.new(name: "label-#{i}", color: "ffffff") })
 
-    get labels_repository_url(repository), as: :json
+    get repo_labels_path(repository), as: :json
 
     assert_response :success
     assert_equal 50, JSON.parse(response.body).length
@@ -475,7 +475,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
       cached_at: 1.minute.ago
     )
 
-    get labels_repository_url(repository), as: :json
+    get repo_labels_path(repository), as: :json
 
     assert_response :unauthorized
     assert_includes JSON.parse(response.body)["error"], "No GitHub token found for va.ghe.com"
@@ -487,7 +487,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     mock_api_client.stubs(:fetch_labels).raises(StandardError.new("API Error"))
     Github::ApiClient.stubs(:new).returns(mock_api_client)
 
-    get labels_repository_url(repository), as: :json
+    get repo_labels_path(repository), as: :json
 
     assert_response :internal_server_error
     assert_includes JSON.parse(response.body)["error"], "Failed to fetch labels"
@@ -501,7 +501,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
 
     get repositories_path
 
-    assert_select "a[href=?]", repository_tree_path(repository), text: /rails\/rails/
+    assert_select "a[href=?]", repo_tree_path(repository), text: /rails\/rails/
   end
 
   private
@@ -541,7 +541,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
       .returns([ { login: "zed", avatar_url: "https://example.com/zed.png" } ])
     Github::ApiClient.stubs(:new).returns(api)
 
-    get assignable_users_repository_url(repository), params: { q: "zed" }, as: :json
+    get repo_assignable_users_path(repository), params: { q: "zed" }, as: :json
 
     assert_equal [ "zed" ], JSON.parse(response.body).map { |u| u["login"] }
   end
@@ -551,7 +551,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     stub_no_viewer
     Github::ApiClient.expects(:new).never
 
-    get assignable_users_repository_url(repository), params: { q: "dev" }, as: :json
+    get repo_assignable_users_path(repository), params: { q: "dev" }, as: :json
 
     assert_equal 20, JSON.parse(response.body).length
   end
@@ -563,7 +563,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     stub_no_viewer
     Github::ApiClient.expects(:new).never
 
-    get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
+    get repo_assignable_users_path(repository), params: { q: "ali" }, as: :json
 
     assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
   end
@@ -573,7 +573,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     stub_no_viewer
     Github::ApiClient.expects(:new).never
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }
   end
@@ -583,7 +583,7 @@ class RepositoriesControllerTest < ActionDispatch::IntegrationTest
     stub_no_viewer
     Github::AssignableUserSearch.any_instance.stubs(:complete?).returns(false)
 
-    get assignable_users_repository_url(repository), params: { q: "ali" }, as: :json
+    get repo_assignable_users_path(repository), params: { q: "ali" }, as: :json
 
     assert_response :success
     assert_equal [ "alice" ], JSON.parse(response.body).map { |u| u["login"] }

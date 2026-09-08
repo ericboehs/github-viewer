@@ -81,6 +81,7 @@ class Github::RepositorySyncService
       full_name: repo_data[:full_name],
       description: repo_data[:description],
       url: repo_data[:url],
+      default_branch: repo_data[:default_branch],
       issue_count: repo_data[:issue_count] || 0,
       open_issue_count: repo_data[:open_issues_count] || 0,  # Note: API returns open_issues_count
       cached_at: Time.current

@@ -35,7 +35,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   test "pressing question mark shows keyboard shortcuts modal" do
     sign_in
-    visit repository_issues_path(@repository)
+    visit repo_issues_path(@repository)
 
     # Press ? to open help modal
     page.find("body").send_keys("?")
@@ -49,7 +49,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   test "pressing shift-/ shows keyboard shortcuts modal" do
     sign_in
-    visit repository_issues_path(@repository)
+    visit repo_issues_path(@repository)
 
     # Press Shift-/ to open help modal
     page.find("body").send_keys([ :shift, "/" ])
@@ -61,7 +61,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   test "pressing escape closes keyboard shortcuts modal" do
     sign_in
-    visit repository_issues_path(@repository)
+    visit repo_issues_path(@repository)
 
     # Open modal
     page.find("body").send_keys("?")
@@ -76,7 +76,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   test "pressing forward slash focuses search input" do
     sign_in
-    visit repository_issues_path(@repository)
+    visit repo_issues_path(@repository)
 
     # Press / to focus search
     page.find("body").send_keys("/")
@@ -88,7 +88,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   test "issue cards have keyboard shortcuts targets" do
     sign_in
-    visit repository_issues_path(@repository)
+    visit repo_issues_path(@repository)
 
     # Verify that issue cards have the keyboard shortcuts target attribute
     assert_selector "[data-keyboard-shortcuts-target='issueCard']", count: 3
@@ -96,7 +96,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   test "search input has keyboard shortcuts target" do
     sign_in
-    visit repository_issues_path(@repository)
+    visit repo_issues_path(@repository)
 
     # Verify that search input has the keyboard shortcuts target attribute
     assert_selector "[data-keyboard-shortcuts-target='searchInput']"
@@ -104,7 +104,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   test "page has keyboard shortcuts controller" do
     sign_in
-    visit repository_issues_path(@repository)
+    visit repo_issues_path(@repository)
 
     # Verify that the page has the keyboard shortcuts controller
     assert_selector "[data-controller='keyboard-shortcuts']"
@@ -112,7 +112,7 @@ class KeyboardShortcutsTest < ApplicationSystemTestCase
 
   test "keyboard shortcuts modal has data attributes" do
     sign_in
-    visit repository_issues_path(@repository)
+    visit repo_issues_path(@repository)
 
     # Verify that the keyboard shortcuts modal exists (even though it's hidden by default)
     assert_selector "[data-keyboard-shortcuts-target='modal'][role='dialog']", visible: :all

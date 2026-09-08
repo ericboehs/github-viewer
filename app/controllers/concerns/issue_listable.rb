@@ -22,6 +22,7 @@ module IssueListable
 
   included do
     include IssueScoped
+    include RepositoryScoped
 
     before_action :set_repository
   end
@@ -60,11 +61,11 @@ module IssueListable
 
   # :reek:TooManyStatements - Controller action orchestrates sync and redirect
   def refresh
-    issue_id = params[:id]
-    issue_id_present = issue_id.present?
+    number = params[:number]
+    single_item = number.present?
 
     sync_service_params = { user: Current.user, repository: @repository }
-    sync_service_params[:issue_number] = issue_id.to_i if issue_id_present
+    sync_service_params[:issue_number] = number.to_i if single_item
 
     result = Github::IssueSyncService.new(**sync_service_params).call
 
@@ -73,8 +74,8 @@ module IssueListable
     search_params[:q] = params[:q] if params[:q].present?
     search_params[:debug] = params[:debug] if params[:debug].present?
 
-    redirect_path = if issue_id_present
-      issue = @repository.issues.find_by!(number: issue_id)
+    redirect_path = if single_item
+      issue = @repository.issues.find_by!(number: number)
       list_item_path(@repository, issue.number, search_params)
     else
       list_index_path(@repository, search_params)
@@ -88,10 +89,6 @@ module IssueListable
   end
 
   private
-
-  def set_repository
-    @repository = Current.user.repositories.find(params[:repository_id])
-  end
 
   # Sync issues if cache is cold (no issues cached yet)
   # :reek:TooManyStatements - Sync orchestration with error reporting

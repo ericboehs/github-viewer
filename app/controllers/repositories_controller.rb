@@ -4,6 +4,11 @@
 # :reek:InstanceVariableAssumption - Controller sets instance variables for views
 class RepositoriesController < ApplicationController
   include RepositoriesHelper
+  include RepositoryScoped
+
+  # The remaining actions manage the tracked list itself and so are not scoped
+  # to a repository's GitHub-shaped URL.
+  before_action :set_repository, only: %i[refresh assignable_users labels]
 
   def index
     @repositories = Current.user.repositories.order(cached_at: :desc)
@@ -61,7 +66,7 @@ class RepositoriesController < ApplicationController
 
   # :reek:DuplicateMethodCall - Current.user accessed for repository lookup and service
   def refresh
-    repository = Current.user.repositories.find(params[:id])
+    repository = @repository
 
     result = Github::RepositorySyncService.new(
       user: Current.user,
@@ -79,11 +84,9 @@ class RepositoriesController < ApplicationController
 
   # Assignable users for the Author and Assignee filter dropdowns (JSON).
   def assignable_users
-    user = Current.user
-
     render json: Github::AssignableUserSearch.new(
-      repository: user.repositories.find(params[:id]),
-      user: user,
+      repository: @repository,
+      user: Current.user,
       query: params[:q],
       selected: params[:selected]
     ).call
@@ -92,7 +95,7 @@ class RepositoriesController < ApplicationController
   # :reek:TooManyStatements - Controller action orchestrates API call and data transformation
   def labels
     user = Current.user
-    repository = user.repositories.find(params[:id])
+    repository = @repository
     domain = repository.github_domain
     query = params[:q]
 

@@ -34,7 +34,7 @@ class TreesControllerTest < ActionDispatch::IntegrationTest
       { name: "README.md", path: "README.md", type: "file", size: 2048 }
     ])
 
-    get repository_tree_path(@repository)
+    get repo_tree_path(@repository)
 
     assert_response :success
     assert_select "a", text: "app"
@@ -45,20 +45,21 @@ class TreesControllerTest < ActionDispatch::IntegrationTest
   test "renders a file's contents" do
     stub_contents({ type: :file, path: "config/routes.rb", size: 12, binary: false, content: "Rails.routes\n" })
 
-    get repository_tree_path(@repository, path: "config/routes.rb")
+    get repo_tree_path(@repository, path: "config/routes.rb")
 
     assert_response :success
     assert_select "code.language-ruby"
     assert_select "nav[aria-label=?] span", "File path", text: "routes.rb"
   end
 
-  # The browser and the API both cope badly with stray slashes.
-  test "strips leading and trailing slashes from the path" do
+  # The browser and the API both cope badly with stray slashes, and a URL
+  # edited by hand easily grows one.
+  test "strips stray slashes from the path" do
     Github::ApiClient.any_instance.expects(:fetch_contents)
-      .with("rails", "rails", "app/models", ref: nil)
+      .with("rails", "rails", "app/models", ref: "main")
       .returns(directory([]))
 
-    get repository_tree_path(@repository, path: "/app/models/")
+    get "/rails/rails/tree/main/app/models/"
 
     assert_response :success
   end
@@ -68,7 +69,7 @@ class TreesControllerTest < ActionDispatch::IntegrationTest
       .with("rails", "rails", "", ref: "v7.0.0")
       .returns(directory([]))
 
-    get repository_tree_path(@repository, ref: "v7.0.0")
+    get repo_tree_path(@repository, ref: "v7.0.0")
 
     assert_response :success
     assert_select "p", text: /v7\.0\.0/
@@ -77,7 +78,7 @@ class TreesControllerTest < ActionDispatch::IntegrationTest
   test "shows an empty directory rather than a blank page" do
     stub_contents directory([])
 
-    get repository_tree_path(@repository, path: "app")
+    get repo_tree_path(@repository, path: "app")
 
     assert_response :success
     assert_select "p", text: /empty/i
@@ -87,7 +88,7 @@ class TreesControllerTest < ActionDispatch::IntegrationTest
   test "reports a missing path and still renders" do
     stub_contents({ error: "File not found" })
 
-    get repository_tree_path(@repository, path: "nope.rb")
+    get repo_tree_path(@repository, path: "nope.rb")
 
     assert_response :success
     assert_select "nav[aria-label=?]", "File path"
@@ -97,38 +98,44 @@ class TreesControllerTest < ActionDispatch::IntegrationTest
   test "explains a missing token instead of failing" do
     @token.destroy
 
-    get repository_tree_path(@repository)
+    get repo_tree_path(@repository)
 
     assert_response :success
     assert_match "No GitHub token configured", response.body
   end
 
-  test "does not expose another user's repository" do
+  # Another user's cached repository is not ours to serve. The URL is not
+  # forbidden - it names a repository on GitHub, so it is synced with our own
+  # token - but nothing of theirs is exposed.
+  test "does not serve another user's cached repository" do
     other = User.create!(email_address: "other@example.com", password: "password123")
     theirs = other.repositories.create!(
       github_domain: "github.com", owner: "x", name: "y", full_name: "x/y"
     )
+    Github::RepositorySyncService.any_instance.expects(:call).returns({ success: false, error: "Not Found" })
 
-    get repository_tree_path(theirs)
+    get repo_tree_path(theirs)
 
-    assert_response :not_found
+    assert_redirected_to root_path
+    assert_match "Not Found", flash[:alert]
+    assert_empty @user.repositories.where(owner: "x")
   end
 
   # Reachable without hand-typing a URL, and reachable back out again.
   test "offers the repository tabs with Code current" do
     stub_contents directory([])
 
-    get repository_tree_path(@repository)
+    get repo_tree_path(@repository)
 
     assert_select "a[aria-current=page]", text: "Code"
-    assert_select "a[href=?]", repository_issues_path(@repository), text: "Issues"
-    assert_select "a[href=?]", repository_pulls_path(@repository), text: "Pull requests"
+    assert_select "a[href=?]", repo_issues_path(@repository), text: "Issues"
+    assert_select "a[href=?]", repo_pulls_path(@repository), text: "Pull requests"
   end
 
   test "requires authentication" do
     delete session_path
 
-    get repository_tree_path(@repository)
+    get repo_tree_path(@repository)
 
     assert_redirected_to new_session_path
   end

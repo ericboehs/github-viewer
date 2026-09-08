@@ -44,10 +44,10 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h2", "Recently Updated Repositories"
     # The repository names appear as link text with additional content
-    assert_select "a[href=?]", repository_issues_path(repo1) do |links|
+    assert_select "a[href=?]", repo_issues_path(repo1) do |links|
       assert links.any? { |link| link.text.include?("rails/rails") }
     end
-    assert_select "a[href=?]", repository_issues_path(repo2) do |links|
+    assert_select "a[href=?]", repo_issues_path(repo2) do |links|
       assert links.any? { |link| link.text.include?("ruby/ruby") }
     end
   end

@@ -32,9 +32,9 @@ class PullRequestTabsComponent < ViewComponent::Base
     number = issue.number
 
     [
-      tab(:conversation, repository_pull_path(repository, number), issue.comments_count),
-      tab(:commits, commits_repository_pull_path(repository, number), issue.commits_count),
-      tab(:files, files_repository_pull_path(repository, number), issue.changed_files_count)
+      tab(:conversation, repo_pull_path(repository, number), issue.comments_count),
+      tab(:commits, repo_pull_commits_path(repository, number), issue.commits_count),
+      tab(:files, repo_pull_files_path(repository, number), issue.changed_files_count)
     ]
   end
 

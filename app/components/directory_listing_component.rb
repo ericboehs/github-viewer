@@ -36,4 +36,11 @@ class DirectoryListingComponent < ViewComponent::Base
   def size_for(entry)
     entry[:type] == "file" ? entry[:size] : nil
   end
+
+  # GitHub links directories under /tree/ and files under /blob/, and so do we.
+  def entry_path(entry)
+    helper = directory?(entry) ? :repo_tree_path : :repo_blob_path
+
+    helpers.public_send(helper, repository, path: entry[:path], ref: ref)
+  end
 end

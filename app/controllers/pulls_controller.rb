@@ -32,11 +32,10 @@ class PullsController < ApplicationController
   end
 
   # Views one file's full contents at the revision under review, reached by
-  # clicking a filename on the Files changed tab.
+  # clicking a filename on the Files changed tab. The path is the tail of the
+  # URL, exactly as GitHub spells it.
   def file
     @path = params[:path].to_s
-    return redirect_to files_repository_pull_path(@repository, @issue.number) if @path.blank?
-
     @file = load_tab_data(fallback: nil) { |client, owner, name| fetch_file_at_head(client, owner, name) }
   end
 

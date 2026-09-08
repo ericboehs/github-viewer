@@ -34,7 +34,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert_select "h1", text: "rails/rails"
   end
@@ -46,7 +46,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSyncService.expects(:new).with(user: @user, repository: @repository).returns(mock_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
   end
 
@@ -57,7 +57,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSyncService.expects(:new).with(user: @user, repository: @repository).returns(mock_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     # Flash alert should be set
     assert_not_nil flash[:alert]
@@ -75,7 +75,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     # If sync is called, this will fail
     Github::IssueSyncService.expects(:new).never
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
   end
 
@@ -91,7 +91,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issue_url(@repository, issue.number)
+    get repo_issue_path(@repository, issue.number)
     assert_response :success
     assert_select "h1", text: /Fix critical bug/
   end
@@ -106,9 +106,9 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       cached_at: Time.current
     )
 
-    get repository_issue_url(@repository, pull.number)
+    get repo_issue_path(@repository, pull.number)
 
-    assert_redirected_to repository_pull_path(@repository, pull.number)
+    assert_redirected_to repo_pull_path(@repository, pull.number)
   end
 
   test "should return 404 when issue not found" do
@@ -116,8 +116,8 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     mock_result = { success: false, error: "Issue not found", cache_preserved: true }
     Github::IssueSyncService.any_instance.stubs(:call).returns(mock_result)
 
-    get repository_issue_url(@repository, 999)
-    assert_redirected_to repository_issues_path(@repository)
+    get repo_issue_path(@repository, 999)
+    assert_redirected_to repo_issues_path(@repository)
     assert_equal "Issue not found: Issue not found", flash[:alert]
   end
 
@@ -138,7 +138,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issue_url(@repository, issue.number)
+    get repo_issue_path(@repository, issue.number)
     assert_response :success
     assert_select "div", text: /This is a test comment/
   end
@@ -150,8 +150,8 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSyncService.expects(:new).with(user: @user, repository: @repository).returns(mock_service)
 
-    post refresh_repository_issues_url(@repository)
-    assert_redirected_to repository_issues_path(@repository)
+    post refresh_repo_issues_path(@repository)
+    assert_redirected_to repo_issues_path(@repository)
     assert_match(/success/i, flash[:notice])
   end
 
@@ -161,8 +161,8 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSyncService.expects(:new).with(user: @user, repository: @repository).returns(mock_service)
 
-    post refresh_repository_issues_url(@repository)
-    assert_redirected_to repository_issues_path(@repository)
+    post refresh_repo_issues_path(@repository)
+    assert_redirected_to repo_issues_path(@repository)
     assert_includes flash[:alert], "Network timeout"
   end
 
@@ -185,7 +185,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository), params: { q: "login" }
+    get repo_issues_path(@repository), params: { q: "login" }
     assert_response :success
     assert_select ".issue-card", count: 1
   end
@@ -206,7 +206,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository), params: { q: "state:open" }
+    get repo_issues_path(@repository), params: { q: "state:open" }
     assert_response :success
     # Should only show open issue
     assert_select ".issue-card", count: 1
@@ -232,7 +232,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     )
 
     # Sort by comments should show issue #1 first (10 comments)
-    get repository_issues_url(@repository), params: { sort: "comments" }
+    get repo_issues_path(@repository), params: { sort: "comments" }
     assert_response :success
   end
 
@@ -261,7 +261,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     # Expect two calls to new - first for GitHub mode (fails), then for local mode (succeeds)
     Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
 
-    get repository_issues_url(@repository), params: { q: "test" }
+    get repo_issues_path(@repository), params: { q: "test" }
     assert_response :success
     assert_not_nil flash[:alert]
   end
@@ -277,7 +277,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     # Check for filter dropdown component
     assert_select "[data-controller='filter-dropdown']"
@@ -293,14 +293,14 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     # Filter dropdown should not be present when there are no assignees
     assert_select "[data-controller='filter-dropdown'][data-qualifier-type='assignee']", count: 0
   end
 
   test "should display search form" do
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert_select "input[name='q']"
     assert_select "input[type='submit'][value='Search']"
@@ -318,28 +318,28 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
     )
 
     # Test is: qualifier
-    get repository_issues_url(@repository), params: { q: "is:open memory" }
+    get repo_issues_path(@repository), params: { q: "is:open memory" }
     assert_response :success
 
     # Test label: qualifier
-    get repository_issues_url(@repository), params: { q: "label:bug test" }
+    get repo_issues_path(@repository), params: { q: "label:bug test" }
     assert_response :success
 
     # Test assignee: qualifier
-    get repository_issues_url(@repository), params: { q: "assignee:alice" }
+    get repo_issues_path(@repository), params: { q: "assignee:alice" }
     assert_response :success
 
     # Test sort: qualifier
-    get repository_issues_url(@repository), params: { q: "sort:updated-desc" }
+    get repo_issues_path(@repository), params: { q: "sort:updated-desc" }
     assert_response :success
 
     # Test combined qualifiers
-    get repository_issues_url(@repository), params: { q: "is:open label:bug sort:created" }
+    get repo_issues_path(@repository), params: { q: "is:open label:bug sort:created" }
     assert_response :success
   end
 
   # Authorization tests
-  test "should not access issues from other users repositories" do
+  test "should not serve another user's cached repository" do
     other_user = User.create!(
       email_address: "other@example.com",
       password: "password123"
@@ -351,14 +351,17 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       full_name: "other/repo",
       url: "https://github.com/other/repo"
     )
+    Github::RepositorySyncService.any_instance.expects(:call).returns({ success: false, error: "Not Found" })
 
-    get repository_issues_url(other_repo)
-    assert_response :not_found
+    get repo_issues_path(other_repo)
+
+    assert_redirected_to root_path
+    assert_empty @user.repositories.where(owner: "other")
   end
 
   test "should require authentication" do
     sign_out
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_redirected_to new_session_url
   end
 
@@ -371,7 +374,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository), params: { search_mode: "github" }
+    get repo_issues_path(@repository), params: { search_mode: "github" }
     assert_response :success
   end
 
@@ -384,8 +387,8 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    post refresh_repository_issues_url(@repository), params: { q: "is:open bug" }
-    assert_redirected_to repository_issues_url(@repository, q: "is:open bug")
+    post refresh_repo_issues_path(@repository), params: { q: "is:open bug" }
+    assert_redirected_to repo_issues_path(@repository, q: "is:open bug")
   end
 
   test "should preserve debug parameter in refresh" do
@@ -397,8 +400,8 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    post refresh_repository_issue_url(@repository, issue.number), params: { debug: "true" }
-    assert_redirected_to repository_issue_url(@repository, issue.number, debug: "true")
+    post refresh_repo_issue_path(@repository, issue.number), params: { debug: "true" }
+    assert_redirected_to repo_issue_path(@repository, issue.number, debug: "true")
   end
 
   test "should show rate limit info when debug mode enabled" do
@@ -421,7 +424,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSyncService.expects(:new).returns(mock_service)
 
-    get repository_issue_url(@repository, issue.number), params: { debug: "true" }
+    get repo_issue_path(@repository, issue.number), params: { debug: "true" }
     assert_response :success
     # Should display rate limit in flash when debug is on
     assert flash[:notice] || flash[:warning]
@@ -442,8 +445,8 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSyncService.expects(:new).with(user: @user, repository: @repository, issue_number: 42).returns(mock_service)
 
-    post refresh_repository_issue_url(@repository, issue.number), params: { debug: "true", q: "test" }
-    assert_redirected_to repository_issue_url(@repository, issue.number, debug: "true", q: "test")
+    post refresh_repo_issue_path(@repository, issue.number), params: { debug: "true", q: "test" }
+    assert_redirected_to repo_issue_path(@repository, issue.number, debug: "true", q: "test")
   end
 
   test "should show approaching rate limit warning" do
@@ -476,7 +479,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_count_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     # Should show warning when approaching rate limit (5/30 = 16.7% < 20%)
     assert flash[:warning]
@@ -501,7 +504,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).returns(mock_service)
 
-    get repository_issues_url(@repository), params: { debug: "true" }
+    get repo_issues_path(@repository), params: { debug: "true" }
     assert_response :success
     assert_equal "Rate limit info unavailable", flash[:notice]
   end
@@ -535,7 +538,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert flash[:alert].include?("rate limit")
     assert flash[:alert].include?("Showing all cached issues")
@@ -567,7 +570,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert flash[:alert].include?("Cannot reach")
     assert flash[:alert].include?("Connection timeout")
@@ -590,7 +593,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     # Should show alert for local search failure
     assert flash[:alert]
@@ -614,7 +617,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_github_service, mock_local_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert flash[:alert].include?("API error")
   end
@@ -629,7 +632,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       cached_at: 2.hours.ago
     )
 
-    get repository_issue_url(@repository, issue.number)
+    get repo_issue_path(@repository, issue.number)
     assert_response :success
   end
 
@@ -642,7 +645,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issue_url(@repository, issue.number)
+    get repo_issue_path(@repository, issue.number)
     assert_response :success
   end
 
@@ -669,13 +672,13 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     # Default query is "is:issue state:open", so only the open issues show
     assert_select ".issue-card", count: 2
 
     # Clearing the query shows every cached issue
-    get repository_issues_url(@repository, q: "")
+    get repo_issues_path(@repository, q: "")
     assert_response :success
     assert_select ".issue-card", count: 3
   end
@@ -700,14 +703,14 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     # Authors should be present in response
     assert_match /alice|bob/i, response.body
   end
 
   test "should handle blank query string in parse" do
-    get repository_issues_url(@repository), params: { q: "" }
+    get repo_issues_path(@repository), params: { q: "" }
     assert_response :success
   end
 
@@ -721,7 +724,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository), params: { q: "author:alice" }
+    get repo_issues_path(@repository), params: { q: "author:alice" }
     assert_response :success
   end
 
@@ -755,7 +758,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_count_service)
 
-    get repository_issues_url(@repository), params: { debug: "true" }
+    get repo_issues_path(@repository), params: { debug: "true" }
     assert_response :success
     assert flash[:notice]
   end
@@ -790,7 +793,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_count_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     # Should NOT show warning when not approaching limit (4500/5000 = 90%)
     assert_nil flash[:warning]
@@ -806,7 +809,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       cached_at: 5.minutes.ago
     )
 
-    get repository_issue_url(@repository, issue.number), params: { debug: "true" }
+    get repo_issue_path(@repository, issue.number), params: { debug: "true" }
     assert_response :success
   end
 
@@ -819,7 +822,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository, q: "sort:updated-asc")
+    get repo_issues_path(@repository, q: "sort:updated-asc")
     assert_response :success
     assert_select "button", text: "Sort"
   end
@@ -833,7 +836,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository, q: "sort:created-asc")
+    get repo_issues_path(@repository, q: "sort:created-asc")
     assert_response :success
     # Sort dropdown button text
     assert_select "button", text: "Sort"
@@ -852,7 +855,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       comments_count: 5
     )
 
-    get repository_issues_url(@repository, q: "sort:comments-desc")
+    get repo_issues_path(@repository, q: "sort:comments-desc")
     assert_response :success
     assert_select "button", text: "Sort"
   end
@@ -867,7 +870,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       comments_count: 5
     )
 
-    get repository_issues_url(@repository, q: "sort:comments-desc")
+    get repo_issues_path(@repository, q: "sort:comments-desc")
     assert_response :success
     # When sorting by comments, order options should be Most/Least
     assert_select "a", text: /Most/
@@ -883,7 +886,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_updated_at: 1.hour.ago
     )
 
-    get repository_issues_url(@repository, q: "sort:created-desc")
+    get repo_issues_path(@repository, q: "sort:created-desc")
     assert_response :success
     # When sorting by created/updated, order options should be Newest/Oldest
     assert_select "a", text: /Newest/
@@ -916,7 +919,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_local_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert_match /Connection timeout/, flash[:alert]
     assert_match /Cached Issue/, response.body
@@ -948,7 +951,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_local_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert_match /rate limit/, flash[:alert]
   end
@@ -982,7 +985,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_local_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert flash[:warning] # Rate limit warning should be shown
   end
@@ -1004,7 +1007,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
 
     Github::IssueSearchService.expects(:new).twice.returns(mock_service, mock_local_service)
 
-    get repository_issues_url(@repository)
+    get repo_issues_path(@repository)
     assert_response :success
     assert_equal "Connection refused", flash[:alert]
   end
@@ -1034,7 +1037,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       github_created_at: 1.hour.ago
     )
 
-    get repository_issue_url(repository, issue.number)
+    get repo_issue_path(repository, issue.number)
 
     assert_response :success
     assert_select "h1", text: /No token issue/
@@ -1062,7 +1065,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       { type: "comment", id: "IC_1", github_id: 111, created_at: 1.hour.ago, actor: "api_author", body: "From the API" }
     ])
 
-    get repository_issue_url(@repository, issue.number)
+    get repo_issue_path(@repository, issue.number)
 
     assert_response :success
     assert_match "From the API", response.body
@@ -1090,7 +1093,7 @@ class IssuesControllerTest < ActionDispatch::IntegrationTest
       { type: "comment", id: "IC_1", github_id: 222, created_at: 30.minutes.ago, actor: "author", body: "Duplicated body" }
     ])
 
-    get repository_issue_url(@repository, issue.number)
+    get repo_issue_path(@repository, issue.number)
 
     assert_response :success
     assert_equal 1, response.body.scan("Duplicated body").length

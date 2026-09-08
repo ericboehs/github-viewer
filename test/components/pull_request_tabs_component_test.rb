@@ -34,16 +34,16 @@ class PullRequestTabsComponentTest < ViewComponent::TestCase
     assert_text I18n.t("pulls.tabs.commits")
     assert_text I18n.t("pulls.tabs.files")
 
-    assert_selector "a[href='#{repository_pull_path(@repository, 7)}']"
-    assert_selector "a[href='#{commits_repository_pull_path(@repository, 7)}']"
-    assert_selector "a[href='#{files_repository_pull_path(@repository, 7)}']"
+    assert_selector "a[href='#{repo_pull_path(@repository, 7)}']"
+    assert_selector "a[href='#{repo_pull_commits_path(@repository, 7)}']"
+    assert_selector "a[href='#{repo_pull_files_path(@repository, 7)}']"
   end
 
   test "marks only the current tab as active" do
     render_inline(build_component(current_tab: :files))
 
     assert_selector "a[aria-current='page']", count: 1
-    assert_selector "a[href='#{files_repository_pull_path(@repository, 7)}'][aria-current='page']"
+    assert_selector "a[href='#{repo_pull_files_path(@repository, 7)}'][aria-current='page']"
   end
 
   test "shows cached counts as badges" do

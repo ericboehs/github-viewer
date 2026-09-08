@@ -247,7 +247,7 @@ All core features from the PRD are fully implemented and tested:
     - Active filters display with removal chips
 
 6. **Pull Request Viewing**
-    - `/repositories/:id/pulls` list and `/repositories/:id/pulls/:number` detail
+    - `/owner/repo/pulls` list and `/owner/repo/pull/:number` detail
     - Reuses the issue list/show views via the `IssueScoped` + `IssueListable`
       concerns (GitHub models PRs as issues); `PullsController` only overrides
       `list_scope`, which forces an `is:pr` qualifier
@@ -256,7 +256,18 @@ All core features from the PRD are fully implemented and tested:
     - PR-specific timeline events (merged, ready for review, review requested,
       reviews) via the GraphQL `issueOrPullRequest` field
     - Issues / Pull requests tabs on the list page
-    - Proxy-style URLs mirror GitHub: `/owner/repo/pull/123`
+
+7. **GitHub-shaped URLs**
+    - Every repository page lives at the path GitHub itself uses, so a link
+      works here with only the scheme and host removed:
+      `https://va.ghe.com/software/eert/pull/1` → `/va.ghe.com/software/eert/pull/1`
+    - github.com is the implied host and is omitted (`/rails/rails/issues/5`);
+      naming it redirects to the shorter form
+    - `RepositoryUrls` + the `direct` helpers at the bottom of `config/routes.rb`
+      turn a Repository into a path: `repo_pull_path(repository, 1)`,
+      `repo_issues_path(repository, q: ...)`, `repo_blob_path(repository, path:, ref:)`
+    - `RepositoryScoped` resolves the `(:github_domain)/:owner/:repo` segments
+      into a Repository, syncing it from the API the first time it is visited
 
 ### 🔮 Potential Future Enhancements
 

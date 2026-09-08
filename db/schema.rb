@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_03_000000) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_04_000000) do
   create_table "github_tokens", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "domain", default: "github.com", null: false
@@ -68,6 +68,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_03_000000) do
   create_table "repositories", force: :cascade do |t|
     t.datetime "cached_at"
     t.datetime "created_at", null: false
+    t.string "default_branch"
     t.text "description"
     t.string "full_name", null: false
     t.string "github_domain", default: "github.com", null: false

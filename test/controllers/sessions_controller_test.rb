@@ -17,13 +17,13 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
       full_name: "rails/rails", url: "https://github.com/rails/rails"
     )
 
-    get repository_issues_url(repository)
+    get repo_issues_path(repository)
 
     assert_redirected_to new_session_url
 
     post session_url, params: { email_address: @user.email_address, password: "password123" }
 
-    assert_redirected_to repository_issues_url(repository)
+    assert_redirected_to repo_issues_path(repository)
   end
 
   # Regression: background `fetch` calls keep firing on an open page after the
@@ -36,7 +36,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
       full_name: "rails/rails", url: "https://github.com/rails/rails"
     )
 
-    get assignable_users_repository_url(repository), as: :json
+    get repo_assignable_users_path(repository), as: :json
 
     assert_redirected_to new_session_url
 
@@ -51,7 +51,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
       full_name: "rails/rails", url: "https://github.com/rails/rails"
     )
 
-    get repository_issues_url(repository), headers: { "X-Requested-With" => "XMLHttpRequest" }
+    get repo_issues_path(repository), headers: { "X-Requested-With" => "XMLHttpRequest" }
 
     assert_redirected_to new_session_url
 

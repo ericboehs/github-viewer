@@ -5,6 +5,8 @@
 # cached — this reads live, like the pull request tabs.
 # :reek:InstanceVariableAssumption - Controller sets instance variables for the view
 class TreesController < ApplicationController
+  include RepositoryScoped
+
   before_action :set_repository
 
   def show
@@ -14,10 +16,6 @@ class TreesController < ApplicationController
   end
 
   private
-
-  def set_repository
-    @repository = Current.user.repositories.find(params[:repository_id])
-  end
 
   # Leading and trailing slashes are easy to arrive at by hand-editing the URL
   # or following a breadcrumb, and GitHub 404s on them.

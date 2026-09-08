@@ -273,7 +273,7 @@ class IssueCardComponentTest < ViewComponent::TestCase
     end
   end
 
-  test "links pull requests to the pulls route" do
+  test "links pull requests to the pull route" do
     pull = @repository.issues.create!(
       number: 42,
       title: "Add caching layer",
@@ -286,7 +286,7 @@ class IssueCardComponentTest < ViewComponent::TestCase
 
     render_inline(IssueCardComponent.new(issue: pull, repository: @repository, list_scope: :pulls))
 
-    assert_selector "a[href*='/pulls/42']", text: "Add caching layer"
+    assert_selector "a[href*='/pull/42']", text: "Add caching layer"
   end
 
   test "keeps author filter links within the pulls list" do

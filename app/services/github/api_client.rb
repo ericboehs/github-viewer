@@ -764,6 +764,7 @@ module Github
         full_name: repo.full_name,
         description: repo.description,
         url: repo.html_url,
+        default_branch: repo.default_branch,
         open_issues_count: repo.open_issues_count
       }
     end

@@ -43,33 +43,33 @@ module IssueScoped
 
   def list_index_path(repository, options = {})
     if pull_request_scope?
-      repository_pulls_path(repository, options)
+      repo_pulls_path(repository, options)
     else
-      repository_issues_path(repository, options)
+      repo_issues_path(repository, options)
     end
   end
 
   def list_refresh_path(repository, options = {})
     if pull_request_scope?
-      refresh_repository_pulls_path(repository, options)
+      refresh_repo_pulls_path(repository, options)
     else
-      refresh_repository_issues_path(repository, options)
+      refresh_repo_issues_path(repository, options)
     end
   end
 
   def list_item_path(repository, number, options = {})
     if pull_request_scope?
-      repository_pull_path(repository, number, options)
+      repo_pull_path(repository, number, options)
     else
-      repository_issue_path(repository, number, options)
+      repo_issue_path(repository, number, options)
     end
   end
 
   def list_item_refresh_path(repository, number, options = {})
     if pull_request_scope?
-      refresh_repository_pull_path(repository, number, options)
+      refresh_repo_pull_path(repository, number, options)
     else
-      refresh_repository_issue_path(repository, number, options)
+      refresh_repo_issue_path(repository, number, options)
     end
   end
 end

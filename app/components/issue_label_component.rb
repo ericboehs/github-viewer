@@ -39,9 +39,9 @@ class IssueLabelComponent < ViewComponent::Base
     new_query = query_without_label.present? ? "#{query_without_label} label:#{label_name} " : "label:#{label_name} "
 
     if pulls
-      helpers.repository_pulls_path(@repository, q: new_query)
+      helpers.repo_pulls_path(@repository, q: new_query)
     else
-      helpers.repository_issues_path(@repository, q: new_query)
+      helpers.repo_issues_path(@repository, q: new_query)
     end
   end
 

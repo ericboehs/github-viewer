@@ -23,23 +23,23 @@ class IssueCardComponent < ViewComponent::Base
 
   private
 
-  # Pull requests always link to /pulls/:number, issues to /issues/:number
+  # Pull requests always link to /pull/:number, issues to /issues/:number
   def detail_path
     number = @issue.number
 
     if @issue.pull_request?
-      helpers.repository_pull_path(@repository, number)
+      helpers.repo_pull_path(@repository, number)
     else
-      helpers.repository_issue_path(@repository, number)
+      helpers.repo_issue_path(@repository, number)
     end
   end
 
   # Filter links stay within the list currently being viewed
   def list_path(query)
     if @list_scope.to_sym == :pulls
-      helpers.repository_pulls_path(@repository, q: query)
+      helpers.repo_pulls_path(@repository, q: query)
     else
-      helpers.repository_issues_path(@repository, q: query)
+      helpers.repo_issues_path(@repository, q: query)
     end
   end
 

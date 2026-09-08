@@ -9,7 +9,7 @@
           <tr class="border-b border-gray-200 dark:border-gray-700">
             <td class="px-4 py-2" colspan="2">
               <%= link_to "..",
-                          helpers.repository_tree_path(repository, path: parent_path, ref: ref),
+                          helpers.repo_tree_path(repository, path: parent_path, ref: ref),
                           class: "font-mono text-blue-600 hover:underline dark:text-blue-400",
                           "aria-label": t("trees.listing.parent") %>
             </td>
@@ -32,7 +32,7 @@
 
                 <% if navigable?(entry) %>
                   <%= link_to entry[:name],
-                              helpers.repository_tree_path(repository, path: entry[:path], ref: ref),
+                              entry_path(entry),
                               class: "truncate text-blue-600 hover:underline dark:text-blue-400" %>
                 <% else %>
                   <span class="truncate text-gray-500 dark:text-gray-400"><%= entry[:name] %></span>

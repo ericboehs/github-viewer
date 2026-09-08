@@ -157,6 +157,8 @@ en:
     errors:
       already_tracked: Repository already tracked.
       invalid_url: 'Invalid repository URL. Please use format: owner/repo or https://github.com/owner/repo'
+      no_token: No GitHub token configured for %{domain}. Add one in your settings.
+      not_found: 'Could not find repository %{owner}/%{name} on %{domain}: %{error}'
     index:
       actions:
         refresh: Refresh

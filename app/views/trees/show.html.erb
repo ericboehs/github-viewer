@@ -29,7 +29,7 @@
               <% [[t('pulls.file.rendered'), nil], [t('pulls.file.source'), 'source']].each do |label, display| %>
                 <% active = params[:display].presence == display %>
                 <%= link_to label,
-                    repository_tree_path(@repository, path: @path, ref: @ref, display: display),
+                    repo_blob_path(@repository, path: @path, ref: @ref, display: display),
                     class: "px-3 py-1 #{active ? 'bg-gray-200 font-medium text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}",
                     "aria-current": (active ? "page" : nil) %>
               <% end %>

@@ -2,7 +2,7 @@
 
 # Shared logic for displaying a single GitHub issue or pull request
 # Used by controllers that need to display a single GitHub issue
-# :reek:InstanceVariableAssumption - Expects @repository to be set by including controller; @issue_number is optional (falls back to params[:id])
+# :reek:InstanceVariableAssumption - Expects @repository to be set by including controller
 module IssueShowable
   extend ActiveSupport::Concern
 
@@ -33,7 +33,7 @@ module IssueShowable
   # :reek:NilCheck - Explicit nil check required to detect uncached issues
   # :reek:DuplicateMethodCall - @issue and @repository accessed for readability
   def load_issue_record
-    issue_number = @issue_number || params[:id].to_i
+    issue_number = params[:number].to_i
     @issue = @repository.issues.find_by(number: issue_number)
 
     # Fetch from API if issue doesn't exist, has never been cached, or is stale
@@ -79,7 +79,7 @@ module IssueShowable
   def canonical_item_path
     number = @issue.number
 
-    @issue.pull_request? ? repository_pull_path(@repository, number) : repository_issue_path(@repository, number)
+    @issue.pull_request? ? repo_pull_path(@repository, number) : repo_issue_path(@repository, number)
   end
 
   # :reek:TooManyStatements - Fetches project fields and timeline from API

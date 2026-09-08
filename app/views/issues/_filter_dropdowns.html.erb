@@ -4,7 +4,7 @@
   current_author = query_text.match(/\bauthor:("[^"]*"|(\S+))/i)
   current_author = current_author ? current_author[1].gsub(/^["']|["']$/, '') : nil
 %>
-<div class="relative inline-block text-left" data-controller="filter-dropdown contributor-search" data-contributor-search-url-value="<%= assignable_users_repository_path(@repository) %>" data-contributor-search-selected-value="<%= current_author %>" data-qualifier-type="author">
+<div class="relative inline-block text-left" data-controller="filter-dropdown contributor-search" data-contributor-search-url-value="<%= repo_assignable_users_path(@repository) %>" data-contributor-search-selected-value="<%= current_author %>" data-qualifier-type="author">
   <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle keydown->filter-dropdown#handleButtonKeydown">
     Author
     <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
@@ -38,7 +38,7 @@
   # Detect current label filters
   current_labels = query_text.scan(/\blabel:("[^"]*"|(\S+))/i).flatten.compact.map { |l| l.gsub(/^["']|["']$/, '') }
 %>
-<div class="relative inline-block text-left" data-controller="filter-dropdown label-search" data-label-search-url-value="<%= labels_repository_path(@repository) %>" data-label-search-selected-value="<%= current_labels.to_json %>" data-qualifier-type="label">
+<div class="relative inline-block text-left" data-controller="filter-dropdown label-search" data-label-search-url-value="<%= repo_labels_path(@repository) %>" data-label-search-selected-value="<%= current_labels.to_json %>" data-qualifier-type="label">
   <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle keydown->filter-dropdown#handleButtonKeydown">
     Labels
     <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
@@ -73,7 +73,7 @@
   current_assignee = query_text.match(/\bassignee:("[^"]*"|(\S+))/i)
   current_assignee = current_assignee ? current_assignee[1].gsub(/^["']|["']$/, '') : nil
 %>
-<div class="relative inline-block text-left" data-controller="filter-dropdown contributor-search" data-contributor-search-url-value="<%= assignable_users_repository_path(@repository) %>" data-contributor-search-selected-value="<%= current_assignee %>" data-qualifier-type="assignee">
+<div class="relative inline-block text-left" data-controller="filter-dropdown contributor-search" data-contributor-search-url-value="<%= repo_assignable_users_path(@repository) %>" data-contributor-search-selected-value="<%= current_assignee %>" data-qualifier-type="assignee">
   <button type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700" data-filter-dropdown-target="button" data-action="click->filter-dropdown#toggle keydown->filter-dropdown#handleButtonKeydown">
     Assignees
     <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
