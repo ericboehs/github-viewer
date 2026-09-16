@@ -20,11 +20,11 @@
     assignee - means a column can turn up in a later page of items, so the
     browser needs a shape to build one from. %>
 <template data-project-board-target="columnTemplate">
-  <section class="flex w-72 flex-shrink-0 flex-col rounded-lg bg-gray-100 p-3 dark:bg-gray-800/50" data-column-for="">
+  <section class="flex w-72 flex-shrink-0 flex-col rounded-lg bg-gray-100 p-3 dark:bg-gray-800/50" data-column-for>
     <header class="mb-3 flex items-center justify-between gap-2">
       <span class="<%= ProjectBoardComponent::COLUMN_CLASSES %> <%= Projects::Option::DEFAULT_CLASS %>" data-board-name></span>
       <span class="text-xs font-medium text-gray-500 dark:text-gray-400" data-board-count>0</span>
     </header>
-    <div class="flex flex-col gap-2" data-cards-for=""></div>
+    <div class="flex flex-col gap-2" data-cards-for></div>
   </section>
 </template>
