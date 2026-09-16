@@ -1,0 +1,32 @@
+<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-[#0E1116]"
+    data-project-board-target="board">
+  <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+    <caption class="sr-only"><%= t("projects.table.caption") %></caption>
+    <thead class="bg-gray-50 dark:bg-gray-900">
+      <tr>
+        <% columns.each do |name| %>
+          <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <%= name %>
+          </th>
+        <% end %>
+      </tr>
+    </thead>
+
+    <%# `data-cards-for` rather than a table-specific hook: later pages of rows
+        are appended here by exactly the code that appends cards to a board
+        column. %>
+    <tbody class="divide-y divide-gray-200 dark:divide-gray-700" data-cards-for="<%= ProjectTableComponent::ROWS %>">
+      <% items.each do |item| %>
+        <%= render ProjectRowComponent.new(item: item, layout: layout) %>
+      <% end %>
+    </tbody>
+  </table>
+
+  <%# Below the table rather than a row of it: a row inside the body would be
+      counted as an item and sorted among the real ones. %>
+  <div class="flex animate-pulse items-center gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700"
+      data-column-loading <%= "hidden" unless loading %>>
+    <span class="sr-only"><%= t("projects.board.loading_column") %></span>
+    <div class="h-3 w-1/3 rounded bg-gray-200 dark:bg-gray-700" aria-hidden="true"></div>
+  </div>
+</div>

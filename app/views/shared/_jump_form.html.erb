@@ -10,6 +10,9 @@
       id: field_id,
       placeholder: t('navigation.jump.placeholder'),
       autocomplete: 'off',
+      autocorrect: 'off',
+      autocapitalize: 'off',
       spellcheck: 'false',
+      data: { "1p-ignore": true, lpignore: true },
       class: "#{mobile ? 'w-full' : 'w-56 lg:w-72'} rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400" %>
 <% end %>

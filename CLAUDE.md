@@ -288,6 +288,32 @@ All core features from the PRD are fully implemented and tested:
     - A URL naming a page this application does not serve (Actions, Wiki,
       Settings) falls back to the repository root rather than a 404
 
+10. **Projects (read-only)**
+    - `/(:domain)/orgs/:org/projects` and `/(:domain)/users/:login/projects`
+      list an owner's projects; `/orgs/:org/projects/:number` and
+      `.../views/:n` show one, and `/owner/repo/projects` is the repository's
+      Projects tab (a repository links to projects, it does not own them)
+    - Projects V2 exists only in GraphQL, so `Github::ProjectQueries` holds the
+      documents and `Github::ApiClient` the four reads; nothing is cached in
+      the database, only the shape of a project (fields and saved views) in
+      `Rails.cache` for five minutes
+    - `ProjectV2.items` takes no filter argument, so a filtered board is the
+      whole project fetched and narrowed in Ruby: the first hundred items
+      render with the page and the rest arrive through chained eager Turbo
+      frames, placed into their columns by the `project_board` Stimulus
+      controller using the `data-sort-key` each card carries
+    - Board and table layouts, the view's own grouping, sort and filter, and a
+      filter box that speaks GitHub's syntax (`status:Todo,Done -label:blocked
+      assignee:@me sprint:@current no:status is:pr`)
+    - Each board column scrolls on its own (`max-h-[70vh]`) and shows its
+      first `ProjectBoardComponent::VISIBLE_LIMIT` cards with a "Show N more"
+      button beneath, so a year of Done does not set the height of the page.
+      The cap is written into the markup as `data-limit` because the Stimulus
+      controller has to keep applying it to the cards that arrive later; the
+      count in a column's header is always the whole column
+    - `app/lib/projects/` holds the value objects: Project, View, Field,
+      Item, Filter, Board, Sorter, Table, Layout, Page, Chunk
+
 ### 🔮 Potential Future Enhancements
 
 See PRD.md for complete list of Phase 2 features including:

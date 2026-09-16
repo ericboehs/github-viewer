@@ -15,6 +15,7 @@ A modern Rails 8.1.0 application for viewing and managing GitHub issues with sma
 - **GitHub Enterprise Support** - Works with both GitHub.com and self-hosted GitHub Enterprise servers
 - **Per-User GitHub Tokens** - Each user connects their own GitHub account with encrypted token storage
 - **Real-Time Sync** - Manual refresh at repository and individual issue level with staleness indicators
+- **Projects (read-only)** - GitHub Projects V2 boards and tables, with the view's own grouping, sort and filter
 
 ### Technical Highlights
 
@@ -85,6 +86,8 @@ To use the application, you'll need a GitHub Personal Access Token:
     - Issues: Read-only
     - Metadata: Read-only
     - Pull requests: Read-only (if viewing PRs)
+  - **Organization permissions**:
+    - Projects: Read-only (if viewing projects)
 3. Copy the token
 4. In the application, go to your user profile settings
 5. Enter your GitHub token and domain:

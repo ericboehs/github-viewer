@@ -63,6 +63,41 @@ class JumpControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/va.ghe.com/software/eert"
   end
 
+  test "sends a project URL to the project page here" do
+    get jump_path(to: "https://github.com/orgs/rails/projects/3")
+    assert_redirected_to "/orgs/rails/projects/3"
+
+    get jump_path(to: "https://github.com/users/dhh/projects/1/views/2")
+    assert_redirected_to "/users/dhh/projects/1/views/2"
+
+    get jump_path(to: "https://va.ghe.com/orgs/software/projects")
+    assert_redirected_to "/va.ghe.com/orgs/software/projects"
+  end
+
+  # A project has pages this application does not serve either, and `orgs` is
+  # not an owner, so the repository fallback would send the reader nowhere.
+  test "falls back to the project for a project page we do not serve" do
+    get jump_path(to: "https://github.com/orgs/rails/projects/3/insights")
+
+    assert_redirected_to "/orgs/rails/projects/3"
+  end
+
+  test "falls back to the owner's projects when there is no project number" do
+    get jump_path(to: "https://github.com/orgs/rails/projects/new")
+
+    assert_redirected_to "/orgs/rails/projects"
+  end
+
+  # `projects` is an ordinary word in a path; only GitHub's own project URLs
+  # begin with orgs or users.
+  test "a repository page that happens to say projects is still a repository page" do
+    get jump_path(to: "https://github.com/rails/rails/tree/main/projects/3")
+    assert_redirected_to "/rails/rails/tree/main/projects/3"
+
+    get jump_path(to: "https://github.com/rails/rails/wiki/projects/3")
+    assert_redirected_to "/rails/rails"
+  end
+
   test "sends back anything that is not repository-shaped" do
     get root_path
     get jump_path(to: "nonsense")

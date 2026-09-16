@@ -1,0 +1,26 @@
+<% content_for :title, "#{t('projects.index.title')} · #{@owner.login}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 mb-4">
+      <%= render 'shared/flash_messages' %>
+    </div>
+
+    <header class="mb-6">
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <h1 class="text-2xl sm:text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+          <%= @owner.login %>
+        </h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400"><%= t('projects.index.title') %></p>
+      </div>
+    </header>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <%= render 'projects/list', projects: @projects, empty: t('projects.index.empty', login: @owner.login) %>
+      </div>
+    </main>
+  </div>
+</div>

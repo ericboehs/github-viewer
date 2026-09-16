@@ -32,6 +32,8 @@ module Github
     # with a 403 rather than a size field, so this is a distinct failure mode
     # from a missing file.
     ERROR_FILE_TOO_LARGE = "File is too large to display"
+    ERROR_PROJECT_NOT_FOUND = "Project not found"
+    ERROR_OWNER_NOT_FOUND = "Organization or user not found"
 
     config_accessor :default_rate_limit_delay, default: ApiConfiguration::DEFAULT_RATE_LIMIT_DELAY
     config_accessor :max_retries, default: ApiConfiguration::MAX_RETRIES
@@ -352,6 +354,70 @@ module Github
     rescue => error
       Rails.logger.debug "Failed to fetch project fields: #{error.message}"
       []
+    end
+
+    # Every Projects V2 project of one organization or user.
+    #
+    # Returns an array of Projects::Project, or `{ error: }`. A project list
+    # needs no fields or views, so the summaries come back with both empty.
+    # :reek:BooleanParameter - Organizations and users are two GraphQL roots for one thing
+    def fetch_owner_projects(login, organization: true)
+      query = ProjectQueries.owner_projects(organization: organization)
+      result = graphql_query(query, { login: login, first: ApiConfiguration::MAX_PROJECTS })
+      return result if result[:error]
+
+      root = organization ? :organization : :user
+      owner = result.dig(:data, root)
+      return { error: ERROR_OWNER_NOT_FOUND } if owner.blank?
+
+      build_projects(owner.dig(:projectsV2, :nodes))
+    end
+
+    # The projects a repository is linked to. GitHub's repository Projects tab
+    # is this list; the projects themselves live under their own owner.
+    def fetch_repository_projects(owner, repo_name)
+      variables = { owner: owner, name: repo_name, first: ApiConfiguration::MAX_PROJECTS }
+      result = graphql_query(ProjectQueries.repository_projects, variables)
+      return result if result[:error]
+
+      repository = result.dig(:data, :repository)
+      return { error: ERROR_REPOSITORY_NOT_FOUND } if repository.blank?
+
+      build_projects(repository.dig(:projectsV2, :nodes))
+    end
+
+    # One project with its field definitions and saved views.
+    #
+    # Its items are not included: they are paged in separately, because there
+    # can be thousands of them and the page renders before they arrive.
+    # :reek:BooleanParameter - Organizations and users are two GraphQL roots for one thing
+    def fetch_project(login, number, organization: true)
+      query = ProjectQueries.project(organization: organization)
+      result = graphql_query(query, { login: login, number: number.to_i })
+      return result if result[:error]
+
+      root = organization ? :organization : :user
+      node = result.dig(:data, root, :projectV2)
+      return { error: ERROR_PROJECT_NOT_FOUND } if node.blank?
+
+      Projects::Project.from_graphql(node, github_domain: @domain, viewer_login: result.dig(:data, :viewer, :login))
+    end
+
+    # One page of a project's items, addressed by the node id that
+    # `fetch_project` returned.
+    #
+    # `offset` is how many items came before this page, which each item keeps
+    # so that the project's own ordering survives being reassembled in the
+    # browser out of several responses.
+    def fetch_project_items(project_id, after: nil, offset: 0)
+      variables = { id: project_id, first: ApiConfiguration::PROJECT_ITEMS_PAGE_SIZE, after: after }
+      result = graphql_query(ProjectQueries.project_items, variables)
+      return result if result[:error]
+
+      connection = result.dig(:data, :node, :items)
+      return { error: ERROR_PROJECT_NOT_FOUND } if connection.blank?
+
+      Projects::Page.from_graphql(connection, offset: offset)
     end
 
     # Fetch timeline items (events + comments) for an issue or pull request via GraphQL
@@ -702,6 +768,10 @@ module Github
     end
 
     private
+
+    def build_projects(nodes)
+      Array(nodes).map { |node| Projects::Project.from_graphql(node, github_domain: @domain) }
+    end
 
     # Execute a GraphQL query
     # :reek:UtilityFunction - Wrapper for GraphQL API calls

@@ -23,6 +23,34 @@ class ProjectFieldsComponentTest < ViewComponent::TestCase
     assert_text "5"
   end
 
+  # This application serves project pages at GitHub's own paths, so the
+  # sidebar link stays inside it.
+  test "links a project into this application" do
+    project_items = [ { project_title: "Sprint Board", project_url: "https://github.com/orgs/test/projects/1", fields: {} } ]
+
+    render_inline(ProjectFieldsComponent.new(project_items: project_items))
+
+    assert_selector "a[href='/orgs/test/projects/1']", text: "Sprint Board"
+    assert_no_selector "a[target=_blank]"
+  end
+
+  test "a project URL this application cannot serve stays an external link" do
+    project_items = [ { project_title: "Classic", project_url: "https://example.com", fields: {} } ]
+
+    render_inline(ProjectFieldsComponent.new(project_items: project_items))
+
+    assert_selector "a[target=_blank][href='https://example.com']"
+  end
+
+  test "a project with no URL at all is named but not linked" do
+    project_items = [ { project_title: "Nameless", project_url: nil, fields: {} } ]
+
+    render_inline(ProjectFieldsComponent.new(project_items: project_items))
+
+    assert_no_selector "a"
+    assert_text "Nameless"
+  end
+
   test "does not render when project_items empty" do
     render_inline(ProjectFieldsComponent.new(project_items: []))
 

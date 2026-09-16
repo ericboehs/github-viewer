@@ -1,0 +1,6 @@
+<nav class="mt-4 flex gap-6 overflow-x-auto border-b border-gray-200 dark:border-gray-700"
+    aria-label="<%= t('projects.show.views_label') %>">
+  <% views.each do |view| %>
+    <%= link_to view.name, path_for(view), class: classes(view), "aria-current": (current?(view) ? "page" : nil) %>
+  <% end %>
+</nav>

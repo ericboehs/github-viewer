@@ -1,0 +1,83 @@
+<% content_for :title, "#{@project.title} · #{@owner.login}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 mb-4">
+      <%= render 'shared/flash_messages' %>
+    </div>
+
+    <header class="mb-4">
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          <%= link_to @owner.login, owner_projects_path(@owner), class: "hover:underline" %>
+          <span aria-hidden="true">/</span>
+          <span>#<%= @project.number %></span>
+        </p>
+
+        <h1 class="mt-1 text-2xl sm:text-3xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+          <%= @project.title %>
+        </h1>
+
+        <% if @project.short_description %>
+          <p class="mt-1 text-sm text-gray-600 dark:text-gray-300"><%= @project.short_description %></p>
+        <% end %>
+
+        <%= render ProjectViewTabsComponent.new(project: @project, current: @view) %>
+      </div>
+    </header>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <%# Safari reads the placeholder to decide what a field is for, and an
+            example containing `@me` was enough to make it offer saved logins,
+            so the qualifiers with an @ in them are named in the hint below
+            instead. The rest says the same thing to everything else:
+            autocomplete for the browser, data-1p-ignore for 1Password,
+            data-lpignore for LastPass. %>
+        <%= form_with url: project_path(@project, view: view_param), method: :get,
+              data: { turbo_frame: "_top" }, html: { autocomplete: "off" }, class: "mb-4" do |form| %>
+          <%= form.label :q, t('projects.show.filter_label'), class: "sr-only" %>
+          <%= form.search_field :q, value: @filter.query,
+                placeholder: t('projects.show.filter_placeholder'),
+                autocomplete: "off", autocorrect: "off", autocapitalize: "off", spellcheck: "false",
+                "aria-describedby": "filter-hint",
+                data: { "1p-ignore": true, lpignore: true },
+                class: "w-full rounded-md border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:outline-none dark:border-gray-600 dark:bg-[#0E1116] dark:text-white" %>
+          <p id="filter-hint" class="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">
+            <%= t('projects.show.filter_hint') %>
+          </p>
+        <% end %>
+
+        <%# Items arrive a page at a time into the layout below; see
+            ProjectsController#items and the project_board controller. %>
+        <div data-controller="project-board"
+            data-project-board-directions-value="<%= @layout.directions.to_json %>">
+          <% if @layout.board? %>
+            <%= render ProjectBoardComponent.new(layout: @layout, items: @chunk.items, loading: !@chunk.complete?) %>
+          <% else %>
+            <%= render ProjectTableComponent.new(layout: @layout, items: @chunk.items, loading: !@chunk.complete?) %>
+          <% end %>
+
+          <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+            <span data-project-board-target="status" <%= "hidden" if @chunk.complete? %>>
+              <%= t('projects.show.loading_more') %>
+            </span>
+            <span data-project-board-target="summary"
+                  data-one="<%= t('projects.show.items', count: 1) %>"
+                  data-other="<%= t('projects.show.items', count: 0) %>"><%= t('projects.show.items', count: @chunk.items.size) %></span>
+          </p>
+
+          <%= render 'projects/chunk_frame', chunk: @chunk %>
+        </div>
+
+        <% if @chunk.truncated %>
+          <p class="mt-2 text-sm text-amber-700 dark:text-amber-400">
+            <%= t('projects.show.truncated', count: Projects::Chunk::MAX_PAGES * Github::ApiConfiguration::PROJECT_ITEMS_PAGE_SIZE) %>
+          </p>
+        <% end %>
+      </div>
+    </main>
+  </div>
+</div>
