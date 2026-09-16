@@ -20,14 +20,18 @@ class ProjectCardComponent < ViewComponent::Base
   # How many faces fit in the corner of a card.
   MAX_AVATARS = 3
 
-  def initialize(item:, layout:)
+  # `hidden` is a card past the foot of what its column shows until the reader
+  # asks for the rest; see ProjectBoardComponent::VISIBLE_LIMIT.
+  # :reek:BooleanParameter - A card is either shown or it is not
+  def initialize(item:, layout:, hidden: false)
     @item = item
     @layout = layout
+    @hidden = hidden
   end
 
   private
 
-  attr_reader :item, :layout
+  attr_reader :item, :layout, :hidden
 
   def sort_key
     layout.key_for(item).to_json

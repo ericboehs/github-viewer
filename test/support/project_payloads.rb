@@ -35,16 +35,26 @@ module ProjectPayloads
     { id: "field-estimate", name: name, dataType: "NUMBER" }
   end
 
+  # `group_by` lands under whichever connection GitHub would have put it in:
+  # a board's columns come back as verticalGroupByFields, everything else's
+  # grouping as groupByFields.
+  #
   # :reek:LongParameterList - A view is a layout, a filter, a grouping and a sort
+  # :reek:TooManyStatements - One hash, with the grouping sorted out first
   def project_view(number: 1, name: "Board", layout: "BOARD_LAYOUT", filter: "", group_by: "Status",
                   sort_by: [], fields: [ "Title", "Status" ])
+    grouping = { nodes: (group_by ? [ { name: group_by } ] : []) }
+    none = { nodes: [] }
+    board = layout == Projects::View::BOARD
+
     {
       id: "view-#{number}",
       number: number,
       name: name,
       layout: layout,
       filter: filter,
-      groupByFields: { nodes: (group_by ? [ { name: group_by } ] : []) },
+      groupByFields: board ? none : grouping,
+      verticalGroupByFields: board ? grouping : none,
       sortByFields: { nodes: sort_by },
       fields: { nodes: fields.map { |field| { name: field } } }
     }

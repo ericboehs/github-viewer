@@ -305,6 +305,12 @@ All core features from the PRD are fully implemented and tested:
     - Board and table layouts, the view's own grouping, sort and filter, and a
       filter box that speaks GitHub's syntax (`status:Todo,Done -label:blocked
       assignee:@me sprint:@current no:status is:pr`)
+    - Each board column scrolls on its own (`max-h-[70vh]`) and shows its
+      first `ProjectBoardComponent::VISIBLE_LIMIT` cards with a "Show N more"
+      button beneath, so a year of Done does not set the height of the page.
+      The cap is written into the markup as `data-limit` because the Stimulus
+      controller has to keep applying it to the cards that arrive later; the
+      count in a column's header is always the whole column
     - `app/lib/projects/` holds the value objects: Project, View, Field,
       Item, Filter, Board, Sorter, Table, Layout, Page, Chunk
 

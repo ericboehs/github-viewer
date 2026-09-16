@@ -1,5 +1,5 @@
 <article class="rounded-md border border-gray-200 bg-white p-3 shadow-xs dark:border-gray-700 dark:bg-[#151B23]"
-        data-sort-key="<%= sort_key %>">
+        data-sort-key="<%= sort_key %>" <%= "hidden" if hidden %>>
   <div class="flex items-start gap-2">
     <span class="mt-0.5 flex-shrink-0 scale-75 origin-top-left">
       <%= render IssueStateComponent.new(state: item.state) %>

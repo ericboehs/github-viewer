@@ -12,7 +12,10 @@ module Projects
   # single fields, and the older singular `groupBy` / `visibleFields` spellings
   # have been removed from the schema, so only the plural ones are asked for.
   # Only the first entry of each is used: nothing here renders nested groups.
-  class View < Data.define(:id, :number, :name, :layout, :filter, :group_by, :sort_by, :field_names)
+  #
+  # Grouping is spelled twice in the schema, and which one holds the answer
+  # depends on the layout - see #grouping.
+  class View < Data.define(:id, :number, :name, :layout, :filter, :group_by, :vertical_group_by, :sort_by, :field_names)
     BOARD = "BOARD_LAYOUT"
     TABLE = "TABLE_LAYOUT"
 
@@ -25,6 +28,7 @@ module Projects
         layout: node[:layout].to_s,
         filter: node[:filter].to_s,
         group_by: field_names(node[:groupByFields]).first,
+        vertical_group_by: field_names(node[:verticalGroupByFields]).first,
         sort_by: Array(node.dig(:sortByFields, :nodes)).filter_map { |sort| Sort.from_graphql(sort) },
         field_names: field_names(node[:fields])
       )
@@ -45,6 +49,17 @@ module Projects
     # answer rather than an empty page.
     def table?
       !board?
+    end
+
+    # The field this view is divided up by.
+    #
+    # A board's columns come from `verticalGroupByFields` and a table's row
+    # grouping from `groupByFields`: two spellings in the schema for one idea
+    # here. A board's own `groupByFields` holds its swimlanes instead, which
+    # nothing here draws, so reading that one would leave every board grouped
+    # by whatever Board falls back to.
+    def grouping
+      board? ? vertical_group_by : group_by
     end
   end
 end

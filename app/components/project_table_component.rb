@@ -11,14 +11,18 @@ class ProjectTableComponent < ViewComponent::Base
   # concerned.
   ROWS = "rows"
 
-  def initialize(layout:, items:)
+  # See ProjectBoardComponent: a table's rows arrive the same way a board's
+  # cards do, so it says the same thing while they are on their way.
+  # :reek:BooleanParameter - Whether more items are coming is a yes or a no
+  def initialize(layout:, items:, loading: false)
     @layout = layout
     @items = items
+    @loading = loading
   end
 
   private
 
-  attr_reader :layout, :items
+  attr_reader :layout, :items, :loading
 
   def columns
     layout.columns

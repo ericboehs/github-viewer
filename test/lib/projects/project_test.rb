@@ -87,7 +87,7 @@ class Projects::ProjectTest < ActiveSupport::TestCase
     assert board.board?
     assert_not board.table?
     assert_equal "is:open", board.filter
-    assert_equal "Status", board.group_by
+    assert_equal "Status", board.grouping
     assert table.table?
     assert_equal %w[Title Status Estimate], table.field_names
     assert_equal 2, parsed.view("2").number
@@ -171,11 +171,12 @@ class Projects::ProjectTest < ActiveSupport::TestCase
   end
 
   test "a view or an item GitHub answered without the optional parts is still read" do
-    parsed = project(project_node(views: [ project_view.merge(fields: nil, groupByFields: nil, sortByFields: nil) ]))
+    bare = project_view.merge(fields: nil, groupByFields: nil, verticalGroupByFields: nil, sortByFields: nil)
+    parsed = project(project_node(views: [ bare ]))
     view = parsed.default_view
 
     assert_empty view.field_names
-    assert_nil view.group_by
+    assert_nil view.grouping
     assert_empty view.sort_by
 
     item = items_page([ item_node(number: 1).except(:fieldValues) ]).items.first

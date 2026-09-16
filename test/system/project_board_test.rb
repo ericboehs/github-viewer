@@ -19,6 +19,23 @@ class ProjectBoardTest < ApplicationSystemTestCase
     assert_no_current_path new_session_path
   end
 
+  # Clicks a column's expand button, and says so only once the button has
+  # taken itself away.
+  #
+  # The click is dispatched from inside the page rather than through Selenium's
+  # pointer, which on this board delivers nothing at all about a quarter of the
+  # time - no pointerdown, no click, no error, in a document that is otherwise
+  # alive and has the button at the coordinates it was clicked at. Whatever
+  # ails the input pipeline here, it is not the application: this still goes
+  # through the button's Stimulus action, which is the part worth testing.
+  def expand_column(key)
+    button = "[data-column-for=#{key}] [data-column-expand]"
+
+    page.execute_script("arguments[0].click()", find(button))
+
+    assert_no_selector "#{button}:not([hidden])"
+  end
+
   # Three pages of one item each, so the chaining has somewhere to go.
   def stub_pages(*pages)
     Github::ApiClient.any_instance.stubs(:fetch_project).returns(
@@ -55,8 +72,10 @@ class ProjectBoardTest < ApplicationSystemTestCase
       assert_equal %w[Bravo], all("article a").map(&:text)
     end
 
-    # The chunks take themselves off the page once they have been absorbed.
+    # The chunks take themselves off the page once they have been absorbed,
+    # and nothing is left claiming that more items are coming.
     assert_no_selector "[data-project-board-target=incoming]", visible: :all
+    assert_no_selector "[data-column-loading]:not([hidden])"
     assert_no_text "Loading more items"
   end
 
@@ -74,8 +93,36 @@ class ProjectBoardTest < ApplicationSystemTestCase
     visit "/orgs/rails/projects/1"
 
     assert_text "2 items"
+    # A column built in the browser stops saying it is loading along with the
+    # ones that were drawn with the page.
+    assert_no_selector "[data-column-loading]:not([hidden])"
     assert_selector "[data-column-for=platform] article a", text: "Second"
     assert_selector "[data-column-for=platform] [data-board-count]", text: "1"
+  end
+
+  test "a column keeps to its limit as pages arrive, until it is expanded" do
+    limit = ProjectBoardComponent::VISIBLE_LIMIT
+    first = (1..limit).map { |n| item_node(number: n, title: "Item #{format('%03d', n)}", values: { "Status" => "Todo" }) }
+    second = ((limit + 1)..(limit + 5)).map { |n| item_node(number: n, title: "Item #{format('%03d', n)}", values: { "Status" => "Todo" }) }
+
+    stub_pages(
+      items_page(first, has_next: true, cursor: "more", total: limit + 5),
+      items_page(second, has_next: false, total: limit + 5)
+    )
+
+    visit "/orgs/rails/projects/1"
+
+    assert_text "#{limit + 5} items"
+
+    within "[data-column-for=todo]" do
+      assert_selector "article:not([hidden])", count: limit
+      assert_selector "[data-board-count]", text: (limit + 5).to_s
+      assert_selector "[data-column-expand]", text: "Show 5 more"
+    end
+
+    expand_column("todo")
+
+    assert_selector "[data-column-for=todo] article:not([hidden])", count: limit + 5
   end
 
   test "a project board is accessible" do

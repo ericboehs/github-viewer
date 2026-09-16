@@ -93,14 +93,56 @@ export default class extends Controller {
       const column = container.closest("[data-column-for]")
       const badge = column && column.querySelector("[data-board-count]")
       if (badge) badge.textContent = count
+
+      this.trim(container, column)
     })
 
-    if (this.hasSummaryTarget) {
-      const summary = this.summaryTarget
-      const template = total === 1 ? summary.dataset.one : summary.dataset.other
-      summary.textContent = template.replace(/\d+/, total)
-    }
+    if (this.hasSummaryTarget) this.count(this.summaryTarget, total)
 
-    if (complete && this.hasStatusTarget) this.statusTarget.hidden = true
+    if (!complete) return
+
+    if (this.hasStatusTarget) this.statusTarget.hidden = true
+    this.element.querySelectorAll("[data-column-loading]").forEach((placeholder) => { placeholder.hidden = true })
+  }
+
+  // A column shows its first `data-limit` cards until the reader asks for the
+  // rest. The cards below that line are hidden rather than left out, so that
+  // expanding is instant and the ones that arrive later are already in their
+  // place.
+  trim(container, column) {
+    const limit = Number(container.dataset.limit || 0)
+    if (!limit || !column) return
+
+    const expanded = column.dataset.expanded === "true"
+    let hidden = 0
+
+    Array.from(container.children).forEach((card, index) => {
+      card.hidden = !expanded && index >= limit
+      if (card.hidden) hidden++
+    })
+
+    const button = column.querySelector("[data-column-expand]")
+    if (!button) return
+
+    button.hidden = hidden === 0
+    if (hidden > 0) this.count(button, hidden)
+  }
+
+  // Shows the rest of one column, and keeps it shown as later pages arrive.
+  expand(event) {
+    const column = event.currentTarget.closest("[data-column-for]")
+    if (!column) return
+
+    column.dataset.expanded = "true"
+    this.trim(column.querySelector("[data-cards-for]"), column)
+  }
+
+  // Counts are translated server-side into a singular and a plural template,
+  // and the number in whichever fits is replaced. Rewriting the sentence here
+  // would mean teaching JavaScript what English does with a plural.
+  count(element, total) {
+    const template = total === 1 ? element.dataset.one : element.dataset.other
+
+    element.textContent = template.replace(/\d+/, total)
   }
 }

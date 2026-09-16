@@ -29,7 +29,7 @@ module Projects
 
     def initialize(project:, view: nil)
       @project = project
-      @field = project.field(view&.group_by) || project.field(DEFAULT_GROUP)
+      @field = project.field(view&.grouping) || project.field(DEFAULT_GROUP)
     end
 
     def field_name

@@ -142,7 +142,11 @@ en:
   projects:
     board:
       all_items: All items
+      loading_column: Still loading items for this column…
       no_value: No %{field}
+      show_more:
+        one: Show 1 more
+        other: Show %{count} more
     card:
       draft: Draft
     index:
@@ -157,8 +161,9 @@ en:
     linked:
       empty: This repository is not linked to any projects.
     show:
+      filter_hint: 'Also: assignee:@me, author:@me, sprint:@current, no:status, is:pr, repo:name'
       filter_label: Filter items
-      filter_placeholder: 'Filter by field, e.g. status:Todo -label:blocked assignee:@me'
+      filter_placeholder: 'Filter by field, e.g. status:Todo -label:blocked'
       items:
         one: 1 item
         other: "%{count} items"

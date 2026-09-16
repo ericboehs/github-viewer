@@ -21,4 +21,12 @@
       <% end %>
     </tbody>
   </table>
+
+  <%# Below the table rather than a row of it: a row inside the body would be
+      counted as an item and sorted among the real ones. %>
+  <div class="flex animate-pulse items-center gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700"
+      data-column-loading <%= "hidden" unless loading %>>
+    <span class="sr-only"><%= t("projects.board.loading_column") %></span>
+    <div class="h-3 w-1/3 rounded bg-gray-200 dark:bg-gray-700" aria-hidden="true"></div>
+  </div>
 </div>

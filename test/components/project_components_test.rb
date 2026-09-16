@@ -111,6 +111,15 @@ class ProjectComponentsTest < ViewComponent::TestCase
     assert_text "All items"
   end
 
+  test "a table says it is still filling up below its rows, not among them" do
+    layout = Projects::Layout.for(project: project(project_node(fields: [ single_select_field ])))
+
+    render_inline(ProjectTableComponent.new(layout: layout, items: [], loading: true))
+
+    assert_selector "[data-column-loading]:not([hidden])"
+    assert_no_selector "tbody [data-column-loading]"
+  end
+
   test "a table with no view falls back to the project's own fields" do
     layout = Projects::Layout.for(project: project(project_node(fields: [ single_select_field ])))
 
@@ -130,6 +139,53 @@ class ProjectComponentsTest < ViewComponent::TestCase
     assert_selector "[data-column-for=todo] [data-cards-for=todo] article", count: 1
     assert_selector "[data-column-for=done] [data-board-count]", text: "0"
     assert_selector "template[data-project-board-target=columnTemplate]", visible: :all
+  end
+
+  test "a column past its limit shows the first cards and offers the rest" do
+    layout = layout_for
+    over = ProjectBoardComponent::VISIBLE_LIMIT + 3
+    items = project_items(*(1..over).map { |n| item_node(number: n, values: { "Status" => "Todo" }) })
+
+    render_inline(ProjectBoardComponent.new(layout: layout, items: items))
+
+    # Every card is rendered - expanding is instant, and later pages of items
+    # have to be able to find their place among them.
+    assert_selector "[data-cards-for=todo] article", count: over, visible: :all
+    assert_selector "[data-cards-for=todo] article:not([hidden])", count: ProjectBoardComponent::VISIBLE_LIMIT
+    assert_selector "[data-column-for=todo] [data-column-expand]", text: "Show 3 more"
+    # The header still counts the whole column.
+    assert_selector "[data-column-for=todo] [data-board-count]", text: over.to_s
+  end
+
+  test "a column within its limit offers nothing to expand" do
+    layout = layout_for
+    items = project_items(item_node(number: 1, values: { "Status" => "Todo" }))
+
+    render_inline(ProjectBoardComponent.new(layout: layout, items: items))
+
+    assert_no_selector "[data-column-expand]:not([hidden])"
+    assert_no_selector "article[hidden]", visible: :all
+  end
+
+  test "every column says it is still filling up while pages are on their way" do
+    layout = layout_for
+    items = project_items(item_node(number: 1, values: { "Status" => "Todo" }))
+
+    render_inline(ProjectBoardComponent.new(layout: layout, items: items, loading: true))
+
+    # In every column, because which one the next page fills is not yet known,
+    # and outside the cards container, because what is in there is counted.
+    assert_selector "[data-column-for=todo] [data-column-loading]:not([hidden])"
+    assert_selector "[data-column-for=done] [data-column-loading]:not([hidden])"
+    assert_no_selector "[data-cards-for] [data-column-loading]"
+  end
+
+  test "the last page of items leaves no column claiming to be loading" do
+    layout = layout_for
+
+    render_inline(ProjectBoardComponent.new(layout: layout, items: [], loading: false))
+
+    assert_no_selector "[data-column-loading]:not([hidden])"
   end
 
   # --- tables ----------------------------------------------------------------

@@ -9,11 +9,10 @@ module Github
   #
   # Two shapes are worth knowing when reading them:
   #
-  # * `ProjectV2FieldConfiguration` is a union of the three field types, so
-  #   anything asking for a field's name has to spread all three. A member that
-  #   is not spread comes back as an empty object rather than an error, which
-  #   is why the parsing side treats a nameless node as "a field type we do not
-  #   read".
+  # * `ProjectV2FieldConfiguration` is a union of the three field types, but
+  #   all three implement `ProjectV2FieldCommon`, so what every field has can
+  #   be asked for once and only the parts that differ - a single select's
+  #   options, an iteration's iterations - need spreading by type.
   # * `ProjectV2ItemFieldValue` is a union too, one member per field type, each
   #   putting its value under a different key.
   #
@@ -23,17 +22,11 @@ module Github
     # and for the two enumerated types, its values.
     FIELD_DEFINITION = <<~GRAPHQL
       fragment FieldDefinition on ProjectV2FieldConfiguration {
-        ... on ProjectV2Field { id name dataType }
+        ... on ProjectV2FieldCommon { id name dataType }
         ... on ProjectV2SingleSelectField {
-          id
-          name
-          dataType
           options { id name color }
         }
         ... on ProjectV2IterationField {
-          id
-          name
-          dataType
           configuration {
             iterations { id title startDate duration }
             completedIterations { id title startDate duration }
@@ -45,12 +38,14 @@ module Github
     # The same union, where only the name is wanted.
     FIELD_NAME = <<~GRAPHQL
       fragment FieldName on ProjectV2FieldConfiguration {
-        ... on ProjectV2Field { id name dataType }
-        ... on ProjectV2SingleSelectField { id name dataType }
-        ... on ProjectV2IterationField { id name dataType }
+        ... on ProjectV2FieldCommon { id name dataType }
       }
     GRAPHQL
 
+    # `groupByFields` and `verticalGroupByFields` are both here because they
+    # mean different things to different layouts: a board's columns come from
+    # the vertical one, while a table groups its rows by the other. See
+    # Projects::View#grouping.
     VIEW_FIELDS = <<~GRAPHQL
       fragment ViewFields on ProjectV2View {
         id
@@ -59,6 +54,7 @@ module Github
         layout
         filter
         groupByFields(first: 5) { nodes { ...FieldName } }
+        verticalGroupByFields(first: 5) { nodes { ...FieldName } }
         sortByFields(first: 5) { nodes { direction field { ...FieldName } } }
         fields(first: 50) { nodes { ...FieldName } }
       }
