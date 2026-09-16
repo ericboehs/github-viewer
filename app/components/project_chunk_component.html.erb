@@ -1,0 +1,21 @@
+<% if layout.board? %>
+  <div class="hidden" data-project-board-target="incoming" data-complete="<%= complete %>">
+    <% groups.each do |column, column_items| %>
+      <div data-column-key="<%= column.key %>" data-column-name="<%= column.name %>" data-column-class="<%= column.css_class %>">
+        <% column_items.each do |item| %>
+          <%= render ProjectCardComponent.new(item: item, layout: layout) %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <%# A `<tr>` cannot live inside a `<div>`: the parser would hoist it out and
+      the rows would arrive detached from their cells. %>
+  <table class="hidden" data-project-board-target="incoming" data-complete="<%= complete %>">
+    <tbody data-column-key="<%= ProjectTableComponent::ROWS %>">
+      <% items.each do |item| %>
+        <%= render ProjectRowComponent.new(item: item, layout: layout) %>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

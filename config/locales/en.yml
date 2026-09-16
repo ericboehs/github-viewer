@@ -139,6 +139,35 @@ en:
     label: Pagination
     newer: Newer
     older: Older
+  projects:
+    board:
+      all_items: All items
+      no_value: No %{field}
+    card:
+      draft: Draft
+    index:
+      closed: Closed
+      empty: '%{login} has no projects, or this token cannot see them.'
+      items:
+        one: 1 item
+        other: "%{count} items"
+      private: Private
+      title: Projects
+      updated: Updated
+    linked:
+      empty: This repository is not linked to any projects.
+    show:
+      filter_label: Filter items
+      filter_placeholder: 'Filter by field, e.g. status:Todo -label:blocked assignee:@me'
+      items:
+        one: 1 item
+        other: "%{count} items"
+      loading_more: Loading more items…
+      truncated: Only the first %{count} items are shown. Narrow the filter on GitHub to see the rest.
+      unknown_qualifiers: 'This project has no field called: %{qualifiers}'
+      views_label: Project views
+    table:
+      caption: Project items
   pulls:
     commits:
       committed: committed

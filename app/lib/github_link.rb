@@ -6,6 +6,7 @@
 #   https://va.ghe.com/software/eert/issues/2 -> /va.ghe.com/software/eert/issues/2
 #   github.com/rails/rails                    -> /rails/rails
 #   rails/rails#123                           -> /rails/rails/issues/123
+#   github.com/orgs/rails/projects/3          -> /orgs/rails/projects/3
 #
 # Our URLs are GitHub's, so most of the work is stripping the parts of a
 # pasted URL that a path does not have: the scheme, a github.com host (which
@@ -28,7 +29,27 @@ module GithubLink
     segments = segments_for(input)
     return if segments.length < 2
 
-    recognized_path(segments) || root_path_for(segments)
+    recognized_path(segments) || project_path_for(segments) || root_path_for(segments)
+  end
+
+  # A project URL names an organization or a user rather than a repository, so
+  # the repository fallback below would truncate it to nonsense. A page of a
+  # project this application does not serve - its insights, its workflows -
+  # falls back to the project, and one with no project number to the owner's
+  # list of them.
+  #
+  # :reek:TooManyStatements - Locating the project segments is a few small checks
+  # :reek:NilCheck - `index` is the position of a segment, and nil means there is none
+  # :reek:UtilityFunction - Parsing helper, at home alongside the rest of the module
+  def project_path_for(segments)
+    index = segments.index("projects")
+    return if index.nil? || index < 2
+    return unless [ ProjectUrls::ORGANIZATION, ProjectUrls::USER ].include?(segments[index - 2])
+
+    number = index + 1
+    numbered = segments[number].to_s.match?(/\A\d+\z/)
+
+    "/#{segments.first(numbered ? number + 1 : number).join('/')}"
   end
 
   # The path as pasted, if it names a page this application serves.
@@ -85,5 +106,5 @@ module GithubLink
     segment.to_s.match?(RepositoryUrls::CONSTRAINTS[:github_domain])
   end
 
-  private_class_method :recognized_path, :root_path_for, :segments_for, :strip_implied_host, :host?
+  private_class_method :recognized_path, :project_path_for, :root_path_for, :segments_for, :strip_implied_host, :host?
 end
