@@ -1,0 +1,19 @@
+<% content_for :title, "#{t('projects.index.title')} · #{@repository.full_name}" %>
+
+<div class="min-h-full bg-gray-50 dark:bg-[#0E1116]">
+  <%= render 'shared/navbar' %>
+
+  <div class="py-5">
+    <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 mb-4">
+      <%= render 'shared/flash_messages' %>
+    </div>
+
+    <%= render 'shared/repository_header', repository: @repository, current: :projects %>
+
+    <main>
+      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+        <%= render 'projects/list', projects: @projects, empty: t('projects.linked.empty') %>
+      </div>
+    </main>
+  </div>
+</div>

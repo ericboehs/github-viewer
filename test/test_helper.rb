@@ -55,6 +55,9 @@ require "rails/test_help"
 # Load Mocha for mocking and stubbing
 require "mocha/minitest"
 
+# Shared test data builders
+Dir[Rails.root.join("test/support/**/*.rb")].each { |file| require file }
+
 # Prosopite N+1 query detection (only works with PostgreSQL)
 # Disabled for SQLite3 since pg_query gem is required
 # require "prosopite"

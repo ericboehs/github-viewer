@@ -1,0 +1,4 @@
+<%= turbo_frame_tag "project-chunk-#{@chunk.page}" do %>
+  <%= render ProjectChunkComponent.new(layout: @layout, items: @chunk.items, complete: @chunk.complete?) %>
+  <%= render 'projects/chunk_frame', chunk: @chunk %>
+<% end %>

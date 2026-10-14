@@ -49,6 +49,27 @@ Rails.application.routes.draw do
   # They are declared last so an application route always wins over a
   # repository that happens to be named after one (/repositories, /session...).
   # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # GitHub-shaped project URLs
+  #
+  #   https://github.com/orgs/rails/projects/3 -> /orgs/rails/projects/3
+  #   https://github.com/users/dhh/projects/1  -> /users/dhh/projects/1
+  #
+  # Projects belong to an organization or a user, never to a repository, so
+  # they sit above the repository scope rather than inside it - and have to be
+  # declared before it, because `/orgs/rails/projects` is three segments and
+  # would otherwise be read as the repository `orgs/rails`.
+  # --------------------------------------------------------------------------
+  scope "(:github_domain)/:owner_type/:login", constraints: ProjectUrls::CONSTRAINTS,
+        format: false, defaults: { format: "html" } do
+    get "projects", to: "projects#index", as: :gh_projects
+    get "projects/:number", to: "projects#show", as: :gh_project
+    get "projects/:number/views/:view_number", to: "projects#show", as: :gh_project_view
+    # Ours rather than GitHub's: one page of items, for the lazily loaded
+    # frames that fill the board in after the first hundred.
+    get "projects/:number/items", to: "projects#items", as: :gh_project_items
+  end
+
   scope "(:github_domain)/:owner/:repo", constraints: RepositoryUrls::CONSTRAINTS,
         format: false, defaults: { format: "html" } do
     # Refreshing is ours rather than GitHub's, so it sits on paths GitHub
@@ -58,6 +79,10 @@ Rails.application.routes.draw do
     # with something other than a page.
     get "assignable_users", to: "repositories#assignable_users", as: :gh_assignable_users, defaults: { format: "json" }
     get "labels", to: "repositories#labels", as: :gh_labels, defaults: { format: "json" }
+
+    # A repository does not own projects, it links to them, so this lists them
+    # and every one of them is a link out to its owner's URL above.
+    get "projects", to: "projects#linked", as: :gh_repo_projects
 
     get "issues", to: "issues#index", as: :gh_issues
     post "issues/refresh", to: "issues#refresh", as: :gh_issues_refresh
@@ -108,6 +133,11 @@ Rails.application.routes.draw do
   direct(:refresh_repo) { |repository, options| gh_refresh_path(**RepositoryUrls.segments(repository), **options) }
   direct(:repo_assignable_users) { |repository, options| gh_assignable_users_path(**RepositoryUrls.segments(repository), **options) }
   direct(:repo_labels) { |repository, options| gh_labels_path(**RepositoryUrls.segments(repository), **options) }
+
+  direct(:repo_projects) { |repository, options| gh_repo_projects_path(**RepositoryUrls.segments(repository), **options) }
+  direct(:project) { |project, options| ProjectUrls.path(self, project, options) }
+  direct(:project_items) { |project, options| ProjectUrls.items_path(self, project, options) }
+  direct(:owner_projects) { |owner, options| ProjectUrls.list_path(self, owner, options) }
 
   direct(:repo_issues) { |repository, options| gh_issues_path(**RepositoryUrls.segments(repository), **options) }
   direct(:refresh_repo_issues) { |repository, options| gh_issues_refresh_path(**RepositoryUrls.segments(repository), **options) }

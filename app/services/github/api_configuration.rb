@@ -27,6 +27,19 @@ module Github
     # GraphQL query limits
     GRAPHQL_PAGE_SIZE = 100
 
+    # Projects
+    #
+    # `ProjectV2.items` takes no filter argument, so a filtered board is the
+    # whole board fetched and then narrowed in Ruby. Items therefore arrive a
+    # page at a time into a page that is already rendered, and the cap is what
+    # stops a project with tens of thousands of items walking every cursor.
+    PROJECT_ITEMS_PAGE_SIZE = 100
+    MAX_PROJECT_ITEM_PAGES = 20
+
+    # A project list is not paged: an owner with more projects than this is
+    # rarer than the complexity of Older/Newer on that page would be worth.
+    MAX_PROJECTS = 50
+
     # HTTP timeouts (in seconds).
     #
     # Without these, a GitHub Enterprise host that accepts a connection but

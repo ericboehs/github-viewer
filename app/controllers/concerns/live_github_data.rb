@@ -16,23 +16,36 @@ module LiveGithubData
 
   # Yields a client plus the repository's owner and name, and returns either
   # what the block produced or `fallback` with the failure in the flash.
+  def fetch_live(fallback: nil)
+    fetch_from_github(fallback: fallback) { |client| yield(client, @repository.owner, @repository.name) }
+  end
+
+  # The same handling for pages that are not about a repository at all - a
+  # project belongs to an organization or a user - and so have only a host to
+  # find a token with.
   #
   # :reek:TooManyStatements - Resolves a client, calls it, and sorts success from failure
-  def fetch_live(fallback: nil)
-    domain = @repository.github_domain
+  def fetch_from_github(fallback: nil)
+    domain = live_domain
     client = github_client
     return flash_fetch_error(t("repositories.errors.no_token", domain: domain), fallback) unless client
 
-    result = yield(client, @repository.owner, @repository.name)
+    result = yield(client)
     error = result.is_a?(Hash) && result[:error]
 
     error ? flash_fetch_error(error, fallback) : result
   end
 
-  # Nil when the user has no token for this repository's host, which every
-  # page above degrades around rather than failing on.
+  # Which GitHub a page is about. A repository page knows from its repository;
+  # anything else overrides this.
+  def live_domain
+    @repository.github_domain
+  end
+
+  # Nil when the user has no token for this host, which every page above
+  # degrades around rather than failing on.
   def github_client
-    domain = @repository.github_domain
+    domain = live_domain
     github_token = Current.user.github_token_for(domain)
     return unless github_token
 

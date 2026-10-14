@@ -1,0 +1,15 @@
+<%# The frame the next page of items will arrive in.
+    Eager rather than lazy: the pages chain themselves, each response carrying
+    the frame for the one after it, and a board is only correct - its counts,
+    its filtering - once all of them have arrived. Waiting for the reader to
+    scroll to an empty element at the foot of the page would leave it wrong in
+    the meantime. %>
+<% if chunk.next_cursor %>
+  <%= turbo_frame_tag "project-chunk-#{chunk.next_page}",
+        src: project_items_path(@project,
+          after: chunk.next_cursor,
+          offset: chunk.next_offset,
+          page: chunk.next_page,
+          view_number: view_param,
+          q: @filter.query.presence) %>
+<% end %>

@@ -1,8 +1,9 @@
-<%# Repository-level tabs. `current` is :code, :issues, :pulls, :branches or :commits. %>
+<%# Repository-level tabs. `current` is :code, :issues, :pulls, :projects, :branches or :commits. %>
 <nav class="mt-4 flex gap-6 overflow-x-auto border-b border-gray-200 dark:border-gray-700" aria-label="<%= t('navigation.repository_tabs') %>">
   <% [[:code, repo_tree_path(repository), t('trees.show.code')],
       [:issues, repo_issues_path(repository), t('issues.index.title')],
       [:pulls, repo_pulls_path(repository), t('pulls.index.title')],
+      [:projects, repo_projects_path(repository), t('projects.index.title')],
       [:branches, repo_branches_path(repository), t('branches.index.title')],
       [:commits, repo_commits_path(repository), t('commits.index.title')]].each do |tab, path, label| %>
     <% active = current == tab %>

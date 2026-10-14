@@ -1,0 +1,35 @@
+<li class="flex items-start justify-between gap-4 px-4 py-3">
+  <div class="min-w-0">
+    <div class="flex items-center gap-2">
+      <%= link_to project.title, project_path(project),
+          class: "text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400" %>
+
+      <% if project.closed %>
+        <span class="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+          <%= t("projects.index.closed") %>
+        </span>
+      <% end %>
+
+      <% unless project.public %>
+        <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+          <%= t("projects.index.private") %>
+        </span>
+      <% end %>
+    </div>
+
+    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400"><%= owner_label %></p>
+
+    <% if project.short_description %>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-300"><%= project.short_description %></p>
+    <% end %>
+  </div>
+
+  <div class="flex-shrink-0 text-right text-xs text-gray-500 dark:text-gray-400">
+    <% if item_count %>
+      <p><%= t("projects.index.items", count: item_count) %></p>
+    <% end %>
+    <% if project.updated_at %>
+      <p class="mt-1"><%= t("projects.index.updated") %> <%= helpers.time_ago_tag(project.updated_at) %></p>
+    <% end %>
+  </div>
+</li>

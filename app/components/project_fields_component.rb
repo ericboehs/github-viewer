@@ -13,6 +13,15 @@ class ProjectFieldsComponent < ViewComponent::Base
 
   private
 
+  # This application serves project pages at GitHub's own paths, so a project
+  # an issue belongs to is a link into it rather than out to github.com. A URL
+  # the router does not recognise - a classic project, say - stays external.
+  #
+  # :reek:UtilityFunction - Link helper, at home beside the rest of the display logic
+  def local_path(url)
+    GithubLink.path_for(url) if url.present?
+  end
+
   # :reek:UtilityFunction - Pure helper for formatting field values, appropriate as private method
   # :reek:TooManyStatements - Simple case statement for different value types
   # :reek:DuplicateMethodCall - value.to_s called in different case branches for type handling

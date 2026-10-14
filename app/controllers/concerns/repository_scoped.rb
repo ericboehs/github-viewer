@@ -13,6 +13,10 @@
 module RepositoryScoped
   extend ActiveSupport::Concern
 
+  included do
+    include GithubDomainScoped
+  end
+
   private
 
   # Halts the callback chain by redirecting whenever the repository cannot be
@@ -24,17 +28,7 @@ module RepositoryScoped
   end
 
   def repository_domain
-    params[:github_domain].presence&.downcase || RepositoryUrls::DEFAULT_DOMAIN
-  end
-
-  # github.com is the implied host, so naming it is a longer spelling of the
-  # same page. Redirect rather than serve both, to keep one URL per page.
-  def redundant_domain?
-    params[:github_domain] == RepositoryUrls::DEFAULT_DOMAIN
-  end
-
-  def canonical_path
-    request.original_fullpath.sub(%r{\A/#{Regexp.escape(RepositoryUrls::DEFAULT_DOMAIN)}(?=/)}, "")
+    github_domain_param
   end
 
   # GitHub treats owner and repository names as case-insensitive, and links in
